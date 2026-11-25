@@ -35,6 +35,7 @@ export 'src/odeme_saglayici.dart';
 export 'src/portal_api.dart';
 export 'src/sifre.dart';
 export 'src/sifreleme.dart';
+export 'src/sure_bildirimi.dart';
 export 'src/virus_tarama.dart';
 export 'src/uyum_api.dart';
 export 'src/veritabani.dart';

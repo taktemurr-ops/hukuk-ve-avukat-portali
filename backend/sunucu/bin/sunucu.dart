@@ -52,6 +52,12 @@ Future<void> main() async {
     stdout.writeln('UYARI: SMTP tanımlı değil; e-postalar sunucu günlüğüne yazılıyor (geliştirme).');
   }
   EpostaGorevi(vt, eposta, kaydet: (h) => stderr.writeln('E-POSTA HATASI: $h')).baslat();
+  // Süre hatırlatma/eskalasyon e-postaları (saatlik; Türkiye saatiyle 08:00'den sonra, her uyarı günde bir kez).
+  final portal = ortam['PORTAL_ADRESI'] ?? '';
+  SureBildirimGorevi(vt,
+          portalAdresi: portal.isEmpty ? null : Uri.parse(portal),
+          kaydet: (h) => stderr.writeln('SÜRE BİLDİRİMİ HATASI: $h'))
+      .baslat();
   // Zararlı yazılım taraması: CLAMD_ADRESI (ör. clamav:3310). Canlıda zorunlu.
   VirusTarayici? tarayici;
   final clamd = ortam['CLAMD_ADRESI'] ?? '';

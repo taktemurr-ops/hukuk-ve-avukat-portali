@@ -41,7 +41,7 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | --- | --- |
 | ◐ | Dosya kartı, taraflar, aşamalar, bağlı dosyalar — model, iç numara serisi, liste (yetki filtreli) ve detay ekranı hazır; dosya açma formu bekliyor |
 | ◐ | Tebligat kaydı (manuel), eşleşmeyen evrak kuyruğu — ulaşma/tebliğ ayrımı, mükerrer engeli, esas no + mahkeme + taraf ile eşleştirme, kuyruk ve bağlama ekranı hazır |
-| ◐ | Süre oluşturma, teyit, asıl/yedek sorumlu, eskalasyon, yeniden hesap — kurallar (iki kişi teyidi, kanıtla tamamlama, eski hesabı saklama, eskalasyon, devir listesi) ve ekranlar hazır; bildirim gönderimi sunucu bekliyor |
+| ◐ | Süre oluşturma, teyit, asıl/yedek sorumlu, eskalasyon, yeniden hesap — kurallar (iki kişi teyidi, kanıtla tamamlama, eski hesabı saklama, eskalasyon, devir listesi) ve ekranlar hazır; sunucuda saatlik görev aynı kurallarla hatırlatma ve eskalasyon e-postası gönderir (her uyarı günde bir kez, 08:00'den sonra, metinde müvekkil bilgisi yok; 0020) |
 | ◐ | Duruşma, çakışma uyarısı, takvim — çakışma (yol süresi dahil) ve takvim görünümü hazır; duruşma ekleme formu ve Google/Outlook senkronu bekliyor |
 | ◐ | Görev, iş akışı şablonları, kanıtla kapanış — model, 2 şablon (iş davası, icra takibi), kanıtla kapanış hazır; şablon düzenleyici bekliyor |
 | ☐ | Bildirim servisi (e-posta, SMS, push sinyali) ve tercihler |
