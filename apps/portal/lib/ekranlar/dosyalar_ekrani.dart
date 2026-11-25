@@ -490,6 +490,7 @@ class _SablondanBelgeEkraniState extends State<SablondanBelgeEkrani> {
   BelgeSablonu? _sablon;
   late final TextEditingController _metin = TextEditingController();
   SablonCiktisi? _cikti;
+  bool _pdf = false;
 
   @override
   void dispose() {
@@ -561,6 +562,18 @@ class _SablondanBelgeEkraniState extends State<SablondanBelgeEkrani> {
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(border: OutlineInputBorder()),
             ),
+            if (widget.depo.uzak != null) ...[
+              const SizedBox(height: 12),
+              SegmentedButton<bool>(
+                key: const Key('belge-bicim'),
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Word (düzenlenebilir)')),
+                  ButtonSegment(value: true, label: Text('PDF (gönderime hazır)')),
+                ],
+                selected: {_pdf},
+                onSelectionChanged: (s) => setState(() => _pdf = s.first),
+              ),
+            ],
             const SizedBox(height: 16),
             Row(
               children: [
@@ -583,6 +596,7 @@ class _SablondanBelgeEkraniState extends State<SablondanBelgeEkrani> {
                               ad: ad,
                               metin: metin,
                               tur: BelgeTuru.dilekce,
+                              pdf: _pdf,
                             ),
                             yerelde: () {
                               widget.depo.belgeOlustur(

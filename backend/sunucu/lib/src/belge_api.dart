@@ -203,8 +203,9 @@ class BelgeApi {
       throw const ApiHatasi(400, 'Eksik alanlar doldurulmadan belge kaydedilemez.', kod: 'eksik_alan');
     }
     final tur = BelgeTuru.values.where((t) => t.name == j['tur']).firstOrNull ?? BelgeTuru.diger;
-    final (docx, _) = await servis.docx(ad, metin);
-    final dosyaAdi = '${ad.replaceAll(RegExp(r'[/\\:*?"<>|]'), '-')}.docx';
+    final pdf = j['bicim'] == 'pdf';
+    final (docx, _) = await servis.docx(ad, metin, pdf: pdf);
+    final dosyaAdi = '${ad.replaceAll(RegExp(r'[/\\:*?"<>|]'), '-')}.${pdf ? 'pdf' : 'docx'}';
     final (_, ozet) = await _kontrol(dosyaAdi, docx);
     final id = await _kaydet(k, dosyaId, dosyaAdi, ad, tur, docx, ozet);
     return jsonYanit({'id': id, 'no': 1, 'sha256': ozet, 'dosyaAdi': dosyaAdi}, durum: 201);

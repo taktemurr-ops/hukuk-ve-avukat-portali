@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from .cikarim import metin_cikar, ocr_var
 from .docx_uret import docx_uret, eksik_alanlar
 from .guvenlik import AZAMI_BOYUT, BelgeHatasi
+from .pdf_uret import pdf_uret
 from .tablo import tablo_oku
 
 app = FastAPI(title="Hukuk ve Avukat Portalı belge servisi", version="0.1.0")
@@ -43,6 +44,8 @@ class DocxIstegi(BaseModel):
     baslik: str = Field(min_length=1, max_length=200)
     metin: str = Field(min_length=1, max_length=500_000)
     eksikVarsaReddet: bool = False
+    # "docx" (Word, düzenlenebilir) ya da "pdf" (gönderime hazır, yazı tipi gömülü).
+    bicim: str = Field(default="docx", pattern="^(docx|pdf)$")
 
 
 @app.post("/docx")
@@ -50,6 +53,17 @@ def docx(istek: DocxIstegi) -> Response:
     eksik = eksik_alanlar(istek.metin)
     if eksik and istek.eksikVarsaReddet:
         raise HTTPException(status_code=422, detail={"mesaj": "Eksik alanlar var.", "alanlar": eksik})
+    if istek.bicim == "pdf":
+        try:
+            veri = pdf_uret(istek.baslik, istek.metin)
+        except BelgeHatasi as e:
+            raise HTTPException(status_code=503, detail=str(e)) from e
+        return Response(
+            content=veri,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(istek.baslik + '.pdf')}",
+                     "X-Eksik-Alan-Sayisi": str(len(eksik))},
+        )
     veri = docx_uret(istek.baslik, istek.metin)
     ad = quote(f"{istek.baslik}.docx")
     return Response(

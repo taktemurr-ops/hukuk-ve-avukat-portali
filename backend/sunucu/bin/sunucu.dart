@@ -84,6 +84,7 @@ Future<void> main() async {
     davetAdresi: davetAdresi == null || davetAdresi.isEmpty ? null : Uri.parse(davetAdresi),
     sifirlamaAdresi: portalAdresi.isEmpty ? null : Uri.parse(portalAdresi).resolve('sifre-sifirla'),
     dogrulamaAdresi: portalAdresi.isEmpty ? null : Uri.parse(portalAdresi).resolve('eposta-dogrula'),
+    disAdres: Uri.parse(ortam['DIS_ADRES'] ?? 'http://localhost:8080/'),
     // İç ağdaki belge servisi (Excel okuma); dışarıya açık değildir.
     belgeServisi: (ortam['BELGE_SERVISI_ADRESI'] ?? '').isEmpty ? null : Uri.parse(ortam['BELGE_SERVISI_ADRESI']!),
     odemeSaglayici: odeme,

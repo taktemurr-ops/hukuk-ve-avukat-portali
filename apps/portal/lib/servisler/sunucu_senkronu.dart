@@ -176,6 +176,14 @@ abstract class UzakIslemler {
   /// [kimlik] null ise bu oturum dışındaki tümü kapatılır.
   Future<int> oturumKapat(String? kimlik);
 
+  /// Takvim aboneliği: {var, olusturma, sonOkuma}.
+  Future<Map<String, dynamic>> takvimDurumu();
+
+  /// Yeni gizli bağlantı (öncekini geçersiz kılar): (https adresi, webcal adresi). Yalnızca bir kez gösterilir.
+  Future<(String, String)> takvimBaglantisiOlustur();
+
+  Future<void> takvimBaglantisiKapat();
+
   Future<bool> ikiAdimliAcikMi();
 
   /// Abonelik durumu, fiyatlar ve ödeme geçmişi (ham JSON).
@@ -199,7 +207,8 @@ abstract class UzakIslemler {
   Future<(List<BelgeAramaSonucu>, int)> belgeAra(String sorgu);
 
   /// Şablondan üretilen metni sunucuda Word'e çevirip dosyaya kaydeder (eksik alan varsa reddedilir).
-  Future<void> wordBelgeKaydet({required String dosyaId, required String ad, required String metin, BelgeTuru tur});
+  Future<void> wordBelgeKaydet(
+      {required String dosyaId, required String ad, required String metin, BelgeTuru tur, bool pdf});
 
   /// Belgeyi yükler (sürüm 1); SHA-256 özeti sunucuda hesaplanır.
   Future<void> belgeYukle({
@@ -1049,8 +1058,8 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
 
   @override
   Future<void> wordBelgeKaydet(
-      {required String dosyaId, required String ad, required String metin, BelgeTuru tur = BelgeTuru.diger}) async {
-    await api.post('/dosyalar/$dosyaId/belgeler/word', {'ad': ad, 'metin': metin, 'tur': tur.name});
+      {required String dosyaId, required String ad, required String metin, BelgeTuru tur = BelgeTuru.diger, bool pdf = false}) async {
+    await api.post('/dosyalar/$dosyaId/belgeler/word', {'ad': ad, 'metin': metin, 'tur': tur.name, 'bicim': pdf ? 'pdf' : 'docx'});
     await yenile();
   }
 
@@ -1128,6 +1137,20 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
     final y = await api.post(kimlik == null ? '/ben/oturumlar/digerlerini-kapat' : '/ben/oturumlar/$kimlik/kapat')
         as Map<String, dynamic>;
     return (y['kapatilan'] as num?)?.toInt() ?? 0;
+  }
+
+  @override
+  Future<Map<String, dynamic>> takvimDurumu() async => (await api.get('/ben/takvim') as Map).cast<String, dynamic>();
+
+  @override
+  Future<(String, String)> takvimBaglantisiOlustur() async {
+    final y = (await api.post('/ben/takvim') as Map).cast<String, dynamic>();
+    return (y['adres'] as String, y['webcal'] as String);
+  }
+
+  @override
+  Future<void> takvimBaglantisiKapat() async {
+    await api.delete('/ben/takvim');
   }
 
   @override

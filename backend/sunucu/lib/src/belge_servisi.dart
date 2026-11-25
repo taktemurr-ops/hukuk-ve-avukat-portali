@@ -62,10 +62,11 @@ class BelgeServisi {
   Future<Map<String, dynamic>> metin(String ad, List<int> icerik) async =>
       ((await _dosyaGonder('metin', ad, icerik, zamanAsimi: const Duration(minutes: 5))) as Map).cast<String, dynamic>();
 
-  /// Şablon metninden Word belgesi; eksik alan işaretleri sarı vurgulanır. Dönen: (docx baytları, eksik alan sayısı).
-  Future<(List<int>, int)> docx(String baslik, String metin) async {
-    final (durum, govde, eksik) = await _gonder(
-        'docx', utf8.encode(jsonEncode({'baslik': baslik, 'metin': metin})), ContentType.json);
+  /// Şablon metninden Word (ya da [pdf] ise PDF) belgesi; eksik alan işaretleri sarı vurgulanır.
+  /// Dönen: (belge baytları, eksik alan sayısı).
+  Future<(List<int>, int)> docx(String baslik, String metin, {bool pdf = false}) async {
+    final (durum, govde, eksik) = await _gonder('docx',
+        utf8.encode(jsonEncode({'baslik': baslik, 'metin': metin, 'bicim': pdf ? 'pdf' : 'docx'})), ContentType.json);
     if (durum == 422) throw const ApiHatasi(400, 'Belge metni geçersiz.', kod: 'gecersiz_istek');
     if (durum != 200) throw const ApiHatasi(502, 'Word belgesi üretilemedi.', kod: 'hizmet_hatasi');
     return (govde, int.tryParse(eksik ?? '') ?? 0);

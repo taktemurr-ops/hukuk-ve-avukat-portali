@@ -6,15 +6,19 @@ import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
+import 'hesap_ekranlari.dart';
 
 /// Müvekkilin gördüğü portal. Yalnızca davetle erişilir; büro hangi dosya ve belgeleri
 /// paylaşırsa yalnızca onları gösterir. Süreler, görevler, iç notlar ve ekip bilgisi gösterilmez.
 class MuvekkilPortaliEkrani extends StatefulWidget {
-  const MuvekkilPortaliEkrani({super.key, required this.oturum, required this.cikisYap, this.depo});
+  const MuvekkilPortaliEkrani({super.key, required this.oturum, required this.cikisYap, this.depo, this.sifreDegistir});
 
   final Oturum oturum;
   final VoidCallback cikisYap;
   final BellekVeriDeposu? depo;
+
+  /// Sunucu bağlıyken şifre değiştirme (eski, yeni) → hata ya da null; demoda yok.
+  final Future<String?> Function(String eski, String yeni)? sifreDegistir;
 
   @override
   State<MuvekkilPortaliEkrani> createState() => _MuvekkilPortaliEkraniState();
@@ -58,6 +62,20 @@ class _MuvekkilPortaliEkraniState extends State<MuvekkilPortaliEkrani> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Center(child: Text(widget.oturum.adSoyad, style: const TextStyle(color: Colors.white70))),
           ),
+          if (widget.sifreDegistir != null)
+            IconButton(
+              key: const Key('portal-sifre'),
+              tooltip: 'Şifre değiştir',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => SifreDegistirEkrani(kaydet: (eski, yeni, tekrar) async {
+                  final h = Dogrulayicilar.sifre(yeni, eposta: widget.oturum.eposta) ??
+                      (yeni != tekrar ? 'Yeni şifreler aynı değil.' : null) ??
+                      (eski == yeni ? 'Yeni şifre eskisiyle aynı olamaz.' : null);
+                  return h ?? await widget.sifreDegistir!(eski, yeni);
+                }),
+              )),
+              icon: const Icon(Icons.password),
+            ),
           IconButton(
             key: const Key('portal-cikis'),
             tooltip: 'Çıkış yap',

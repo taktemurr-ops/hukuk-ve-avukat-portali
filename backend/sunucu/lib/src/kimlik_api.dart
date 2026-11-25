@@ -43,7 +43,8 @@ Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris'
           final baglam = KimlikBaglami(kullaniciId: s[0]! as String, kiraciId: s[1]! as String, portalKisiId: s[2] as String?);
           // Müvekkil oturumu yalnızca portal uçlarını, kendi bilgisini ve çıkışı kullanabilir.
           final yol = istek.url.path;
-          if (baglam.portal && !(yol.startsWith('portal/') || yol == 'ben' || yol == 'cikis')) {
+          if (baglam.portal &&
+              !(yol.startsWith('portal/') || yol == 'ben' || yol == 'cikis' || yol == 'ben/sifre' || yol.startsWith('ben/oturumlar'))) {
             throw const ApiHatasi(403, 'Bu işlem müvekkil portalında kullanılamaz.', kod: 'yasak');
           }
           // Askıdaki veya iptal edilmiş hesapta veriler salt okunur (silinmez); abonelik ve çıkış işlemleri serbest.
@@ -288,6 +289,10 @@ class KimlikApi {
     return jsonYanit({'hesapSayisi': rs.first[0]});
   }
 
+  /// Kendi hesabıyla ilgili işlemler hem büro hem müvekkil portalı oturumunda çalışır.
+  Future<T> _kendiIcin<T>(KimlikBaglami k, Future<T> Function(TxSession tx) islem) =>
+      k.portal ? vt.portalIcin(k, islem) : vt.kiraciIcin(k, islem);
+
   static String _mevcutOturum(Request istek) =>
       tokenOzeti((istek.headers['authorization'] ?? '').replaceFirst('Bearer ', '').trim());
 
@@ -298,7 +303,7 @@ class KimlikApi {
     final j = await jsonGovde(istek);
     final eski = zorunluMetin(j, 'eskiSifre');
     final yeni = zorunluMetin(j, 'yeniSifre');
-    final ozet = await vt.kiraciIcin(k, (tx) => tx.execute('SELECT hukuk.kendi_sifre_ozetim()'));
+    final ozet = await _kendiIcin(k, (tx) => tx.execute('SELECT hukuk.kendi_sifre_ozetim()'));
     final mevcut = ozet.first[0] as String?;
     if (mevcut == null || !SifreOzeti.dogrula(eski, mevcut)) {
       throw const ApiHatasi(400, 'Mevcut şifre hatalı.', kod: 'sifre_hatali');
@@ -306,14 +311,14 @@ class KimlikApi {
     final hata = Dogrulayicilar.sifre(yeni);
     if (hata != null) throw ApiHatasi(400, hata, kod: 'zayif_sifre');
     if (eski == yeni) throw const ApiHatasi(400, 'Yeni şifre eskisiyle aynı olamaz.', kod: 'zayif_sifre');
-    await vt.kiraciIcin(k, (tx) => tx.execute(Sql.named('SELECT hukuk.sifre_degistir(@s, @o)'),
+    await _kendiIcin(k, (tx) => tx.execute(Sql.named('SELECT hukuk.sifre_degistir(@s, @o)'),
         parameters: {'s': SifreOzeti.olustur(yeni), 'o': _mevcutOturum(istek)}));
     return jsonYanit({'degisti': true});
   }
 
   Future<Response> _oturumlar(Request istek) async {
     final k = kimlik(istek);
-    final rs = await vt.kiraciIcin(
+    final rs = await _kendiIcin(
         k,
         (tx) => tx.execute(Sql.named('SELECT kimlik, olusturma, son_kullanma, istemci, bu_oturum FROM hukuk.kendi_oturumlarim(@o)'),
             parameters: {'o': _mevcutOturum(istek)}));
@@ -331,7 +336,7 @@ class KimlikApi {
 
   Future<Response> _oturumKapat(Request istek, String oturumKimligi) async {
     final k = kimlik(istek);
-    final rs = await vt.kiraciIcin(
+    final rs = await _kendiIcin(
         k,
         (tx) => tx.execute(Sql.named('SELECT hukuk.kendi_oturumlarimi_kapat(@i, @o)'),
             parameters: {'i': oturumKimligi, 'o': _mevcutOturum(istek)}));
@@ -341,7 +346,7 @@ class KimlikApi {
 
   Future<Response> _digerOturumlariKapat(Request istek) async {
     final k = kimlik(istek);
-    final rs = await vt.kiraciIcin(
+    final rs = await _kendiIcin(
         k,
         (tx) => tx.execute(Sql.named('SELECT hukuk.kendi_oturumlarimi_kapat(NULL, @o)'),
             parameters: {'o': _mevcutOturum(istek)}));

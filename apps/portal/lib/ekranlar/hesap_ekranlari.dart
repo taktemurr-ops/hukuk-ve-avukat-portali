@@ -996,9 +996,10 @@ class _KullaniciDiyaloguState extends State<_KullaniciDiyalogu> {
 
 /// Giriş yapmış kullanıcının şifresini değiştirmesi; diğer cihazlardaki oturumlar kapanır.
 class SifreDegistirEkrani extends StatefulWidget {
-  const SifreDegistirEkrani({super.key, required this.yonetim});
+  const SifreDegistirEkrani({super.key, required this.kaydet});
 
-  final HesapYonetimi yonetim;
+  /// (eski, yeni, yeni tekrar) → hata ya da null. Büroda [HesapYonetimi.sifreDegistir], portalda doğrudan sunucu.
+  final Future<String?> Function(String eski, String yeni, String tekrar) kaydet;
 
   @override
   State<SifreDegistirEkrani> createState() => _SifreDegistirEkraniState();
@@ -1021,7 +1022,7 @@ class _SifreDegistirEkraniState extends State<SifreDegistirEkrani> {
 
   Future<void> _kaydet() async {
     setState(() => _bekliyor = true);
-    final h = await widget.yonetim.sifreDegistir(_eski.text, _yeni.text, _tekrar.text);
+    final h = await widget.kaydet(_eski.text, _yeni.text, _tekrar.text);
     if (!mounted) return;
     setState(() {
       _bekliyor = false;
@@ -1143,6 +1144,132 @@ class _OturumlarEkraniState extends State<OturumlarEkrani> {
                 ]);
               },
             ),
+    );
+  }
+}
+
+/// Takvim aboneliği: duruşmalar ve sorumlu olunan süreler Google/Outlook/Apple takvimine abone olunarak gelir.
+/// Bağlantı gizlidir ve bir kez gösterilir; akışta müvekkil adı ve dosya başlığı yoktur.
+class TakvimAbonelikEkrani extends StatefulWidget {
+  const TakvimAbonelikEkrani({super.key, required this.yonetim, this.baglantiAc});
+
+  final HesapYonetimi yonetim;
+
+  /// webcal bağlantısını açar (takvim uygulaması); testlerde değiştirilir.
+  final Future<bool> Function(Uri adres)? baglantiAc;
+
+  @override
+  State<TakvimAbonelikEkrani> createState() => _TakvimAbonelikEkraniState();
+}
+
+class _TakvimAbonelikEkraniState extends State<TakvimAbonelikEkrani> {
+  Map<String, dynamic>? _durum;
+  (String, String)? _yeni;
+  String? _hata;
+
+  @override
+  void initState() {
+    super.initState();
+    _yukle();
+  }
+
+  Future<void> _yukle() async {
+    final u = widget.yonetim.depo.uzak;
+    if (u == null) return;
+    try {
+      final d = await u.takvimDurumu();
+      if (mounted) setState(() => _durum = d);
+    } on Exception catch (e) {
+      if (mounted) setState(() => _hata = '$e');
+    }
+  }
+
+  Future<void> _olustur() async {
+    try {
+      final y = await widget.yonetim.depo.uzak!.takvimBaglantisiOlustur();
+      if (!mounted) return;
+      setState(() => _yeni = y);
+      await _yukle();
+    } on Exception catch (e) {
+      if (mounted) setState(() => _hata = '$e');
+    }
+  }
+
+  Future<void> _kapat() async {
+    try {
+      await widget.yonetim.depo.uzak!.takvimBaglantisiKapat();
+      if (!mounted) return;
+      setState(() => _yeni = null);
+      await _yukle();
+    } on Exception catch (e) {
+      if (mounted) setState(() => _hata = '$e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final u = widget.yonetim.depo.uzak;
+    final d = _durum;
+    final yeni = _yeni;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Takvim aboneliği')),
+      body: ListView(padding: const EdgeInsets.all(24), children: [
+        const Text('Duruşmalarınız ve asıl ya da yedek sorumlu olduğunuz sürelerin son günleri Google Takvim, Outlook ya da '
+            'Apple Takvim\'e saatte bir güncellenerek gelir. Takvim sağlayıcısı bilgileri kendi sunucularında tuttuğu için '
+            'akışta müvekkil adı ve dosya başlığı yoktur; yalnızca dosya numarası, mahkeme ve saat yer alır.'),
+        const SizedBox(height: 16),
+        if (u == null)
+          const Text('Takvim aboneliği sunucu bağlantısıyla kullanılır.')
+        else if (_hata != null)
+          Text(_hata!, style: const TextStyle(color: Renkler.kritik))
+        else if (d == null)
+          const Center(child: CircularProgressIndicator())
+        else ...[
+          if (yeni != null)
+            Panel(
+              baslik: 'Bağlantınız (yalnızca şimdi gösterilir)',
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                SelectableText(yeni.$1, key: const Key('takvim-adres')),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: yeni.$1)).ignore();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bağlantı kopyalandı.')));
+                    },
+                    icon: const Icon(Icons.copy),
+                    label: const Text('Kopyala'),
+                  ),
+                  if (widget.baglantiAc != null)
+                    FilledButton.icon(
+                      onPressed: () => widget.baglantiAc!(Uri.parse(yeni.$2)),
+                      icon: const Icon(Icons.event),
+                      label: const Text('Takvimde aç'),
+                    ),
+                ]),
+                const SizedBox(height: 8),
+                const Text('Google Takvim: Diğer takvimler → URL ile ekle. Outlook: Takvim ekle → İnternetten abone ol. '
+                    'Bağlantıyı kimseyle paylaşmayın; paylaşılırsa yenileyin.'),
+              ]),
+            )
+          else if (d['var'] == true)
+            Text('Bağlantınız açık (${tarihSaat(DateTime.parse(d['olusturma'] as String).toLocal())} tarihinde oluşturuldu'
+                '${d['sonOkuma'] == null ? '; henüz okunmadı' : '; son okuma ${tarihSaat(DateTime.parse(d['sonOkuma'] as String).toLocal())}'}). '
+                'Güvenlik için bağlantı yeniden gösterilemez; kaybettiyseniz yenileyin.', key: const Key('takvim-durum'))
+          else
+            const Text('Henüz takvim bağlantınız yok.', key: const Key('takvim-durum')),
+          const SizedBox(height: 16),
+          Wrap(spacing: 8, children: [
+            FilledButton(
+              key: const Key('takvim-olustur'),
+              onPressed: _olustur,
+              child: Text(d['var'] == true ? 'Bağlantıyı yenile (eskisi çalışmaz)' : 'Bağlantı oluştur'),
+            ),
+            if (d['var'] == true)
+              OutlinedButton(key: const Key('takvim-kapat'), onPressed: _kapat, child: const Text('Aboneliği kapat')),
+          ]),
+        ],
+      ]),
     );
   }
 }

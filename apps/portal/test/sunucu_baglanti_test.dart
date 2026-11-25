@@ -176,6 +176,10 @@ class SahteSunucu {
           'bekleyen': 2,
           'okunamayan': 0,
         });
+      case 'GET /ben/takvim':
+        return _json({'var': false});
+      case 'POST /ben/takvim':
+        return _json({'adres': 'https://api.ornek.test/acik/takvim/abc.ics', 'webcal': 'webcal://api.ornek.test/acik/takvim/abc.ics'}, 201);
       case 'GET /abonelik':
         return _json({
           'durum': 'deneme', 'etkinDurum': 'deneme', 'etkinDurumAdi': 'Deneme', 'donem': 'aylik',
@@ -701,5 +705,15 @@ void main() {
     expect(bekleyen, 2);
     expect(s.single.ocr, isTrue);
     expect(s.single.ozet, contains('«kıdem»'));
+  });
+
+  test('Takvim aboneliği: durum ve bir kez gösterilen bağlantı', () async {
+    final sunucu = SahteSunucu();
+    final api = ApiIstemcisi(Uri.parse('https://api.ornek.test/'), istemci: MockClient(sunucu.yanit))..token = 'tkn';
+    final senkron = SunucuSenkronu(api, BellekVeriDeposu('k1'));
+    expect((await senkron.takvimDurumu())['var'], isFalse);
+    final (adres, webcal) = await senkron.takvimBaglantisiOlustur();
+    expect(adres, endsWith('.ics'));
+    expect(webcal, startsWith('webcal://'));
   });
 }

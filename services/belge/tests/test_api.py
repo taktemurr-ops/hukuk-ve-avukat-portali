@@ -33,3 +33,19 @@ def test_docx_ve_eksik_reddi():
     r2 = istemci.post("/docx", json={"baslik": "x", "metin": "[EKSİK: a]", "eksikVarsaReddet": True})
     assert r2.status_code == 422
     assert r2.json()["detail"]["alanlar"] == ["a"]
+
+
+def test_pdf_turkce_ve_eksik_alan():
+    r = istemci.post("/docx", json={"baslik": "İhtarname", "bicim": "pdf",
+                                     "metin": "# İHTARNAME\n\nMuhatap: Şükrü Öğün\nBorç: [EKSİK: alacak.tutar]"})
+    assert r.status_code == 200, r.text
+    assert r.content.startswith(b"%PDF-")
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.headers["x-eksik-alan-sayisi"] == "1"
+    import io
+
+    from pypdf import PdfReader
+    metin = PdfReader(io.BytesIO(r.content)).pages[0].extract_text()
+    assert "İHTARNAME" in metin and "Şükrü Öğün" in metin
+    r2 = istemci.post("/docx", json={"baslik": "x", "metin": "y", "bicim": "odt"})
+    assert r2.status_code == 422

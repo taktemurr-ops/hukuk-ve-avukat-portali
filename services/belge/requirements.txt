@@ -6,3 +6,4 @@ python-docx==1.1.*
 pytesseract==0.3.*
 pillow==11.*
 openpyxl==3.1.*
+reportlab==4.*

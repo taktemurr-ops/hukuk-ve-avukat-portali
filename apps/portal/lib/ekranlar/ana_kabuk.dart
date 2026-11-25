@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
@@ -593,7 +594,7 @@ class _AyarlarSayfasi extends StatelessWidget {
                 title: const Text('Şifre değiştir'),
                 subtitle: const Text('Değişince diğer cihazlardaki oturumlarınız kapanır.'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => ac(SifreDegistirEkrani(yonetim: yonetim)),
+                onTap: () => ac(SifreDegistirEkrani(kaydet: yonetim.sifreDegistir)),
               ),
               const Divider(),
               ListTile(
@@ -604,6 +605,19 @@ class _AyarlarSayfasi extends StatelessWidget {
                 subtitle: const Text('Hangi cihazlarda oturumunuz açık; uzaktan kapatın.'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => ac(OturumlarEkrani(yonetim: yonetim)),
+              ),
+              const Divider(),
+              ListTile(
+                key: const Key('ayar-takvim'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.event_available_outlined),
+                title: const Text('Takvim aboneliği'),
+                subtitle: const Text('Duruşma ve süreleriniz Google, Outlook ya da Apple takviminizde.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ac(TakvimAbonelikEkrani(
+                  yonetim: yonetim,
+                  baglantiAc: (u) => launchUrl(u, mode: LaunchMode.externalApplication),
+                )),
               ),
             ],
           ),

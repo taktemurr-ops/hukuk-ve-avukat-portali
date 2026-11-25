@@ -127,7 +127,19 @@ class _SunuculuPortalState extends State<SunuculuPortal> {
             ),
           );
         }
-        return MuvekkilPortaliEkrani(oturum: widget.oturum, cikisYap: widget.cikisYap, depo: _depo);
+        return MuvekkilPortaliEkrani(
+          oturum: widget.oturum,
+          cikisYap: widget.cikisYap,
+          depo: _depo,
+          sifreDegistir: (eski, yeni) async {
+            try {
+              await widget.api.post('/ben/sifre', {'eskiSifre': eski, 'yeniSifre': yeni});
+              return null;
+            } on Exception catch (e) {
+              return '$e';
+            }
+          },
+        );
       },
     );
   }

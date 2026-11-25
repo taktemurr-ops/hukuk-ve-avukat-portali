@@ -39,6 +39,7 @@ export 'src/portal_api.dart';
 export 'src/sifre.dart';
 export 'src/sifreleme.dart';
 export 'src/sure_bildirimi.dart';
+export 'src/takvim_api.dart';
 export 'src/virus_tarama.dart';
 export 'src/uyum_api.dart';
 export 'src/veritabani.dart';
@@ -71,6 +72,7 @@ Handler uygulama(
   Uri? sifirlamaAdresi,
   Uri? dogrulamaAdresi,
   Uri? belgeServisi,
+  Uri? disAdres,
   VirusTarayici? virusTarayici,
   Set<String> izinliKokenler = const {},
   int belgeAzamiBoyut = 50 * 1024 * 1024,
@@ -89,7 +91,8 @@ Handler uygulama(
       .add(DavetApi(vt, davetAdresi: davetAdresi).router.call)
       .add(PortalApi(vt, depo).router.call)
       .add(AbonelikApi(vt, odemeSaglayici).router.call)
-      .add(AktarimApi(belgeServisi: bs, tarayici: virusTarayici).router.call);
+      .add(AktarimApi(belgeServisi: bs, tarayici: virusTarayici).router.call)
+      .add(TakvimApi(vt, disAdres: disAdres).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))

@@ -164,6 +164,7 @@ class _YetkiBelgesiEkraniState extends State<YetkiBelgesiEkrani> {
   final _c = {for (final a in ['alanAd', 'alanBaro', 'alanSicil', 'verenBaro', 'verenSicil', 'kapsam']) a: TextEditingController()};
   final Set<OzelYetki> _yetkiler = {};
   String? _dosyaId;
+  bool _pdf = true; // yetki belgesi genellikle imzalanıp gönderilir
   bool _bekliyor = false;
 
   @override
@@ -215,7 +216,7 @@ class _YetkiBelgesiEkraniState extends State<YetkiBelgesiEkrani> {
     final ad = 'Yetki belgesi - ${_t('alanAd')}';
     setState(() => _bekliyor = true);
     final h = await widget.depo.sunucudaVeyaYerelde(
-      sunucuda: (u) => u.wordBelgeKaydet(dosyaId: dosyaId, ad: ad, metin: c.metin, tur: BelgeTuru.vekaletname),
+      sunucuda: (u) => u.wordBelgeKaydet(dosyaId: dosyaId, ad: ad, metin: c.metin, tur: BelgeTuru.vekaletname, pdf: _pdf),
       yerelde: () {
         widget.depo.belgeOlustur(
             dosyaId: dosyaId, ad: ad, metin: c.metin, yukleyen: widget.oturum.kullaniciId, tur: BelgeTuru.vekaletname);
@@ -225,7 +226,10 @@ class _YetkiBelgesiEkraniState extends State<YetkiBelgesiEkrani> {
     if (!mounted) return;
     setState(() => _bekliyor = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(h ?? (widget.depo.uzak == null ? 'Yetki belgesi dosyaya kaydedildi.' : 'Yetki belgesi Word olarak dosyaya kaydedildi.'))));
+        content: Text(h ??
+            (widget.depo.uzak == null
+                ? 'Yetki belgesi dosyaya kaydedildi.'
+                : 'Yetki belgesi ${_pdf ? 'PDF' : 'Word'} olarak dosyaya kaydedildi.'))));
     if (h == null) Navigator.of(context).pop();
   }
 
@@ -308,12 +312,23 @@ class _YetkiBelgesiEkraniState extends State<YetkiBelgesiEkrani> {
                 : 'Eksik: ${eksik.join(', ')}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (widget.depo.uzak != null) ...[
+            const SizedBox(height: 12),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Word')),
+                ButtonSegment(value: true, label: Text('PDF')),
+              ],
+              selected: {_pdf},
+              onSelectionChanged: (s) => setState(() => _pdf = s.first),
+            ),
+          ],
           const SizedBox(height: 12),
           FilledButton.icon(
             key: const Key('yb-kaydet'),
             onPressed: eksik.isNotEmpty || _dosyaId == null || _bekliyor ? null : () => _kaydet(cikti!),
             icon: const Icon(Icons.save_alt),
-            label: Text(widget.depo.uzak == null ? 'Dosyaya kaydet' : 'Word olarak dosyaya kaydet'),
+            label: Text(widget.depo.uzak == null ? 'Dosyaya kaydet' : '${_pdf ? 'PDF' : 'Word'} olarak dosyaya kaydet'),
           ),
         ],
       ]),
