@@ -79,6 +79,84 @@ class HesapYonetimi extends ChangeNotifier {
 
   List<Davet> bekleyenDavetler() => davetler.where((d) => d.gecerliMi(_saat())).toList();
 
+  bool get yoneticiMi => oturum.roller.any((r) => const {Rol.buroSahibi, Rol.yoneticiOrtak, Rol.hukukDirektoru}.contains(r));
+
+  /// Rol değiştirme; yerelde de temel kurallar (kendi rolü yok, en az bir rol, en az bir yönetici kalır).
+  Future<String?> rolleriDegistir(KullaniciBilgisi k, Set<Rol> roller) async {
+    if (roller.isEmpty) return 'En az bir rol seçilmelidir.';
+    if (k.id == oturum.kullaniciId) return 'Kendi rolünüzü değiştiremezsiniz; başka bir yönetici yapmalıdır.';
+    final u = depo.uzak;
+    if (u != null) {
+      try {
+        await u.kullaniciRolleri(k.id, roller);
+        notifyListeners();
+        return null;
+      } on Exception catch (e) {
+        return '$e';
+      }
+    }
+    final yeni = k.kopya(roller: roller);
+    if (!depo.ekip.any((x) => x.id != k.id && x.aktif && (x.yonetici || (x.id == oturum.kullaniciId && yoneticiMi))) &&
+        !yeni.yonetici) {
+      return 'Kurumda en az bir aktif yönetici kalmalıdır.';
+    }
+    depo.kullaniciBilgisiGuncelle(yeni);
+    depo.okumaKaydet(DenetimIslemi.rolVerme, 'kullanici', k.id, roller.map((r) => r.ad).join(', '));
+    notifyListeners();
+    return null;
+  }
+
+  /// İşten ayrılış: açık işler devralana geçer, hesap pasifleşir. Sunucuda devir ve kurallar veritabanında.
+  Future<String?> pasiflestir(KullaniciBilgisi k, {String? devralan, required String gerekce}) async {
+    if (k.id == oturum.kullaniciId) return 'Kendi hesabınızı pasifleştiremezsiniz.';
+    if (gerekce.trim().length < 3) return 'Gerekçe yazılmalıdır.';
+    final u = depo.uzak;
+    if (u != null) {
+      try {
+        await u.kullaniciPasiflestir(k.id, devralan: devralan, gerekce: gerekce.trim());
+        notifyListeners();
+        return null;
+      } on Exception catch (e) {
+        return '$e';
+      }
+    }
+    depo.kullaniciBilgisiGuncelle(k.kopya(aktif: false));
+    depo.okumaKaydet(DenetimIslemi.degisiklik, 'kullanici', k.id, 'Pasifleştirildi: ${gerekce.trim()}');
+    notifyListeners();
+    return null;
+  }
+
+  Future<String?> aktiflestir(KullaniciBilgisi k) async {
+    final u = depo.uzak;
+    if (u != null) {
+      try {
+        await u.kullaniciAktiflestir(k.id);
+        notifyListeners();
+        return null;
+      } on Exception catch (e) {
+        return '$e';
+      }
+    }
+    depo.kullaniciBilgisiGuncelle(k.kopya(aktif: true));
+    notifyListeners();
+    return null;
+  }
+
+  Future<String?> sifreDegistir(String eski, String yeni, String yeniTekrar) async {
+    final h = Dogrulayicilar.sifre(yeni, eposta: oturum.eposta) ??
+        (yeni != yeniTekrar ? 'Yeni şifreler aynı değil.' : null) ??
+        (eski == yeni ? 'Yeni şifre eskisiyle aynı olamaz.' : null);
+    if (h != null) return h;
+    final u = depo.uzak;
+    if (u == null) return 'Demo modunda şifre değiştirilemez.';
+    try {
+      await u.sifreDegistir(eski, yeni);
+      return null;
+    } on Exception catch (e) {
+      return '$e';
+    }
+  }
+
   /// Sunucu bağlıyken davetlerin sunucudaki kimlikleri (iptal için) ve kullanılan koltuk.
   final Map<Davet, String> _sunucuKimlikleri = {};
   int? _sunucuDolu;
@@ -618,15 +696,24 @@ class EkipEkrani extends StatelessWidget {
               Panel(
                 baslik: 'Kullanıcılar',
                 child: Column(children: [
-                  for (final e in yonetim.depo.kullanicilar.entries)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                          backgroundColor: Renkler.yesil,
-                          child: Text(basHarfler(e.value), style: const TextStyle(color: Colors.white, fontSize: 13))),
-                      title: Text(e.value),
-                      trailing: const DurumRozeti('Aktif', RozetTuru.onay),
-                    ),
+                  for (final k in yonetim.depo.ekip)
+                    if (!k.roller.contains(Rol.muvekkil))
+                      ListTile(
+                        key: Key('ekip-${k.id}'),
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                            backgroundColor: k.aktif ? Renkler.yesil : Renkler.notr,
+                            child: Text(basHarfler(k.adSoyad), style: const TextStyle(color: Colors.white, fontSize: 13))),
+                        title: Text(k.adSoyad),
+                        subtitle: Text([
+                          if (k.roller.isNotEmpty) k.roller.map((r) => r.ad).join(', '),
+                          if (k.eposta != null) k.eposta!,
+                        ].join(' · ')),
+                        trailing: DurumRozeti(k.aktif ? 'Aktif' : 'Pasif', k.aktif ? RozetTuru.onay : RozetTuru.notr),
+                        onTap: !yonetim.yoneticiMi || k.id == yonetim.oturum.kullaniciId
+                            ? null
+                            : () => showDialog<void>(context: context, builder: (_) => _KullaniciDiyalogu(yonetim: yonetim, k: k)),
+                      ),
                 ]),
               ),
               const SizedBox(height: 20),
@@ -771,6 +858,291 @@ class _DavetDiyaloguState extends State<_DavetDiyalogu> {
           child: const Text('Davet gönder'),
         ),
       ],
+    );
+  }
+}
+
+/// Yöneticinin bir kullanıcı için rol değiştirme ve pasifleştirme penceresi.
+class _KullaniciDiyalogu extends StatefulWidget {
+  const _KullaniciDiyalogu({required this.yonetim, required this.k});
+
+  final HesapYonetimi yonetim;
+  final KullaniciBilgisi k;
+
+  @override
+  State<_KullaniciDiyalogu> createState() => _KullaniciDiyaloguState();
+}
+
+class _KullaniciDiyaloguState extends State<_KullaniciDiyalogu> {
+  late final Set<Rol> _roller = {...widget.k.roller};
+  final _gerekce = TextEditingController();
+  String? _devralan;
+  String? _hata;
+  bool _bekliyor = false;
+
+  @override
+  void dispose() {
+    _gerekce.dispose();
+    super.dispose();
+  }
+
+  Future<void> _calistir(Future<String?> Function() islem, String basari) async {
+    setState(() => _bekliyor = true);
+    final h = await islem();
+    if (!mounted) return;
+    setState(() {
+      _bekliyor = false;
+      _hata = h;
+    });
+    if (h == null) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(basari)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final y = widget.yonetim;
+    final k = widget.k;
+    final secilebilir = y.oturum.lisans.roller.where((r) => r != Rol.muvekkil).toList();
+    final devralanlar = y.depo.ekip.where((x) => x.aktif && x.id != k.id && !x.roller.contains(Rol.muvekkil)).toList();
+    return AlertDialog(
+      title: Text(k.adSoyad),
+      content: SizedBox(
+        width: 480,
+        child: ListView(shrinkWrap: true, children: [
+          Text('Roller', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 6),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final r in secilebilir)
+              FilterChip(
+                key: Key('ekip-rol-${r.name}'),
+                label: Text(r.ad),
+                selected: _roller.contains(r),
+                onSelected: (s) => setState(() {
+                  if (s) {
+                    _roller.add(r);
+                  } else {
+                    _roller.remove(r);
+                  }
+                }),
+              ),
+          ]),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonal(
+              key: const Key('ekip-rol-kaydet'),
+              onPressed: _bekliyor ? null : () => _calistir(() => y.rolleriDegistir(k, _roller), 'Roller güncellendi.'),
+              child: const Text('Rolleri kaydet'),
+            ),
+          ),
+          const Divider(height: 32),
+          if (k.aktif) ...[
+            Text('İşten ayrılış', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            const Text('Hesap pasifleşir ve tüm oturumları kapanır. Açık süreleri, görevleri ve sorumlu olduğu dosyalar '
+                'seçtiğiniz kişiye devredilir; hiçbir süre sahipsiz kalmaz.'),
+            const SizedBox(height: 8),
+            DropdownMenu<String?>(
+              key: const Key('ekip-devralan'),
+              label: const Text('Devralacak kişi'),
+              expandedInsets: EdgeInsets.zero,
+              initialSelection: _devralan,
+              onSelected: (v) => setState(() => _devralan = v),
+              dropdownMenuEntries: [
+                const DropdownMenuEntry<String?>(value: null, label: 'Seçilmedi (açık işi yoksa)'),
+                for (final d in devralanlar) DropdownMenuEntry<String?>(value: d.id, label: d.adSoyad),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('ekip-gerekce'),
+              controller: _gerekce,
+              decoration: const InputDecoration(labelText: 'Gerekçe (ör. istifa, 30.11.2026)'),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton(
+                key: const Key('ekip-pasif'),
+                style: OutlinedButton.styleFrom(foregroundColor: Renkler.kritik),
+                onPressed: _bekliyor
+                    ? null
+                    : () => _calistir(() => y.pasiflestir(k, devralan: _devralan, gerekce: _gerekce.text),
+                        '${k.adSoyad} pasifleştirildi.'),
+                child: const Text('Devret ve pasifleştir'),
+              ),
+            ),
+          ] else
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                key: const Key('ekip-aktif'),
+                onPressed: _bekliyor ? null : () => _calistir(() => y.aktiflestir(k), '${k.adSoyad} yeniden etkinleştirildi.'),
+                child: const Text('Yeniden etkinleştir'),
+              ),
+            ),
+          if (_hata != null) ...[
+            const SizedBox(height: 8),
+            Text(_hata!, key: const Key('ekip-hata'), style: const TextStyle(color: Renkler.kritik)),
+          ],
+        ]),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Kapat'))],
+    );
+  }
+}
+
+/// Giriş yapmış kullanıcının şifresini değiştirmesi; diğer cihazlardaki oturumlar kapanır.
+class SifreDegistirEkrani extends StatefulWidget {
+  const SifreDegistirEkrani({super.key, required this.yonetim});
+
+  final HesapYonetimi yonetim;
+
+  @override
+  State<SifreDegistirEkrani> createState() => _SifreDegistirEkraniState();
+}
+
+class _SifreDegistirEkraniState extends State<SifreDegistirEkrani> {
+  final _eski = TextEditingController();
+  final _yeni = TextEditingController();
+  final _tekrar = TextEditingController();
+  String? _hata;
+  bool _bekliyor = false;
+
+  @override
+  void dispose() {
+    for (final c in [_eski, _yeni, _tekrar]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _kaydet() async {
+    setState(() => _bekliyor = true);
+    final h = await widget.yonetim.sifreDegistir(_eski.text, _yeni.text, _tekrar.text);
+    if (!mounted) return;
+    setState(() {
+      _bekliyor = false;
+      _hata = h;
+    });
+    if (h == null) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Şifreniz değişti; diğer cihazlardaki oturumlarınız kapatıldı.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Şifre değiştir')),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: ListView(padding: const EdgeInsets.all(24), shrinkWrap: true, children: [
+              TextField(
+                  key: const Key('sifre-eski'),
+                  controller: _eski,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Mevcut şifre')),
+              const SizedBox(height: 12),
+              TextField(
+                  key: const Key('sifre-yeni'),
+                  controller: _yeni,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Yeni şifre', helperText: 'En az 10 karakter; harf ve rakam içermeli')),
+              const SizedBox(height: 12),
+              TextField(
+                  key: const Key('sifre-tekrar'),
+                  controller: _tekrar,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Yeni şifre (tekrar)')),
+              if (_hata != null) ...[
+                const SizedBox(height: 12),
+                Text(_hata!, key: const Key('sifre-hata'), style: const TextStyle(color: Renkler.kritik)),
+              ],
+              const SizedBox(height: 16),
+              FilledButton(
+                  key: const Key('sifre-kaydet'), onPressed: _bekliyor ? null : _kaydet, child: const Text('Şifremi değiştir')),
+            ]),
+          ),
+        ),
+      );
+}
+
+/// Açık oturumlar (cihazlar): tek tek ya da bu cihaz dışındakilerin hepsi kapatılabilir.
+class OturumlarEkrani extends StatefulWidget {
+  const OturumlarEkrani({super.key, required this.yonetim});
+
+  final HesapYonetimi yonetim;
+
+  @override
+  State<OturumlarEkrani> createState() => _OturumlarEkraniState();
+}
+
+class _OturumlarEkraniState extends State<OturumlarEkrani> {
+  Future<List<Map<String, dynamic>>>? _liste;
+
+  @override
+  void initState() {
+    super.initState();
+    _yenile();
+  }
+
+  void _yenile() => setState(() => _liste = widget.yonetim.depo.uzak?.oturumlar());
+
+  Future<void> _kapat(String? kimlik) async {
+    String mesaj;
+    try {
+      final n = await widget.yonetim.depo.uzak!.oturumKapat(kimlik);
+      mesaj = '$n oturum kapatıldı.';
+    } on Exception catch (e) {
+      mesaj = '$e';
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj)));
+    _yenile();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final liste = _liste;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Açık oturumlar')),
+      body: liste == null
+          ? const Padding(padding: EdgeInsets.all(24), child: Text('Demo modunda yalnızca bu oturum vardır.'))
+          : FutureBuilder(
+              future: liste,
+              builder: (context, s) {
+                if (s.hasError) return Padding(padding: const EdgeInsets.all(24), child: Text('${s.error}'));
+                final v = s.data;
+                if (v == null) return const Center(child: CircularProgressIndicator());
+                return ListView(padding: const EdgeInsets.all(24), children: [
+                  const Text('Tanımadığınız bir cihaz görürseniz oturumu kapatın ve şifrenizi değiştirin.'),
+                  const SizedBox(height: 12),
+                  for (final o in v)
+                    ListTile(
+                      key: Key('oturum-${o['kimlik']}'),
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(o['buOturum'] == true ? Icons.smartphone : Icons.devices_other),
+                      title: Text('${o['istemci'] == null || '${o['istemci']}'.isEmpty ? 'Bilinmeyen cihaz' : o['istemci']}'
+                          '${o['buOturum'] == true ? ' (bu cihaz)' : ''}'),
+                      subtitle: Text('Açılış ${tarihSaat(DateTime.parse(o['olusturma'] as String).toLocal())}'),
+                      trailing: o['buOturum'] == true
+                          ? null
+                          : TextButton(onPressed: () => _kapat(o['kimlik'] as String), child: const Text('Kapat')),
+                    ),
+                  const SizedBox(height: 12),
+                  if (v.length > 1)
+                    OutlinedButton(
+                      key: const Key('oturum-digerleri'),
+                      onPressed: () => _kapat(null),
+                      child: const Text('Bu cihaz dışındaki tüm oturumları kapat'),
+                    ),
+                ]);
+              },
+            ),
     );
   }
 }

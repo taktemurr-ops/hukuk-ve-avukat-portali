@@ -202,6 +202,24 @@ void main() {
     expect(find.text('0 belge'), findsOneWidget);
   });
 
+  testWidgets('Ekip: yönetici başkasının rolünü değiştirir ve gerekçeyle pasifleştirir; kendine dokunamaz', (tester) async {
+    final depo = await _ac(tester, 'ayarlar');
+    await _bas(tester, 'ayar-ekip');
+    // Kendi satırı tıklanamaz.
+    expect(tester.widget<ListTile>(find.byKey(const Key('ekip-av1'))).onTap, isNull);
+    await _bas(tester, 'ekip-demo-stj');
+    await _bas(tester, 'ekip-rol-avukat');
+    await _bas(tester, 'ekip-rol-kaydet');
+    expect(depo.ekip.firstWhere((k) => k.id == 'demo-stj').roller, contains(Rol.avukat));
+    await _bas(tester, 'ekip-demo-stj');
+    await _bas(tester, 'ekip-pasif');
+    expect(find.text('Gerekçe yazılmalıdır.'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('ekip-gerekce')), 'Staj bitti');
+    await _bas(tester, 'ekip-pasif');
+    expect(depo.ekip.firstWhere((k) => k.id == 'demo-stj').aktif, isFalse);
+    expect(find.text('Pasif'), findsOneWidget);
+  });
+
   testWidgets('Denetim kaydı ekranı zincirin sağlam olduğunu gösterir', (tester) async {
     await _ac(tester, 'ayarlar');
     await _bas(tester, 'ayar-denetim');

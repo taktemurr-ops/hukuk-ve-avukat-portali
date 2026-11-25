@@ -161,6 +161,21 @@ abstract class UzakIslemler {
   /// (lisans, dolu)
   Future<(int, int)> koltuklar();
 
+  /// Ekip yönetimi (yalnızca yöneticiler; kurallar veritabanında).
+  Future<void> kullaniciRolleri(String kullaniciId, Set<Rol> roller);
+
+  /// Açık süre, görev ve dosyalar devralana geçer; dönen devredilen kayıt sayısı.
+  Future<int> kullaniciPasiflestir(String kullaniciId, {String? devralan, required String gerekce});
+
+  Future<void> kullaniciAktiflestir(String kullaniciId);
+
+  Future<void> sifreDegistir(String eskiSifre, String yeniSifre);
+
+  Future<List<Map<String, dynamic>>> oturumlar();
+
+  /// [kimlik] null ise bu oturum dışındaki tümü kapatılır.
+  Future<int> oturumKapat(String? kimlik);
+
   Future<bool> ikiAdimliAcikMi();
 
   /// Abonelik durumu, fiyatlar ve ödeme geçmişi (ham JSON).
@@ -570,6 +585,16 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
   Future<void> yenile() async {
     final kullanicilar = (await api.get('/kullanicilar') as List).cast<Map<String, dynamic>>();
     depo.kullaniciAdlariniYukle({for (final u in kullanicilar) u['id'] as String: u['adSoyad'] as String});
+    depo.kullaniciBilgileriniYukle([
+      for (final u in kullanicilar)
+        KullaniciBilgisi(
+          id: u['id'] as String,
+          adSoyad: u['adSoyad'] as String,
+          aktif: u['aktif'] != false,
+          roller: {for (final r in (u['roller'] as List? ?? const [])) ...Rol.values.where((x) => x.name == r)},
+          eposta: u['eposta'] as String?,
+        ),
+    ]);
     final liste = (await api.get('/dosyalar') as List).cast<Map<String, dynamic>>();
     final dosyalar = [for (final j in liste) dosyaJson(j, depo.kiraciId)];
     final sureler = <SureKaydi>[];
@@ -1069,6 +1094,40 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
   @override
   Future<void> davetIptal(String davetId) async {
     await api.post('/davetler/$davetId/iptal');
+  }
+
+  @override
+  Future<void> kullaniciRolleri(String kullaniciId, Set<Rol> roller) async {
+    await api.put('/kullanicilar/$kullaniciId/roller', {'roller': [for (final r in roller) r.name]});
+    await yenile();
+  }
+
+  @override
+  Future<int> kullaniciPasiflestir(String kullaniciId, {String? devralan, required String gerekce}) async {
+    final y = await api.post('/kullanicilar/$kullaniciId/pasif', {'devralan': devralan, 'gerekce': gerekce}) as Map<String, dynamic>;
+    await yenile();
+    return (y['devredilen'] as num?)?.toInt() ?? 0;
+  }
+
+  @override
+  Future<void> kullaniciAktiflestir(String kullaniciId) async {
+    await api.post('/kullanicilar/$kullaniciId/aktif');
+    await yenile();
+  }
+
+  @override
+  Future<void> sifreDegistir(String eskiSifre, String yeniSifre) async {
+    await api.post('/ben/sifre', {'eskiSifre': eskiSifre, 'yeniSifre': yeniSifre});
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> oturumlar() async => _liste(await api.get('/ben/oturumlar'));
+
+  @override
+  Future<int> oturumKapat(String? kimlik) async {
+    final y = await api.post(kimlik == null ? '/ben/oturumlar/digerlerini-kapat' : '/ben/oturumlar/$kimlik/kapat')
+        as Map<String, dynamic>;
+    return (y['kapatilan'] as num?)?.toInt() ?? 0;
   }
 
   @override

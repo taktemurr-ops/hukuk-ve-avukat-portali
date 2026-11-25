@@ -781,6 +781,29 @@ class BellekVeriDeposu extends ChangeNotifier {
       ..addAll(adlar);
   }
 
+  /// Ekip ekranı için kullanıcı bilgileri (sunucudan; yerelde boş kalırsa adlardan türetilir).
+  final Map<String, KullaniciBilgisi> _kullaniciBilgileri = {};
+
+  void kullaniciBilgileriniYukle(Iterable<KullaniciBilgisi> liste) {
+    _kullaniciBilgileri
+      ..clear()
+      ..addEntries(liste.map((k) => MapEntry(k.id, k)));
+    notifyListeners();
+  }
+
+  List<KullaniciBilgisi> get ekip => _kullaniciBilgileri.isNotEmpty
+      ? (_kullaniciBilgileri.values.toList()..sort((a, b) => a.adSoyad.compareTo(b.adSoyad)))
+      : [for (final e in _kullaniciAdlari.entries) KullaniciBilgisi(id: e.key, adSoyad: e.value, aktif: true, roller: const {})];
+
+  /// Yerel (demo) değişiklik; sunucu modunda kurallar veritabanında.
+  void kullaniciBilgisiGuncelle(KullaniciBilgisi k) {
+    if (_kullaniciBilgileri.isEmpty) {
+      _kullaniciBilgileri.addEntries(ekip.map((x) => MapEntry(x.id, x)));
+    }
+    _kullaniciBilgileri[k.id] = k;
+    notifyListeners();
+  }
+
   /// Sunucudan gelen dosya ve süreleri yerel önbelleğe yazar (öncekilerin yerine).
   void sunucuVerisiniYukle({required List<Dosya> dosyalar, required List<SureKaydi> sureler, List<Belge> belgeler = const []}) {
     _dosyalar
@@ -1589,4 +1612,20 @@ class BellekVeriDeposu extends ChangeNotifier {
     notifyListeners();
     return n;
   }
+}
+
+/// Ekipteki bir kullanıcı.
+class KullaniciBilgisi {
+  const KullaniciBilgisi({required this.id, required this.adSoyad, required this.aktif, required this.roller, this.eposta});
+
+  final String id;
+  final String adSoyad;
+  final bool aktif;
+  final Set<Rol> roller;
+  final String? eposta;
+
+  bool get yonetici => roller.any((r) => const {Rol.buroSahibi, Rol.yoneticiOrtak, Rol.hukukDirektoru}.contains(r));
+
+  KullaniciBilgisi kopya({bool? aktif, Set<Rol>? roller}) =>
+      KullaniciBilgisi(id: id, adSoyad: adSoyad, aktif: aktif ?? this.aktif, roller: roller ?? this.roller, eposta: eposta);
 }

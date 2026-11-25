@@ -114,7 +114,14 @@ class KimlikApi {
     ..get('/kullanicilar', _kullanicilar)
     ..post('/ben/iki-adimli/baslat', _ikiAdimliBaslat)
     ..post('/ben/iki-adimli/etkinlestir', _ikiAdimliEtkinlestir)
-    ..post('/ben/iki-adimli/kapat', _ikiAdimliKapat);
+    ..post('/ben/iki-adimli/kapat', _ikiAdimliKapat)
+    ..post('/ben/sifre', _sifreDegistir)
+    ..get('/ben/oturumlar', _oturumlar)
+    ..post('/ben/oturumlar/digerlerini-kapat', _digerOturumlariKapat)
+    ..post('/ben/oturumlar/<kimlik>/kapat', _oturumKapat)
+    ..put('/kullanicilar/<id>/roller', _rolDegistir)
+    ..post('/kullanicilar/<id>/pasif', _pasiflestir)
+    ..post('/kullanicilar/<id>/aktif', _aktiflestir);
 
   Future<Response> _giris(Request istek) async {
     final j = await jsonGovde(istek);
@@ -281,6 +288,92 @@ class KimlikApi {
     return jsonYanit({'hesapSayisi': rs.first[0]});
   }
 
+  static String _mevcutOturum(Request istek) =>
+      tokenOzeti((istek.headers['authorization'] ?? '').replaceFirst('Bearer ', '').trim());
+
+  /// Eski şifre doğrulanır (Argon2, sunucuda); yeni şifre kurallara uymalı ve eskisiyle aynı olmamalı.
+  /// Bu oturum açık kalır, diğer tüm oturumlar kapanır.
+  Future<Response> _sifreDegistir(Request istek) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final eski = zorunluMetin(j, 'eskiSifre');
+    final yeni = zorunluMetin(j, 'yeniSifre');
+    final ozet = await vt.kiraciIcin(k, (tx) => tx.execute('SELECT hukuk.kendi_sifre_ozetim()'));
+    final mevcut = ozet.first[0] as String?;
+    if (mevcut == null || !SifreOzeti.dogrula(eski, mevcut)) {
+      throw const ApiHatasi(400, 'Mevcut şifre hatalı.', kod: 'sifre_hatali');
+    }
+    final hata = Dogrulayicilar.sifre(yeni);
+    if (hata != null) throw ApiHatasi(400, hata, kod: 'zayif_sifre');
+    if (eski == yeni) throw const ApiHatasi(400, 'Yeni şifre eskisiyle aynı olamaz.', kod: 'zayif_sifre');
+    await vt.kiraciIcin(k, (tx) => tx.execute(Sql.named('SELECT hukuk.sifre_degistir(@s, @o)'),
+        parameters: {'s': SifreOzeti.olustur(yeni), 'o': _mevcutOturum(istek)}));
+    return jsonYanit({'degisti': true});
+  }
+
+  Future<Response> _oturumlar(Request istek) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute(Sql.named('SELECT kimlik, olusturma, son_kullanma, istemci, bu_oturum FROM hukuk.kendi_oturumlarim(@o)'),
+            parameters: {'o': _mevcutOturum(istek)}));
+    return jsonYanit([
+      for (final r in rs)
+        {
+          'kimlik': r[0],
+          'olusturma': (r[1]! as DateTime).toUtc().toIso8601String(),
+          'sonKullanma': (r[2]! as DateTime).toUtc().toIso8601String(),
+          'istemci': r[3],
+          'buOturum': r[4],
+        },
+    ]);
+  }
+
+  Future<Response> _oturumKapat(Request istek, String oturumKimligi) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute(Sql.named('SELECT hukuk.kendi_oturumlarimi_kapat(@i, @o)'),
+            parameters: {'i': oturumKimligi, 'o': _mevcutOturum(istek)}));
+    if (rs.first[0] == 0) throw ApiHatasi.bulunamadi;
+    return jsonYanit({'kapatilan': rs.first[0]});
+  }
+
+  Future<Response> _digerOturumlariKapat(Request istek) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute(Sql.named('SELECT hukuk.kendi_oturumlarimi_kapat(NULL, @o)'),
+            parameters: {'o': _mevcutOturum(istek)}));
+    return jsonYanit({'kapatilan': rs.first[0]});
+  }
+
+  /// Ekip yönetimi (yalnızca yöneticiler; kurallar veritabanında: hesap türüne uygun rol, koltuk, son yönetici).
+  Future<Response> _rolDegistir(Request istek, String id) async {
+    final k = kimlik(istek);
+    final roller = [for (final r in ((await jsonGovde(istek))['roller'] as List? ?? const [])) '$r'];
+    await vt.kiraciIcin(k, (tx) => tx.execute(Sql.named('SELECT hukuk.kullanici_rolleri_degistir(CAST(@u AS uuid), @r)'),
+        parameters: {'u': id, 'r': roller}));
+    return jsonYanit({'roller': roller});
+  }
+
+  Future<Response> _pasiflestir(Request istek, String id) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final n = await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute(Sql.named('SELECT hukuk.kullanici_pasiflestir(CAST(@u AS uuid), CAST(@d AS uuid), @g)'),
+            parameters: {'u': id, 'd': j['devralan'] as String?, 'g': '${j['gerekce'] ?? ''}'}));
+    return jsonYanit({'devredilen': n.first[0]});
+  }
+
+  Future<Response> _aktiflestir(Request istek, String id) async {
+    final k = kimlik(istek);
+    await vt.kiraciIcin(
+        k, (tx) => tx.execute(Sql.named('SELECT hukuk.kullanici_aktiflestir(CAST(@u AS uuid))'), parameters: {'u': id}));
+    return jsonYanit({'aktif': true});
+  }
+
   Future<Response> _cikis(Request istek) async {
     final baslik = istek.headers['authorization'] ?? '';
     await vt.genel((tx) => tx.execute(Sql.named('SELECT hukuk.oturum_kapat(@o)'),
@@ -294,10 +387,10 @@ class KimlikApi {
     final rs = await vt.kiraciIcin(
         k,
         (tx) => tx.execute('SELECT u.id::text, u.ad_soyad, u.aktif, coalesce(array_agg(r.rol) FILTER (WHERE r.rol IS NOT NULL), '
-            "'{}') FROM hukuk.kullanici u LEFT JOIN hukuk.kullanici_rol r ON r.kullanici_id = u.id "
+            "'{}'), u.eposta FROM hukuk.kullanici u LEFT JOIN hukuk.kullanici_rol r ON r.kullanici_id = u.id "
             'GROUP BY u.id ORDER BY u.ad_soyad'));
     return jsonYanit([
-      for (final r in rs) {'id': r[0], 'adSoyad': r[1], 'aktif': r[2], 'roller': r[3]},
+      for (final r in rs) {'id': r[0], 'adSoyad': r[1], 'aktif': r[2], 'roller': r[3], 'eposta': r[4]},
     ]);
   }
 
