@@ -155,6 +155,18 @@ class SahteSunucu {
         return _json({'durum': 'gönderildi'}, 202);
       case 'POST /acik/eposta-dogrula':
         return _json({'hesapSayisi': 1});
+      case 'POST /aktarim/tablo':
+        return _json({
+          'sayfa': 'Liste',
+          'satirlar': [
+            ['Adı Soyadı', 'TCKN/VKN'],
+            ['Zeynep Aydın', ''],
+          ],
+          'uyarilar': [],
+        });
+      case 'POST /kisiler/toplu':
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        return _json({'eklenen': (j['kisiler'] as List).length, 'atlanan': 0}, 201);
       case 'GET /abonelik':
         return _json({
           'durum': 'deneme', 'etkinDurum': 'deneme', 'etkinDurumAdi': 'Deneme', 'donem': 'aylik',
@@ -653,5 +665,18 @@ void main() {
       throwsA(isA<KimlikHatasi>().having((e) => e.mesaj, 'mesaj', contains('süresi dolmuş'))),
     );
     await servis.sifreSifirla(kod: 'k0d', yeniSifre: 'Yeni-Sifre-2026');
+  });
+  test('Excel aktarımı: tablo sunucuda okunur, kayıtlar tek istekte sunucuya yazılır', () async {
+    final sunucu = SahteSunucu();
+    final api = ApiIstemcisi(Uri.parse('https://api.ornek.test/'), istemci: MockClient(sunucu.yanit))..token = 'tkn';
+    final depo = BellekVeriDeposu('k1');
+    final senkron = SunucuSenkronu(api, depo);
+    final satirlar = await senkron.tabloOku('liste.xlsx', [0x50, 0x4b, 3, 4]);
+    expect(satirlar.last, ['Zeynep Aydın', '']);
+    final o = KisiAktarimi.onizle(csv: 'Adı Soyadı;TCKN/VKN\nZeynep Aydın;', mevcut: const []);
+    final (n, hata) = await depo.kisileriAktar(o);
+    expect(hata, isNull);
+    expect(n, 1);
+    expect(sunucu.istekler, containsAll(['POST /aktarim/tablo', 'POST /kisiler/toplu']));
   });
 }

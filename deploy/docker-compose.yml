@@ -51,6 +51,7 @@ services:
       DIS_ADRES: ${DIS_ADRES:-http://localhost:8080/}
       DAVET_ADRESI: ${DAVET_ADRESI:-}
       PORTAL_ADRESI: ${PORTAL_ADRESI:-}
+      BELGE_SERVISI_ADRESI: http://belge:8090/
       CLAMD_ADRESI: clamav:3310
       ODEME_SAGLAYICI: ${ODEME_SAGLAYICI:-}
       ODEME_GIZLI: ${ODEME_GIZLI:-}

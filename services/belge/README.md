@@ -22,3 +22,7 @@ uvicorn belge_servisi.app:app --port 8090
 ```
 
 Docker: `docker build -t hukuk-belge . && docker run -p 8090:8090 hukuk-belge`
+
+## Excel okuma (`POST /tablo`)
+
+Veri aktarımı için `.xlsx` dosyasının ilk sayfasını satırlar olarak döner (en çok 5000 satır, 50 sütun). Formüllerin hesaplanmış değerleri okunur; makro ve dış bağlantılar çalıştırılmaz. Tarihler GG.AA.YYYY, tam sayıya eşit ondalıklar tam sayı olarak verilir (TCKN/VKN için). Eski `.xls` biçimi reddedilir. Dosya saklanmaz; uygulama sunucusu tarama yaptıktan sonra iç ağdan çağırır.

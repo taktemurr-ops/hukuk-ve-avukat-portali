@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import 'package:portal/ekranlar/ana_kabuk.dart';
 import 'package:portal/main.dart';
+import 'package:portal/servisler/dosya_secici.dart';
 import 'package:portal/servisler/kimlik_servisi.dart';
 import 'package:portal/servisler/veri_deposu.dart';
 import 'package:portal/tema/tema.dart';
@@ -121,6 +124,30 @@ void main() {
     expect(depo.kisiler.length, once + 1);
     expect(depo.kisiler.last.ad, 'Zeynep Aydın');
     expect(depo.denetim.olaylar.last.islem, DenetimIslemi.aktarim);
+  });
+
+  testWidgets('Windows-1254 CSV dosyası seçilince Türkçe harfler doğru okunur ve önizlenir', (tester) async {
+    final depo = await _ac(tester, 'ayarlar');
+    final once = depo.kisiler.length;
+    // "Adı Soyadı;E-posta\nŞükrü Doğan;s@ornek.com" Windows-1254 ile kodlanmış.
+    final b = <int>[
+      ...'Ad'.codeUnits, 0xFD, ...' Soyad'.codeUnits, 0xFD, ...';E-posta\n'.codeUnits, //
+      0xDE, 0xFC, ...'kr'.codeUnits, 0xFC, ...' Do'.codeUnits, 0xF0, ...'an;s@ornek.com\n'.codeUnits,
+    ];
+    final eski = dosyaSecici;
+    addTearDown(() => dosyaSecici = eski);
+    dosyaSecici = (_) async => (ad: 'liste.csv', icerik: Uint8List.fromList(b));
+    await _bas(tester, 'ayar-aktarim');
+    await _bas(tester, 'aktarim-dosya');
+    expect(find.text('Aktarılacak 1'), findsOneWidget);
+    await _bas(tester, 'aktarim-aktar');
+    expect(depo.kisiler.length, once + 1);
+    expect(depo.kisiler.last.ad, 'Şükrü Doğan');
+  });
+
+  test('CSV yazımı ayraç ve tırnak içeren hücreleri tırnaklar; geçerli UTF-8 olduğu gibi okunur', () {
+    expect(csvYaz([['Ad', 'Adres'], ['A;B', 'Çarşı "Merkez"']]), 'Ad;Adres\n"A;B";"Çarşı ""Merkez"""');
+    expect(csvCoz([0xC5, 0x9E]), 'Ş');
   });
 
   testWidgets('Denetim kaydı ekranı zincirin sağlam olduğunu gösterir', (tester) async {

@@ -84,6 +84,12 @@ abstract class UzakIslemler {
   /// Kartın tamamı; tür değişmez, ad değişirse eski ad sunucuda unvan geçmişine eklenir.
   Future<void> kisiGuncelle(Kisi kisi);
 
+  /// Excel/CSV aktarımı (tek işlem); dönen: eklenen kayıt sayısı.
+  Future<int> kisileriAktar(List<AktarimSatiri> satirlar);
+
+  /// Excel (.xlsx) dosyasının ilk sayfasını satırlar olarak okur (belge servisinde, Türkiye'de).
+  Future<List<List<String>>> tabloOku(String dosyaAdi, List<int> icerik);
+
   Future<void> iliskiEkle({required String kisiA, required String kisiB, required IliskiTuru tur});
 
   Future<void> iliskiSil(String iliskiId);
@@ -658,6 +664,34 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
       if (telefon != null && telefon.trim().isNotEmpty) 'telefon': telefon.trim(),
     });
     await _isVerisiniYenile();
+  }
+
+  @override
+  Future<int> kisileriAktar(List<AktarimSatiri> satirlar) async {
+    String? d(AktarimSatiri s, KisiAlani a) => s.deger(a).trim().isEmpty ? null : s.deger(a).trim();
+    final y = await api.post('/kisiler/toplu', {
+      'kisiler': [
+        for (final s in satirlar)
+          {
+            'satirNo': s.satirNo,
+            'tur': s.tur.name,
+            'ad': s.deger(KisiAlani.ad).trim(),
+            'kimlikNo': d(s, KisiAlani.kimlikNo),
+            'eposta': d(s, KisiAlani.eposta),
+            'telefon': d(s, KisiAlani.telefon),
+            'adres': d(s, KisiAlani.adres),
+          },
+      ],
+    }) as Map<String, dynamic>;
+    await _isVerisiniYenile();
+    return (y['eklenen'] as num).toInt();
+  }
+
+  @override
+  Future<List<List<String>>> tabloOku(String dosyaAdi, List<int> icerik) async {
+    final y = await api.postBayt('/aktarim/tablo', icerik, {'x-dosya-adi': Uri.encodeComponent(dosyaAdi)})
+        as Map<String, dynamic>;
+    return [for (final s in (y['satirlar'] as List)) [for (final h in (s as List)) '${h ?? ''}']];
   }
 
   @override

@@ -14,6 +14,8 @@ dependencies:
   hukuk_cekirdek:
     path: ../../packages/hukuk_cekirdek
   http: ^1.2.2
+  # Cihazdan dosya seçme (belge yükleme, Excel/CSV aktarımı). Dosya yalnızca seçilince okunur.
+  file_picker: ^8.1.2
   # Ödeme sayfasını (ödeme kuruluşunun sitesi) tarayıcıda açmak için.
   url_launcher: ^6.3.1
 

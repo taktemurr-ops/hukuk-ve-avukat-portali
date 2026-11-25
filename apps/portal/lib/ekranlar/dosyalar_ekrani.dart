@@ -5,6 +5,7 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
+import '../servisler/dosya_secici.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
@@ -290,6 +291,21 @@ class DosyaDetayEkrani extends StatelessWidget {
               Row(
                 children: [
                   Expanded(child: Text('Belgeler', style: metin.titleMedium)),
+                  OutlinedButton.icon(
+                    key: const Key('belge-dosyadan'),
+                    onPressed: () async {
+                      final f = await dosyaSecici(const ['pdf', 'docx', 'doc', 'udf', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'txt', 'xlsx']);
+                      if (f == null || !context.mounted) return;
+                      final h = await depo.dosyadanBelgeYukle(
+                          dosyaId: d.id, dosyaAdi: f.ad, icerik: f.icerik, tur: BelgeTuru.diger);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(h ?? '${f.ad} yüklendi (zararlı yazılım taraması ve SHA-256 özetiyle).')));
+                    },
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Dosyadan yükle'),
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     key: const Key('sablondan-belge'),
                     onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(

@@ -29,6 +29,8 @@ def tur_belirle(veri: bytes, dosya_adi: str = "") -> str:
             return "docx"
         if "content.xml" in adlar:
             return "udf"
+        if "xl/workbook.xml" in adlar:
+            return "xlsx"
         raise BelgeHatasi("Desteklenmeyen sıkıştırılmış dosya.")
     if veri.startswith(b"\x89PNG\r\n\x1a\n"):
         return "png"

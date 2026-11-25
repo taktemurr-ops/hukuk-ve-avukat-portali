@@ -21,6 +21,7 @@ class IsApi {
     ..get('/kisiler', _kisiler)
     ..post('/kisiler', _kisiEkle)
     ..put('/kisiler/<id>', _kisiGuncelle)
+    ..post('/kisiler/toplu', _kisiTopluEkle)
     ..get('/kisi-iliskileri', _iliskiler)
     ..post('/kisi-iliskileri', _iliskiEkle)
     ..delete('/kisi-iliskileri/<id>', _iliskiSil)
@@ -88,6 +89,53 @@ class IsApi {
     if (mersis != null && !RegExp(r'^[0-9]{16}$').hasMatch(mersis)) {
       throw const ApiHatasi(400, 'MERSİS numarası 16 haneli olmalıdır.', kod: 'gecersiz_istek');
     }
+  }
+
+  /// Excel/CSV aktarımı: önizlemeden geçen satırlar tek işlemde eklenir. Geçersiz satır varsa hiçbiri eklenmez
+  /// (satır numarasıyla hata döner); kimlik numarası zaten kayıtlı olan satır atlanır (eşzamanlı ekleme için).
+  Future<Response> _kisiTopluEkle(Request istek) async {
+    final k = kimlik(istek);
+    final liste = ((await jsonGovde(istek))['kisiler'] as List? ?? const []).cast<Map<String, dynamic>>();
+    if (liste.isEmpty) throw const ApiHatasi(400, 'Aktarılacak kayıt yok.', kod: 'eksik_alan');
+    if (liste.length > 5000) throw const ApiHatasi(400, 'Tek seferde en fazla 5000 kayıt aktarılabilir.', kod: 'gecersiz_istek');
+    final satirlar = <Map<String, Object?>>[];
+    for (var i = 0; i < liste.length; i++) {
+      final j = liste[i];
+      try {
+        final tur = enumAlani(j, 'tur', KisiTuru.values);
+        final ad = zorunluMetin(j, 'ad');
+        if (ad.length > 300) throw const ApiHatasi(400, 'Ad çok uzun.');
+        final no = _istegeBagli(j, 'kimlikNo', 11)?.replaceAll(' ', '');
+        final eposta = _istegeBagli(j, 'eposta', 200);
+        _kisiAlanlariniDogrula(tur, no, eposta, null);
+        satirlar.add({
+          't': tur.name,
+          'a': ad,
+          'n': no,
+          'e': eposta,
+          'tel': _istegeBagli(j, 'telefon', 30),
+          'adr': _istegeBagli(j, 'adres', 500),
+        });
+      } on ApiHatasi catch (e) {
+        final no = j['satirNo'] ?? i + 1;
+        throw ApiHatasi(400, '$no. satır: ${e.mesaj}', kod: 'gecersiz_istek');
+      }
+    }
+    final eklenen = await vt.kiraciIcin(k, (tx) async {
+      var n = 0;
+      for (final s in satirlar) {
+        final rs = await tx.execute(
+          Sql.named('INSERT INTO hukuk.kisi (kiraci_id, tur, ad, kimlik_no, eposta, telefon, adres) '
+              'VALUES (CAST(@k AS uuid), @t, @a, @n, @e, @tel, @adr) '
+              'ON CONFLICT (kiraci_id, kimlik_no) WHERE kimlik_no IS NOT NULL DO NOTHING'),
+          parameters: {'k': k.kiraciId, ...s},
+        );
+        n += rs.affectedRows;
+      }
+      await DosyaApi.denetim(tx, k, 'aktarim', 'kisi', '-', 'Gönderilen ${satirlar.length}, eklenen $n');
+      return n;
+    });
+    return jsonYanit({'eklenen': eklenen, 'atlanan': satirlar.length - eklenen}, durum: 201);
   }
 
   /// Kartın tamamı gönderilir (gönderilmeyen alan boşaltılır). Tür değişmez; ad değişirse eski ad unvan geçmişine

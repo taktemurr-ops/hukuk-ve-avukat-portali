@@ -21,6 +21,7 @@ import 'src/uyum_api.dart';
 import 'src/veritabani.dart';
 
 export 'src/abonelik_api.dart';
+export 'src/aktarim_api.dart';
 export 'src/belge_api.dart';
 export 'src/buro_api.dart';
 export 'src/davet_api.dart';
@@ -67,6 +68,7 @@ Handler uygulama(
   Uri? davetAdresi,
   Uri? sifirlamaAdresi,
   Uri? dogrulamaAdresi,
+  Uri? belgeServisi,
   VirusTarayici? virusTarayici,
   Set<String> izinliKokenler = const {},
   int belgeAzamiBoyut = 50 * 1024 * 1024,
@@ -83,7 +85,8 @@ Handler uygulama(
       .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut, tarayici: virusTarayici).router.call)
       .add(DavetApi(vt, davetAdresi: davetAdresi).router.call)
       .add(PortalApi(vt, depo).router.call)
-      .add(AbonelikApi(vt, odemeSaglayici).router.call);
+      .add(AbonelikApi(vt, odemeSaglayici).router.call)
+      .add(AktarimApi(belgeServisi: belgeServisi, tarayici: virusTarayici).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))

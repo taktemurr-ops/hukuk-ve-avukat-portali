@@ -141,6 +141,8 @@ def metin_cikar(veri: bytes, dosya_adi: str = "") -> Cikarim:
         sonuc = _docx(veri)
     elif tur == "udf":
         sonuc = _udf(veri)
+    elif tur == "xlsx":
+        raise BelgeHatasi("Excel dosyaları metin çıkarma için değil, veri aktarımı için kullanılır.")
     elif tur == "txt":
         sonuc = Cikarim("txt", _bosluk_duzelt(veri.decode("utf-8")), 0, "")
     else:

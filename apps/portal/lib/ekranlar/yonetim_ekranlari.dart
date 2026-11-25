@@ -3,6 +3,7 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
+import '../servisler/dosya_secici.dart';
 import '../servisler/sunucu_senkronu.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
@@ -23,6 +24,7 @@ class VeriAktarimEkrani extends StatefulWidget {
 class _VeriAktarimEkraniState extends State<VeriAktarimEkrani> {
   final _metin = TextEditingController();
   AktarimOnizlemesi? _onizleme;
+  bool _bekliyor = false;
 
   static const _ornek = 'Adı Soyadı;TCKN/VKN;E-posta;Telefon;Adres\n'
       'Zeynep Aydın;;zeynep@ornek.com;0532 000 00 00;Kadıköy İstanbul\n'
@@ -38,13 +40,49 @@ class _VeriAktarimEkraniState extends State<VeriAktarimEkrani> {
     setState(() => _onizleme = KisiAktarimi.onizle(csv: _metin.text, mevcut: widget.depo.kisiler));
   }
 
-  void _aktar() {
+  /// .xlsx sunucuda (belge servisi) okunur; .csv/.txt cihazda çözülür. Sonuç metin alanına yazılıp önizlenir.
+  Future<void> _dosyadanYukle() async {
+    final f = await dosyaSecici(const ['xlsx', 'csv', 'txt']);
+    if (f == null || !mounted) return;
+    String? hata;
+    String? metin;
+    if (f.ad.toLowerCase().endsWith('.xlsx')) {
+      final u = widget.depo.uzak;
+      if (u == null) {
+        hata = 'Excel dosyası sunucu bağlantısıyla okunur. Bu modda dosyayı CSV olarak kaydedip yükleyin.';
+      } else {
+        setState(() => _bekliyor = true);
+        try {
+          metin = csvYaz(await u.tabloOku(f.ad, f.icerik));
+        } on Exception catch (e) {
+          hata = '$e';
+        }
+      }
+    } else {
+      metin = csvCoz(f.icerik);
+    }
+    if (!mounted) return;
+    setState(() => _bekliyor = false);
+    if (hata != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
+      return;
+    }
+    _metin.text = metin!;
+    _onizle();
+  }
+
+  Future<void> _aktar() async {
     final o = _onizleme!;
-    final n = widget.depo.kisileriAktar(o);
+    setState(() => _bekliyor = true);
+    final (n, hata) = await widget.depo.kisileriAktar(o);
+    if (!mounted) return;
+    setState(() => _bekliyor = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('$n kişi aktarıldı. Okunan ${o.satirlar.length}, mükerrer ${o.sayi(SatirDurumu.mukerrer)}, '
-          'hatalı ${o.sayi(SatirDurumu.hatali)}.'),
+      content: Text(hata ??
+          '$n kişi aktarıldı. Okunan ${o.satirlar.length}, mükerrer ${o.sayi(SatirDurumu.mukerrer)}, '
+              'hatalı ${o.sayi(SatirDurumu.hatali)}.'),
     ));
+    if (hata != null) return;
     setState(() {
       _onizleme = null;
       _metin.clear();
@@ -60,17 +98,22 @@ class _VeriAktarimEkraniState extends State<VeriAktarimEkrani> {
         padding: const EdgeInsets.all(24),
         children: [
           const Text(
-            'Excel\'de listeyi "CSV (noktalı virgülle ayrılmış)" olarak kaydedip içeriğini buraya yapıştırın '
-            'veya hücreleri doğrudan kopyalayın. İlk satır başlık olmalıdır. Hiçbir kayıt önizlemeden önce eklenmez.',
+            'Excel dosyasını (.xlsx, ilk sayfa) ya da CSV\'yi yükleyin, veya hücreleri kopyalayıp buraya yapıştırın. '
+            'İlk satır başlık olmalıdır. Hiçbir kayıt önizlemeden önce eklenmez.',
           ),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
+          Wrap(spacing: 8, children: [
+            OutlinedButton.icon(
+              key: const Key('aktarim-dosya'),
+              onPressed: _bekliyor ? null : _dosyadanYukle,
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Dosyadan yükle (.xlsx, .csv)'),
+            ),
+            TextButton(
               onPressed: () => setState(() => _metin.text = _ornek),
               child: const Text('Örnek veriyle doldur'),
             ),
-          ),
+          ]),
           TextField(
             key: const Key('aktarim-metin'),
             controller: _metin,
@@ -136,7 +179,7 @@ class _VeriAktarimEkraniState extends State<VeriAktarimEkrani> {
               alignment: Alignment.centerLeft,
               child: FilledButton(
                 key: const Key('aktarim-aktar'),
-                onPressed: o.sayi(SatirDurumu.aktarilacak) == 0 ? null : _aktar,
+                onPressed: _bekliyor || o.sayi(SatirDurumu.aktarilacak) == 0 ? null : _aktar,
                 child: Text('${o.sayi(SatirDurumu.aktarilacak)} kişiyi aktar'),
               ),
             ),

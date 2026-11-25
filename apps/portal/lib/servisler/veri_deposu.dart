@@ -1145,6 +1145,42 @@ class BellekVeriDeposu extends ChangeNotifier {
     return b;
   }
 
+  /// Cihazdan seçilen dosyayı belge olarak yükler (sunucuda tarama ve SHA-256). Hata varsa mesajı döner.
+  Future<String?> dosyadanBelgeYukle({
+    required String dosyaId,
+    required String dosyaAdi,
+    required List<int> icerik,
+    required BelgeTuru tur,
+  }) async {
+    final kontrol = yuklemeKontrol(dosyaAdi: dosyaAdi, boyut: icerik.length);
+    if (kontrol != null) return kontrol;
+    final ad = dosyaAdi.contains('.') ? dosyaAdi.substring(0, dosyaAdi.lastIndexOf('.')) : dosyaAdi;
+    return sunucudaVeyaYerelde(
+      sunucuda: (u) => u.belgeYukle(dosyaId: dosyaId, ad: ad, dosyaAdi: dosyaAdi, icerik: icerik, tur: tur),
+      yerelde: () {
+        final b = Belge(
+          id: yeniId('b'),
+          kiraciId: kiraciId,
+          ad: ad,
+          tur: tur,
+          dosyaId: dosyaId,
+          ilkSurum: BelgeSurumu(
+            no: 1,
+            ozet: sha256Ozeti(icerik),
+            boyut: icerik.length,
+            yukleyen: aktifKullanici,
+            tarih: Tarih.from(DateTime.now()),
+            dosyaAdi: dosyaAdi,
+          ),
+        );
+        _belgeler.add(b);
+        _kaydet(DenetimIslemi.olusturma, 'belge', b.id, '$dosyaAdi · SHA-256 ${b.orijinal.ozet.substring(0, 12)}');
+        notifyListeners();
+        return null;
+      },
+    );
+  }
+
   /// Şablon alanları için dosya, müvekkil, karşı taraf ve kullanıcı bilgileri.
   Map<String, String?> sablonVerisi({required String dosyaId, required String avukatAdi, required String buroAdi}) {
     final d = dosya(dosyaId);
@@ -1403,7 +1439,18 @@ class BellekVeriDeposu extends ChangeNotifier {
   }
 
   /// Önizlemede "aktarılacak" durumundaki satırları kişi olarak ekler.
-  int kisileriAktar(AktarimOnizlemesi onizleme) {
+  /// Önizlemeden geçen satırları ekler. Dönen: (eklenen sayı, hata). Sunucu modunda tek işlemde sunucuya yazılır.
+  Future<(int, String?)> kisileriAktar(AktarimOnizlemesi onizleme) async {
+    final u = uzak;
+    if (u == null) return (_kisileriYerelAktar(onizleme), null);
+    try {
+      return (await u.kisileriAktar(onizleme.satirlar.where((s) => s.durum == SatirDurumu.aktarilacak).toList()), null);
+    } on Exception catch (e) {
+      return (0, '$e');
+    }
+  }
+
+  int _kisileriYerelAktar(AktarimOnizlemesi onizleme) {
     var n = 0;
     for (final s in onizleme.satirlar.where((s) => s.durum == SatirDurumu.aktarilacak)) {
       _sayac++;

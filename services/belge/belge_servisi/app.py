@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from .cikarim import metin_cikar, ocr_var
 from .docx_uret import docx_uret, eksik_alanlar
 from .guvenlik import AZAMI_BOYUT, BelgeHatasi
+from .tablo import tablo_oku
 
 app = FastAPI(title="Hukuk ve Avukat Portalı belge servisi", version="0.1.0")
 
@@ -25,6 +26,15 @@ async def metin(dosya: UploadFile = File(...)) -> dict:
     veri = await dosya.read(AZAMI_BOYUT + 1)
     try:
         return metin_cikar(veri, dosya.filename or "").sozluk()
+    except BelgeHatasi as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+@app.post("/tablo")
+async def tablo(dosya: UploadFile = File(...)) -> dict:
+    veri = await dosya.read(AZAMI_BOYUT + 1)
+    try:
+        return tablo_oku(veri, dosya.filename or "")
     except BelgeHatasi as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 

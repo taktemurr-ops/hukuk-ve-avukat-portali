@@ -50,7 +50,7 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 
 | Durum | İş |
 | --- | --- |
-| ◐ | Belge yükleme, sürüm, hash, zararlı dosya taraması, OCR, arama — sürüm ve SHA-256 bütünlük, izinli dosya türleri, dosyada belge listesi hazır; gerçek dosya yükleme, zararlı dosya taraması ve OCR sunucu bekliyor |
+| ◐ | Belge yükleme, sürüm, hash, zararlı dosya taraması, OCR, arama — sürüm ve SHA-256 bütünlük, izinli dosya türleri, dosyada belge listesi hazır; cihazdan dosya yükleme (sunucuda içerik imzası, ClamAV taraması, SHA-256) hazır; OCR'ın uygulama sunucusuna bağlanması bekliyor |
 | ◐ | Şablon motoru, DOCX/PDF/UDF çıktı — alan birleştirme, koşullu blok, eksik alan raporu ve 3 taslak şablon (mazeret, ihtarname, ücret sözleşmesi) hazır; DOCX/PDF/UDF dönüşümü Python servisi bekliyor; şablon metinleri avukat onayı bekliyor |
 | ◐ | Hesaplama araçları (faiz, harç, AAÜT, döviz) — dönemsel yasal faiz (%9/%24/%31), avans faizi, 2026 harçları, AAÜT 2025-26 ve 2026-27, makbuz hesabı hazır; avans faizi geçmişi, döviz ve işçilik alacakları bekliyor; tüm tarifeler avukat onayı bekliyor |
 | ◐ | Cari hesap, emanet hesabı, ücret sözleşmesi, e-SMM — cari (avans/masraf/ücret), emanet (eksiye düşmeme, onaylı mahsup, bekleme uyarısı) ve Finans ekranı hazır; e-SMM entegratör bağlantısı bekliyor |
@@ -70,7 +70,7 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | --- | --- |
 | ◐ | Tanıtım sitesi, demo hesabı ve örnek veri — statik site (site/), üç hesap türü için demo girişi ve örnek veri hazır; form gönderimi ve fiyatların kesinleşmesi bekliyor |
 | ◐ | Ödeme, abonelik, e-fatura, başarısız ödeme akışı — abonelik yaşam döngüsü (14 gün deneme, aylık/yıllık, 1-3-7. gün tekrar deneme, askı, dönem sonu iptal, kıst koltuk farkı, KDV) ve ekranı hazır; yurt içi ödeme kuruluşu ve e-Arşiv entegrasyonu bekliyor |
-| ◐ | Veri aktarım sihirbazı (Excel/CSV, DavaTek/UYAP çıktıları) — CSV müvekkil aktarımı (sütun tahmini, TCKN/VKN, mükerrer, mutabakat) hazır; Excel ve UYAP çıktıları bekliyor |
+| ◐ | Veri aktarım sihirbazı (Excel/CSV, DavaTek/UYAP çıktıları) — CSV ve Excel (.xlsx, belge servisinde okunur; Windows-1254 CSV desteği) müvekkil aktarımı (sütun tahmini, TCKN/VKN, mükerrer, mutabakat) hazır; sunucu modunda tek işlemde sunucuya yazılır; UYAP çıktıları bekliyor |
 | ☐ | Kabul testleri, sızma testi, yedekten geri dönüş testi |
 | ☐ | 5–10 pilot büro |
 
