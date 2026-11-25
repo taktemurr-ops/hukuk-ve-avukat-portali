@@ -37,6 +37,76 @@ class HesapYonetimi extends ChangeNotifier {
 
   List<Davet> bekleyenDavetler() => davetler.where((d) => d.gecerliMi(_saat())).toList();
 
+  /// Sunucu bağlıyken davetlerin sunucudaki kimlikleri (iptal için) ve kullanılan koltuk.
+  final Map<Davet, String> _sunucuKimlikleri = {};
+  int? _sunucuDolu;
+
+  /// Sunucudan davet listesi ve koltuk durumu (yalnızca yöneticiler görür; diğerlerinde liste boş kalır).
+  Future<void> sunucudanYukle() async {
+    final u = depo.uzak;
+    if (u == null) return;
+    final (lisans, dolu) = await u.koltuklar();
+    final liste = await u.davetler();
+    lisansKoltugu = lisans;
+    _sunucuDolu = dolu;
+    davetler.clear();
+    _sunucuKimlikleri.clear();
+    for (final j in liste) {
+      if (j['durum'] != 'bekliyor') continue;
+      final olusturma = DateTime.parse(j['olusturma'] as String).toLocal();
+      final d = Davet(
+        kod: '',
+        kiraciId: oturum.kiraciId,
+        eposta: j['eposta'] as String,
+        roller: {
+          for (final r in (j['roller'] as List? ?? const []))
+            ...Rol.values.where((x) => x.name == r),
+        },
+        davetEden: '',
+        olusturma: olusturma,
+        gecerlilik: DateTime.parse(j['sonGecerlilik'] as String).toLocal().difference(olusturma),
+      );
+      davetler.add(d);
+      _sunucuKimlikleri[d] = j['id'] as String;
+    }
+    notifyListeners();
+  }
+
+  /// Koltuk özeti: sunucu bağlıyken sunucunun saydığı (aktif kullanıcı + bekleyen davet).
+  int get doluKoltuk => _sunucuDolu ?? aktifKoltuk + bekleyenDavetler().where((d) => d.koltukTuketir()).length;
+
+  /// Sunucu bağlıyken davet sunucuda oluşur; dönen değer (hata, davet kodu). Kod yalnızca bir kez gösterilir.
+  Future<(String?, String?)> davetGonder(String eposta, Set<Rol> roller) async {
+    final u = depo.uzak;
+    if (u == null) return (davetEt(eposta, roller), null);
+    final epostaHatasi = Dogrulayicilar.eposta(eposta);
+    if (epostaHatasi != null) return (epostaHatasi, null);
+    if (roller.isEmpty) return ('En az bir rol seçilmelidir.', null);
+    try {
+      final kod = await u.davetEt(eposta, roller);
+      await sunucudanYukle();
+      return (null, kod);
+    } on Exception catch (e) {
+      return ('$e', null);
+    }
+  }
+
+  Future<String?> davetIptalEt(Davet d) async {
+    final u = depo.uzak;
+    final id = _sunucuKimlikleri[d];
+    if (u == null || id == null) {
+      davetIptal(d);
+      return null;
+    }
+    try {
+      await u.davetIptal(id);
+      await sunucudanYukle();
+      return null;
+    } on Exception catch (e) {
+      return '$e';
+    }
+  }
+
   /// Yeni davet; koltuk yetmezse hata mesajı döner.
   String? davetEt(String eposta, Set<Rol> roller) {
     final epostaHatasi = Dogrulayicilar.eposta(eposta);
@@ -472,13 +542,12 @@ class EkipEkrani extends StatelessWidget {
         listenable: yonetim,
         builder: (context, _) {
           final bekleyen = yonetim.bekleyenDavetler();
-          final tuketen = bekleyen.where((d) => d.koltukTuketir()).length;
           return ListView(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
             children: [
               Panel(
                 baslik: 'Lisans koltukları',
-                sag: Text('${yonetim.aktifKoltuk + tuketen} / ${yonetim.lisansKoltugu}', key: const Key('koltuk-ozet')),
+                sag: Text('${yonetim.doluKoltuk} / ${yonetim.lisansKoltugu}', key: const Key('koltuk-ozet')),
                 child: const Text('Talep eden çalışan, onaycı, müvekkil ve denetçi rolleri koltuk tüketmez.'),
               ),
               const SizedBox(height: 20),
@@ -511,7 +580,12 @@ class EkipEkrani extends StatelessWidget {
                                 '${tarihSaat(d.olusturma.add(d.gecerlilik))} tarihine kadar geçerli'),
                             trailing: IconButton(
                               tooltip: 'Daveti iptal et',
-                              onPressed: () => yonetim.davetIptal(d),
+                              onPressed: () async {
+                                final h = await yonetim.davetIptalEt(d);
+                                if (h != null && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+                                }
+                              },
                               icon: const Icon(Icons.close),
                             ),
                           ),
@@ -539,6 +613,9 @@ class _DavetDiyaloguState extends State<_DavetDiyalogu> {
   final Set<Rol> _roller = {};
   String? _hata;
 
+  /// Sunucuda oluşan davetin kodu: davet e-postası gönderimi bağlanana kadar yönetici bağlantıyı kendisi iletir.
+  String? _kod;
+
   @override
   void dispose() {
     _eposta.dispose();
@@ -548,6 +625,26 @@ class _DavetDiyaloguState extends State<_DavetDiyalogu> {
   @override
   Widget build(BuildContext context) {
     final roller = widget.yonetim.oturum.lisans.roller;
+    final kod = _kod;
+    if (kod != null) {
+      return AlertDialog(
+        title: const Text('Davet oluşturuldu'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Davet kodunu kişiye güvenli bir yoldan iletin (72 saat geçerli, bir kez kullanılır):'),
+          const SizedBox(height: 8),
+          SelectableText(kod, key: const Key('davet-kodu'), style: const TextStyle(fontFamily: 'monospace', fontSize: 16)),
+          const SizedBox(height: 8),
+          const Text('Kod yalnızca şimdi gösterilir; kaybolursa daveti iptal edip yenisini oluşturun.'),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Clipboard.setData(ClipboardData(text: kod)),
+            child: const Text('Kopyala'),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Tamam')),
+        ],
+      );
+    }
     return AlertDialog(
       title: const Text('Ekibe davet et'),
       content: SizedBox(
@@ -594,13 +691,18 @@ class _DavetDiyaloguState extends State<_DavetDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('davet-gonder'),
-          onPressed: () {
-            final hata = widget.yonetim.davetEt(_eposta.text, Set.of(_roller));
-            if (hata == null) {
-              Navigator.pop(context);
-            } else {
+          onPressed: () async {
+            final (hata, kod) = await widget.yonetim.davetGonder(_eposta.text, Set.of(_roller));
+            if (!mounted) return;
+            if (hata != null) {
               setState(() => _hata = hata);
+              return;
             }
+            if (kod == null) {
+              Navigator.pop(context);
+              return;
+            }
+            setState(() => _kod = kod);
           },
           child: const Text('Davet gönder'),
         ),

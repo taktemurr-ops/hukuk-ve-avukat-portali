@@ -564,7 +564,11 @@ class _AyarlarSayfasi extends StatelessWidget {
                 title: const Text('Ekip ve davetler'),
                 subtitle: const Text('Kullanıcı davet edin, rol verin, lisans koltuklarını izleyin.'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => ac(EkipEkrani(yonetim: yonetim)),
+                onTap: () {
+                  // Sunucu bağlıyken davetler ve koltuklar sunucudan gelir (yönetici değilse liste boş kalır).
+                  yonetim.sunucudanYukle().then((_) {}, onError: (Object _) {});
+                  ac(EkipEkrani(yonetim: yonetim));
+                },
               ),
               const Divider(),
               ListTile(

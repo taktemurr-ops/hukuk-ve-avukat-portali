@@ -67,6 +67,17 @@ abstract class UzakIslemler {
 
   Future<void> portalPaylas(String dosyaId, bool paylas);
 
+  /// Davetler ham JSON olarak (id, eposta, roller, olusturma, sonGecerlilik, durum).
+  Future<List<Map<String, dynamic>>> davetler();
+
+  /// Davet oluşturur; bağlantıya konacak kodu döner (yalnızca bir kez).
+  Future<String> davetEt(String eposta, Set<Rol> roller, {String? kisiId});
+
+  Future<void> davetIptal(String davetId);
+
+  /// (lisans, dolu)
+  Future<(int, int)> koltuklar();
+
   Future<void> belgePaylas(String belgeId, bool paylas);
 
   /// Belgeyi yükler (sürüm 1); SHA-256 özeti sunucuda hesaplanır.
@@ -722,5 +733,29 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
   Future<void> mesajlariOku(String dosyaId) async {
     await api.post('/dosyalar/$dosyaId/mesajlar/okundu');
     await _buroVerisiniYenile();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> davetler() async => _liste(await api.get('/davetler'));
+
+  @override
+  Future<String> davetEt(String eposta, Set<Rol> roller, {String? kisiId}) async {
+    final y = await api.post('/davetler', {
+      'eposta': eposta.trim().toLowerCase(),
+      'roller': [for (final r in roller) r.name],
+      if (kisiId != null) 'kisiId': kisiId,
+    }) as Map<String, dynamic>;
+    return y['kod'] as String;
+  }
+
+  @override
+  Future<void> davetIptal(String davetId) async {
+    await api.post('/davetler/$davetId/iptal');
+  }
+
+  @override
+  Future<(int, int)> koltuklar() async {
+    final y = await api.get('/koltuklar') as Map<String, dynamic>;
+    return (y['lisans'] as int, y['dolu'] as int);
   }
 }

@@ -131,6 +131,12 @@ class _GirisEkraniState extends State<GirisEkrani> {
     widget.girisYapildi(oturum);
   }
 
+  void _davetKabul() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => DavetKabulEkrani(servis: widget.servis)),
+    );
+  }
+
   void _kayitOl() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => KayitSihirbazi(servis: widget.servis)),
@@ -228,6 +234,11 @@ class _GirisEkraniState extends State<GirisEkrani> {
                     child: const Text('Hesap oluştur'),
                   ),
                   const SizedBox(height: 8),
+                  TextButton(
+                    key: const Key('davet-kabul'),
+                    onPressed: _davetKabul,
+                    child: const Text('Davet kodum var'),
+                  ),
                   TextButton.icon(
                     key: const Key('demo-giris'),
                     onPressed: _demo,
@@ -270,6 +281,116 @@ class _TanitimPaneli extends StatelessWidget {
           Spacer(),
           Text('Avukatlık büroları, hukuk büroları ve şirket hukuk birimleri için', style: TextStyle(color: Renkler.altin)),
         ],
+      ),
+    );
+  }
+}
+
+/// Davet bağlantısıyla gelen kişi: kod, e-posta, ad ve şifre belirleyerek hesabını açar.
+class DavetKabulEkrani extends StatefulWidget {
+  const DavetKabulEkrani({super.key, required this.servis, this.kod});
+
+  final KimlikServisi servis;
+
+  /// Bağlantıdan gelen kod (varsa alan dolu gelir).
+  final String? kod;
+
+  @override
+  State<DavetKabulEkrani> createState() => _DavetKabulEkraniState();
+}
+
+class _DavetKabulEkraniState extends State<DavetKabulEkrani> {
+  late final _kod = TextEditingController(text: widget.kod ?? '');
+  final _eposta = TextEditingController();
+  final _ad = TextEditingController();
+  final _sifre = TextEditingController();
+  final _sifre2 = TextEditingController();
+  String? _hata;
+  bool _gonderiliyor = false;
+  bool _tamam = false;
+
+  @override
+  void dispose() {
+    for (final c in [_kod, _eposta, _ad, _sifre, _sifre2]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _gonder() async {
+    final eposta = _eposta.text.trim();
+    final hata = _kod.text.trim().isEmpty
+        ? 'Davet kodunu girin.'
+        : Dogrulayicilar.eposta(eposta) ??
+            (_ad.text.trim().length < 3 ? 'Adınızı ve soyadınızı yazın.' : null) ??
+            Dogrulayicilar.sifre(_sifre.text, eposta: eposta) ??
+            (_sifre.text != _sifre2.text ? 'Şifreler aynı değil.' : null);
+    if (hata != null) {
+      setState(() => _hata = hata);
+      return;
+    }
+    setState(() {
+      _hata = null;
+      _gonderiliyor = true;
+    });
+    try {
+      await widget.servis.davetKabul(kod: _kod.text, eposta: eposta, adSoyad: _ad.text, sifre: _sifre.text);
+      if (mounted) setState(() => _tamam = true);
+    } on KimlikHatasi catch (e) {
+      if (mounted) setState(() => _hata = e.mesaj);
+    } finally {
+      if (mounted) setState(() => _gonderiliyor = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Daveti kabul et')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: ListView(padding: const EdgeInsets.all(24), shrinkWrap: true, children: [
+            if (_tamam) ...[
+              const Text('Hesabınız açıldı. Şimdi e-posta adresiniz ve belirlediğiniz şifreyle giriş yapabilirsiniz.',
+                  key: Key('davet-tamam')),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Girişe dön')),
+            ] else ...[
+              TextField(key: const Key('davet-kod'), controller: _kod, decoration: const InputDecoration(labelText: 'Davet kodu')),
+              const SizedBox(height: 12),
+              TextField(
+                  key: const Key('davet-kabul-eposta'),
+                  controller: _eposta,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Davet edilen e-posta')),
+              const SizedBox(height: 12),
+              TextField(key: const Key('davet-ad'), controller: _ad, decoration: const InputDecoration(labelText: 'Ad soyad')),
+              const SizedBox(height: 12),
+              TextField(
+                  key: const Key('davet-sifre'),
+                  controller: _sifre,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Şifre', helperText: 'En az 10 karakter; harf ve rakam içermeli')),
+              const SizedBox(height: 12),
+              TextField(
+                  key: const Key('davet-sifre2'),
+                  controller: _sifre2,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Şifre (tekrar)')),
+              if (_hata != null) ...[
+                const SizedBox(height: 12),
+                Text(_hata!, key: const Key('davet-kabul-hata'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ],
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const Key('davet-kabul-gonder'),
+                onPressed: _gonderiliyor ? null : _gonder,
+                child: const Text('Hesabımı aç'),
+              ),
+            ],
+          ]),
+        ),
       ),
     );
   }

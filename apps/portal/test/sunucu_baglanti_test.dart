@@ -121,6 +121,12 @@ class SahteSunucu {
         tahsilatlar.add({'id': 't${tahsilatlar.length + 1}', 'tarih': j['tarih'], 'tutarKurus': j['tutarKurus'],
           'aciklama': j['aciklama']});
         return _json({'id': 't${tahsilatlar.length}'}, 201);
+      case 'POST /acik/davet-kabul':
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        if (j['kod'] != 'abc123') {
+          return _json({'hata': 'kural_ihlali', 'mesaj': 'Davet geçersiz, süresi dolmuş veya bu e-posta için değil'}, 409);
+        }
+        return _json({'kiraciId': 'k1', 'kullaniciId': 'u7'}, 201);
       case 'GET /portal/dosyalar':
         return _json([
           {
@@ -438,6 +444,22 @@ void main() {
     expect(sunucu.istekler, contains('GET /portal/dosyalar'));
     // Büro uçlarına hiç gidilmez.
     expect(sunucu.istekler.where((i) => const ['GET /dosyalar', 'GET /kisiler', 'GET /kullanicilar'].contains(i)), isEmpty);
+  });
+
+  testWidgets('Davet koduyla hesap açılır; hatalı kodda sunucunun iletisi gösterilir', (tester) async {
+    final (sunucu, _) = await _uygulama(tester);
+    await _bas(tester, 'davet-kabul');
+    await tester.enterText(find.byKey(const Key('davet-kod')), 'yanlis');
+    await tester.enterText(find.byKey(const Key('davet-kabul-eposta')), 'selin@yilmaz.av.tr');
+    await tester.enterText(find.byKey(const Key('davet-ad')), 'Av. Selin Arslan');
+    await tester.enterText(find.byKey(const Key('davet-sifre')), 'Guclu-Sifre-2026');
+    await tester.enterText(find.byKey(const Key('davet-sifre2')), 'Guclu-Sifre-2026');
+    await _bas(tester, 'davet-kabul-gonder');
+    expect(find.textContaining('Davet geçersiz'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('davet-kod')), 'abc123');
+    await _bas(tester, 'davet-kabul-gonder');
+    expect(find.byKey(const Key('davet-tamam')), findsOneWidget);
+    expect(sunucu.istekler.where((i) => i == 'POST /acik/davet-kabul').length, 2);
   });
 
   testWidgets('Birden çok kurumda hesap varsa kurum seçilir', (tester) async {

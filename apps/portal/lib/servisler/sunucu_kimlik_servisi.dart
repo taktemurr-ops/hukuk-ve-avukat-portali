@@ -86,6 +86,15 @@ class SunucuKimlikServisi implements KimlikServisi {
   }
 
   @override
+  Future<void> davetKabul({required String kod, required String eposta, required String adSoyad, required String sifre}) async {
+    try {
+      await api.post('/acik/davet-kabul', {'kod': kod.trim(), 'eposta': eposta.trim(), 'adSoyad': adSoyad.trim(), 'sifre': sifre});
+    } on SunucuHatasi catch (e) {
+      throw KimlikHatasi(e.mesaj);
+    }
+  }
+
+  @override
   Future<void> sifreSifirlamaIste(String eposta) async {
     // Sunucu ucu e-posta altyapısıyla gelecek; kullanıcıya her durumda aynı yanıt verilir.
   }

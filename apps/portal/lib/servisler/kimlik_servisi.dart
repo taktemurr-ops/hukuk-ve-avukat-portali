@@ -96,6 +96,9 @@ abstract class KimlikServisi {
 
   /// Müvekkil portalını örnek müvekkil olarak dener.
   Future<Oturum> demoMuvekkilGiris();
+
+  /// Davet bağlantısındaki kodla hesap açar (şifreyi kişi kendisi belirler). Ardından normal giriş yapılır.
+  Future<void> davetKabul({required String kod, required String eposta, required String adSoyad, required String sifre});
 }
 
 /// Yalnızca geliştirme ve demo için bellekte çalışan kimlik servisi.
@@ -155,6 +158,11 @@ class BellekKimlikServisi implements KimlikServisi {
 
   @override
   Future<void> sifreSifirlamaIste(String eposta) async {}
+
+  @override
+  Future<void> davetKabul({required String kod, required String eposta, required String adSoyad, required String sifre}) async {
+    throw const KimlikHatasi('Davet kabulü sunucu bağlantısıyla çalışır; demo sürümünde kullanılamaz.');
+  }
 
   @override
   Future<Oturum> demoGiris(HesapTuru tur) async {
