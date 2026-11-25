@@ -347,6 +347,14 @@ Future<void> _bas(WidgetTester tester, String anahtar) async {
   await tester.pumpAndSettle();
 }
 
+/// Sonraki adımda odaklanan metin alanı (yanıp sönen imleç) varken ekran "durulmaz"; kısa süre ilerletilir.
+Future<void> _basBekle(WidgetTester tester, String anahtar) async {
+  await tester.ensureVisible(find.byKey(Key(anahtar)));
+  await tester.tap(find.byKey(Key(anahtar)));
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pump(const Duration(milliseconds: 500));
+}
+
 Future<(SahteSunucu, ApiIstemcisi)> _uygulama(WidgetTester tester,
     {bool ikiKurum = false, bool kurumsal = false, bool muvekkil = false}) async {
   tester.view.physicalSize = const Size(1500, 2600);
@@ -565,12 +573,12 @@ void main() {
     sunucu.ikiAdimli = true;
     await tester.enterText(find.byKey(const Key('giris-eposta')), 'ayse@yilmaz.av.tr');
     await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
-    await _bas(tester, 'giris-yap');
+    await _basBekle(tester, 'giris-yap');
     await tester.enterText(find.byKey(const Key('giris-iki-adimli-kod')), '000000');
-    await _bas(tester, 'giris-iki-adimli-onay');
+    await _basBekle(tester, 'giris-iki-adimli-onay');
     expect(find.textContaining('Doğrulama kodu hatalı'), findsOneWidget);
     expect(api.token, isNull);
-    await _bas(tester, 'giris-yap');
+    await _basBekle(tester, 'giris-yap');
     await tester.enterText(find.byKey(const Key('giris-iki-adimli-kod')), '123456');
     // Girişten sonra uygulama yüklenir (sürekli animasyon olabilir); yalnızca oturumun açıldığına bakılır.
     await tester.tap(find.byKey(const Key('giris-iki-adimli-onay')));
@@ -614,7 +622,7 @@ void main() {
     final (_, api) = await _uygulama(tester, ikiKurum: true);
     await tester.enterText(find.byKey(const Key('giris-eposta')), 'ayse@yilmaz.av.tr');
     await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
-    await _bas(tester, 'giris-yap');
+    await _basBekle(tester, 'giris-yap');
     expect(find.text('ABC Gıda Hukuk'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const Key('kurum-k2')));
     await tester.tap(find.byKey(const Key('kurum-k2')));

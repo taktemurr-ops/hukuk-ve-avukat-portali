@@ -35,10 +35,9 @@ Future<void> _bas(WidgetTester tester, String anahtar) async {
 
 Future<void> _dosyaSec(WidgetTester tester, String anahtar, String dosyaBasligi) async {
   await _bas(tester, anahtar);
-  // TANI: geçici
-  debugPrint('TANI $anahtar bulunan=${find.textContaining(dosyaBasligi).evaluate().length} '
-      'isabet=${find.textContaining(dosyaBasligi).hitTestable().evaluate().length}');
-  await tester.tap(find.textContaining(dosyaBasligi).last);
+  // Açılan menüdeki öğeye dokunulur (alanın kendi metnine değil).
+  final oge = find.descendant(of: find.byType(MenuItemButton), matching: find.textContaining(dosyaBasligi));
+  await tester.tap(oge.evaluate().isNotEmpty ? oge.last : find.textContaining(dosyaBasligi).last);
   await tester.pumpAndSettle();
 }
 
