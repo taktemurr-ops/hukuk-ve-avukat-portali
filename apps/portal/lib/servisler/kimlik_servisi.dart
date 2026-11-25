@@ -1,0 +1,158 @@
+import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
+
+/// Kayıt sihirbazında toplanan bilgiler.
+class KayitBilgileri {
+  const KayitBilgileri({
+    required this.hesapTuru,
+    required this.adSoyad,
+    required this.kurumAdi,
+    required this.eposta,
+    required this.telefon,
+    required this.sifre,
+    required this.faturaUnvani,
+    required this.tcknVeyaVkn,
+    required this.vergiDairesi,
+    required this.faturaAdresi,
+    required this.ticariIletiIzni,
+    required this.onayZamani,
+  });
+
+  final HesapTuru hesapTuru;
+  final String adSoyad;
+
+  /// Büro veya şirket adı.
+  final String kurumAdi;
+  final String eposta;
+  final String telefon;
+  final String sifre;
+  final String faturaUnvani;
+  final String tcknVeyaVkn;
+  final String vergiDairesi;
+  final String faturaAdresi;
+
+  /// İYS kapsamında ticari elektronik ileti izni (isteğe bağlı).
+  final bool ticariIletiIzni;
+
+  /// Kullanım koşulları, abonelik sözleşmesi ve KVKK aydınlatma metninin onaylandığı an.
+  final DateTime onayZamani;
+}
+
+/// Oturum açmış kullanıcı.
+class Oturum {
+  const Oturum({
+    required this.kullaniciId,
+    required this.kiraciId,
+    required this.adSoyad,
+    required this.eposta,
+    required this.kurumAdi,
+    required this.hesapTuru,
+    required this.roller,
+  });
+
+  final String kullaniciId;
+  final String kiraciId;
+  final String adSoyad;
+  final String eposta;
+  final String kurumAdi;
+  final HesapTuru hesapTuru;
+  final Set<Rol> roller;
+
+  LisansProfili get lisans => LisansProfili.varsayilan(hesapTuru);
+}
+
+class KimlikHatasi implements Exception {
+  const KimlikHatasi(this.mesaj);
+
+  final String mesaj;
+
+  @override
+  String toString() => mesaj;
+}
+
+/// Kimlik işlemleri. Sunucu (Serverpod) hazır olduğunda gerçek uygulaması yazılacak;
+/// ekranlar yalnızca bu arayüze bağlıdır.
+abstract class KimlikServisi {
+  Oturum? get oturum;
+
+  Future<Oturum> girisYap({required String eposta, required String sifre});
+
+  Future<void> cikisYap();
+
+  /// Hesabı ve 14 günlük denemeyi başlatır, aktivasyon e-postası gönderir.
+  Future<void> kayitOl(KayitBilgileri bilgiler);
+
+  /// Güvenlik gereği e-posta kayıtlı olsun olmasın aynı yanıtı verir.
+  Future<void> sifreSifirlamaIste(String eposta);
+}
+
+/// Yalnızca geliştirme ve demo için bellekte çalışan kimlik servisi.
+///
+/// Gerçek sunucuda şifreler Argon2 ile özetlenir, hesap e-posta doğrulanana kadar
+/// pasif kalır ve deneme sayısı sunucuda tutulur.
+class BellekKimlikServisi implements KimlikServisi {
+  final Map<String, _Kayit> _kayitlar = {};
+  final Map<String, int> _hataliDenemeler = {};
+  Oturum? _oturum;
+  int _sayac = 0;
+
+  static const int azamiHataliDeneme = 5;
+
+  @override
+  Oturum? get oturum => _oturum;
+
+  @override
+  Future<void> kayitOl(KayitBilgileri bilgiler) async {
+    final eposta = bilgiler.eposta.trim().toLowerCase();
+    if (_kayitlar.containsKey(eposta)) {
+      throw const KimlikHatasi('Bu e-posta adresiyle kayıtlı bir hesap var.');
+    }
+    _sayac++;
+    _kayitlar[eposta] = _Kayit(
+      sifre: bilgiler.sifre,
+      oturum: Oturum(
+        kullaniciId: 'k$_sayac',
+        kiraciId: 'kiraci$_sayac',
+        adSoyad: bilgiler.adSoyad.trim(),
+        eposta: eposta,
+        kurumAdi: bilgiler.kurumAdi.trim(),
+        hesapTuru: bilgiler.hesapTuru,
+        roller: {_kurucuRol(bilgiler.hesapTuru)},
+      ),
+    );
+  }
+
+  @override
+  Future<Oturum> girisYap({required String eposta, required String sifre}) async {
+    final anahtar = eposta.trim().toLowerCase();
+    final hatali = _hataliDenemeler[anahtar] ?? 0;
+    if (hatali >= azamiHataliDeneme) {
+      throw const KimlikHatasi('Çok sayıda hatalı deneme. Hesabınız geçici olarak kilitlendi.');
+    }
+    final kayit = _kayitlar[anahtar];
+    if (kayit == null || kayit.sifre != sifre) {
+      _hataliDenemeler[anahtar] = hatali + 1;
+      throw const KimlikHatasi('E-posta veya şifre hatalı.');
+    }
+    _hataliDenemeler.remove(anahtar);
+    return _oturum = kayit.oturum;
+  }
+
+  @override
+  Future<void> cikisYap() async => _oturum = null;
+
+  @override
+  Future<void> sifreSifirlamaIste(String eposta) async {}
+
+  static Rol _kurucuRol(HesapTuru tur) => switch (tur) {
+        HesapTuru.avukatlikBurosu => Rol.buroSahibi,
+        HesapTuru.hukukBurosu => Rol.yoneticiOrtak,
+        HesapTuru.kurumsal => Rol.hukukDirektoru,
+      };
+}
+
+class _Kayit {
+  _Kayit({required this.sifre, required this.oturum});
+
+  final String sifre;
+  final Oturum oturum;
+}

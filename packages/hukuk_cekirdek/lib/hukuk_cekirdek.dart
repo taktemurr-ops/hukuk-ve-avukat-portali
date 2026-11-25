@@ -13,3 +13,5 @@ export 'src/sure/sure_hesaplayici.dart';
 export 'src/sure/elektronik_tebligat.dart';
 export 'src/sure/kural_katalogu.dart';
 export 'src/hesap/hesap_turu.dart';
+export 'src/kimlik/dogrulayicilar.dart';
+export 'src/yetki/yetki_denetcisi.dart';

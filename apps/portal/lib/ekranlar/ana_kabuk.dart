@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../servisler/kimlik_servisi.dart';
 import 'hesap_turleri_ekrani.dart';
 import 'sure_hesaplama_ekrani.dart';
 
 /// Uygulamanın ana iskeleti. Geniş ekranda yan menü, dar ekranda alt menü.
 class AnaKabuk extends StatefulWidget {
-  const AnaKabuk({super.key});
+  const AnaKabuk({super.key, required this.oturum, required this.cikisYap});
+
+  final Oturum oturum;
+  final VoidCallback cikisYap;
 
   @override
   State<AnaKabuk> createState() => _AnaKabukState();
@@ -29,7 +33,19 @@ class _AnaKabukState extends State<AnaKabuk> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hukuk ve Avukat Portalı · ${_basliklar[_secili]}'),
+        title: Text('${widget.oturum.kurumAdi} · ${_basliklar[_secili]}'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Center(child: Text(widget.oturum.adSoyad)),
+          ),
+          IconButton(
+            key: const Key('cikis-yap'),
+            tooltip: 'Çıkış yap',
+            icon: const Icon(Icons.logout),
+            onPressed: widget.cikisYap,
+          ),
+        ],
       ),
       body: genis
           ? Row(

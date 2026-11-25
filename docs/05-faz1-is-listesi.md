@@ -20,10 +20,10 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 
 | Durum | İş |
 | --- | --- |
-| ☐ | Kayıt, hesap türü seçimi, e-posta doğrulama, aktivasyon, şifre belirleme |
-| ☐ | Giriş, iki adımlı doğrulama, şifre sıfırlama, oturum yönetimi |
+| ◐ | Kayıt, hesap türü seçimi, e-posta doğrulama, aktivasyon, şifre belirleme — arayüz ve doğrulama kuralları hazır (TCKN/VKN, şifre, telefon); sunucu bağlantısı bekliyor |
+| ◐ | Giriş, iki adımlı doğrulama, şifre sıfırlama, oturum yönetimi — giriş, şifremi unuttum, 5 hatalı denemede kilit hazır; iki adımlı doğrulama ve sunucu bekliyor |
 | ☐ | Kiracı, tüzel kişilik, birim, kullanıcı, rol, davet |
-| ☐ | Yetki fonksiyonu (tek kapı) + denetim kaydı |
+| ◐ | Yetki fonksiyonu (tek kapı) + denetim kaydı — yetki denetçisi ve rol/işlem matrisi hazır; denetim kaydı bekliyor |
 | ☐ | Lisans profili ve modül açma-kapama |
 
 ## Sprint 3–4 — Müvekkil, iş kabulü, vekâlet
