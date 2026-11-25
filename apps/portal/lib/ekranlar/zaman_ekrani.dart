@@ -175,9 +175,12 @@ class ZamanEkrani extends StatelessWidget {
                                     ],
                                   ),
                                 );
-                                if (evet == true && context.mounted) {
-                                  _mesaj(context, depo.zamanFaturaKes(d.id), 'Fatura taslağı oluşturuldu, cariye işlendi.');
-                                }
+                                if (evet != true || !context.mounted) return;
+                                final h = await depo.sunucudaVeyaYerelde(
+                                  sunucuda: (u) => u.zamanFaturaKes(d.id),
+                                  yerelde: () => depo.zamanFaturaKes(d.id),
+                                );
+                                if (context.mounted) _mesaj(context, h, 'Fatura taslağı oluşturuldu, cariye işlendi.');
                               },
                               child: const Text('Faturala'),
                             ),

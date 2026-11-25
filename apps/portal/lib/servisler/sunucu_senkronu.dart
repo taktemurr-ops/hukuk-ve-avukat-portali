@@ -45,6 +45,9 @@ abstract class UzakIslemler {
 
   Future<void> zamanSil(String id);
 
+  /// Dosyanın onaylı zaman kayıtlarını faturalar; fatura numarasını döner.
+  Future<String> zamanFaturaKes(String dosyaId);
+
   /// Yeni icra dosyasının sunucudaki kimliğini döner.
   Future<String> icraEkle({
     required String dosyaId,
@@ -836,5 +839,12 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
     }) as Map<String, dynamic>;
     await yenile();
     return y['acilan'] as int;
+  }
+
+  @override
+  Future<String> zamanFaturaKes(String dosyaId) async {
+    final y = await api.post('/dosyalar/$dosyaId/zaman-faturasi') as Map<String, dynamic>;
+    await _isVerisiniYenile();
+    return y['faturaNo'] as String;
   }
 }

@@ -29,6 +29,7 @@ class IsApi {
     ..post('/zaman', _zamanEkle)
     ..post('/zaman/<id>/onayla', _zamanOnayla)
     ..delete('/zaman/<id>', _zamanSil)
+    ..post('/dosyalar/<id>/zaman-faturasi', _zamanFaturasi)
     ..get('/icra', _icraListe)
     ..post('/icra', _icraEkle)
     ..post('/icra/toplu', _topluTakip)
@@ -641,5 +642,65 @@ class IsApi {
       return idler;
     });
     return jsonYanit({'acilan': acilan.length, 'icraIdleri': acilan}, durum: 201);
+  }
+
+  /// Dosyanın onaylı ve faturalanabilir zaman kayıtlarını faturalar: kayıtlar "faturalandı" olur (artık değişmez),
+  /// müvekkil carisine ücret tahakkuku yazılır. Tutar çekirdek kuralıyla (6 dk'ya yukarı yuvarlama) sunucuda hesaplanır.
+  Future<Response> _zamanFaturasi(Request istek, String dosyaId) async {
+    final k = kimlik(istek);
+    final bugun = Tarih.from(DateTime.now());
+    final sonuc = await vt.kiraciIcin(k, (tx) async {
+      final m = await tx.execute(
+        Sql.named("SELECT kisi_id::text FROM hukuk.dosya_taraf WHERE dosya_id = CAST(@d AS uuid) AND sifat = 'muvekkil' LIMIT 1"),
+        parameters: {'d': dosyaId},
+      );
+      if (m.isEmpty) throw const ApiHatasi(409, 'Dosyada müvekkil kaydı yok.', kod: 'kural');
+      await tx.execute(Sql.named("SELECT pg_advisory_xact_lock(hashtextextended('zaman_fatura' || @k, 0))"),
+          parameters: {'k': k.kiraciId});
+      final rs = await tx.execute(
+        Sql.named("SELECT id::text, kullanici_id::text, tarih, dakika, aciklama, saatlik_kurus FROM hukuk.zaman_kaydi "
+            "WHERE dosya_id = CAST(@d AS uuid) AND durum = 'onaylandi' AND faturalanabilir ORDER BY tarih FOR UPDATE"),
+        parameters: {'d': dosyaId},
+      );
+      if (rs.isEmpty) throw const ApiHatasi(409, 'Faturalanacak onaylı kayıt yok.', kod: 'kural');
+      var toplam = Para.sifir;
+      var dakika = 0;
+      for (final r in rs) {
+        final z = ZamanKaydi(
+          id: r[0]! as String,
+          kullanici: r[1]! as String,
+          dosyaId: dosyaId,
+          tarih: tarihDegeri(r[2]),
+          dakika: r[3]! as int,
+          aciklama: r[4]! as String,
+          saatlikUcret: Para.kurus(r[5]! as int),
+          durum: ZamanDurumu.onaylandi,
+        );
+        toplam = toplam + z.tutar();
+        dakika += z.faturaDakikasi();
+      }
+      final no = (await tx.execute(Sql.named('SELECT hukuk.sonraki_zaman_fatura_no(@y)'), parameters: {'y': bugun.yil}))
+          .first[0]! as String;
+      await tx.execute(
+        Sql.named("UPDATE hukuk.zaman_kaydi SET durum = 'faturalandi', fatura_no = @n WHERE id = ANY(CAST(@i AS uuid[]))"),
+        parameters: {'n': no, 'i': '{${[for (final r in rs) r[0]].join(',')}}'},
+      );
+      await tx.execute(
+        Sql.named("INSERT INTO hukuk.cari_hareket (kiraci_id, muvekkil_id, dosya_id, tur, tutar_kurus, tarih, aciklama, belge_no) "
+            "VALUES (CAST(@k AS uuid), CAST(@m AS uuid), CAST(@d AS uuid), 'ucretTahakkuku', @t, CAST(@g AS date), @a, @n)"),
+        parameters: {
+          'k': k.kiraciId,
+          'm': m.first[0],
+          'd': dosyaId,
+          't': toplam.kurus,
+          'g': bugun.isoBicim,
+          'a': 'Zaman kaydı faturası $no (${rs.length} kalem)',
+          'n': no,
+        },
+      );
+      await DosyaApi.denetim(tx, k, 'olusturma', 'zaman_fatura', no, '${toplam.bicimli} · ${rs.length} kalem');
+      return {'faturaNo': no, 'kalem': rs.length, 'dakika': dakika, 'toplamKurus': toplam.kurus};
+    });
+    return jsonYanit(sonuc, durum: 201);
   }
 }

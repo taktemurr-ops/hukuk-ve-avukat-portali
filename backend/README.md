@@ -71,6 +71,8 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET/POST | `/zaman` | Zaman kayıtları (varsayılan son 30 gün) / yeni kayıt (ücret istemciden alınmaz) |
 | POST | `/zaman/{id}/onayla` | Onay (kendi kaydını onaylayamaz — veritabanında zorlanır) |
 | DELETE | `/zaman/{id}` | Kendi taslak kaydını silme |
+| POST | `/icra/toplu` | Toplu takip (en fazla 500 satır; sunucuda yeniden doğrulanır, hatalı satır varsa hiçbiri açılmaz) |
+| POST | `/dosyalar/{id}/zaman-faturasi` | Onaylı zaman kayıtlarını faturalar (ZF-yıl-sıra), müvekkil carisine ücret tahakkuku yazar |
 | GET/POST | `/icra` | İcra dosyaları (tahsilatlarıyla) / yeni takip (akdi faizde oran zorunlu) |
 | GET | `/icra/{id}?tarih=` | Kapak hesabı: faiz, masraf, harçlar, tahsilat mahsupları (masraf → faiz → anapara) |
 | POST | `/icra/{id}/tahsilat` | Tahsilat ekleme |
