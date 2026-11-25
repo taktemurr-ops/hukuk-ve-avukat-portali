@@ -3,6 +3,7 @@ library;
 
 import 'package:shelf/shelf.dart';
 
+import 'src/buro_api.dart';
 import 'src/dosya_api.dart';
 import 'src/hata.dart';
 import 'src/is_api.dart';
@@ -11,6 +12,7 @@ import 'src/kurumsal_api.dart';
 import 'src/uyum_api.dart';
 import 'src/veritabani.dart';
 
+export 'src/buro_api.dart';
 export 'src/dosya_api.dart';
 export 'src/hata.dart';
 export 'src/is_api.dart';
@@ -44,7 +46,8 @@ Handler uygulama(Veritabani vt, {Set<String> izinliKokenler = const {}, void Fun
       .add(DosyaApi(vt).router.call)
       .add(IsApi(vt).router.call)
       .add(KurumsalApi(vt).router.call)
-      .add(UyumApi(vt).router.call);
+      .add(UyumApi(vt).router.call)
+      .add(BuroApi(vt).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
+import '../servisler/api_istemcisi.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/veri_deposu.dart';
 
@@ -68,7 +69,25 @@ class TebligatlarEkrani extends StatelessWidget {
             MaterialPageRoute(builder: (_) => TebligatFormu(depo: depo)),
           );
           if (t == null || !context.mounted) return;
-          final sonuc = depo.tebligatEkle(t);
+          final uzak = depo.uzak;
+          final ({Tebligat tebligat, bool mukerrer}) sonuc;
+          if (uzak != null) {
+            // Eşleştirme önerisi yerelde (görünür dosyalar ve taraflarla) yapılır; kesin eşleşme varsa dosyayla gönderilir.
+            final otomatik = TebligatEslestirici.otomatikEslesme(
+                TebligatEslestirici.oner(t, depo.tumDosyalar, dosyaTaraflari: depo.dosyaTaraflari));
+            try {
+              final kayit = await uzak.tebligatEkle(otomatik == null ? t : t.dosyayaBagla(otomatik.id));
+              sonuc = (tebligat: kayit, mukerrer: false);
+            } on SunucuHatasi catch (e) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(e.kod == 'mukerrer' ? 'Bu evrak daha önce kaydedilmiş; yeni kayıt açılmadı.' : e.mesaj)));
+              return;
+            }
+            if (!context.mounted) return;
+          } else {
+            sonuc = depo.tebligatEkle(t);
+          }
           final kayit = sonuc.tebligat;
           final mesaj = sonuc.mukerrer
               ? 'Bu evrak daha önce kaydedilmiş; yeni kayıt açılmadı.'
@@ -134,7 +153,18 @@ class TebligatlarEkrani extends StatelessWidget {
                 trailing: OutlinedButton(
                   key: Key('bagla-${t.id}-${o.dosya.id}'),
                   onPressed: () async {
-                    depo.tebligatBagla(t.id, o.dosya.id);
+                    final hata = await depo.sunucudaVeyaYerelde(
+                      sunucuda: (u) => u.tebligatBagla(t.id, o.dosya.id),
+                      yerelde: () {
+                        depo.tebligatBagla(t.id, o.dosya.id);
+                        return null;
+                      },
+                    );
+                    if (!context.mounted) return;
+                    if (hata != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
+                      return;
+                    }
                     final bagli = depo.tebligatlar.firstWhere((x) => x.id == t.id);
                     await _sureOlusturSor(context, bagli);
                   },

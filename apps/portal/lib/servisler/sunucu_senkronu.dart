@@ -8,7 +8,15 @@ import 'veri_deposu.dart';
 abstract class UzakIslemler {
   Future<void> yenile();
 
-  Future<void> dosyaAc({required DosyaTuru tur, required String baslik, required String sorumlu, String? yedekSorumlu, bool gizli});
+  Future<void> dosyaAc({
+    required DosyaTuru tur,
+    required String baslik,
+    required String sorumlu,
+    String? yedekSorumlu,
+    bool gizli,
+    String? muvekkilId,
+    String? karsiTarafId,
+  });
 
   /// Süre sunucuda hesaplanır; dönen son gün.
   Future<Tarih> sureHesapla({required String dosyaId, required String kuralKodu, required Tarih tarih, String? aciklama});
@@ -44,6 +52,34 @@ abstract class UzakIslemler {
   Future<void> icraTahsilat(String icraId, Para tutar, Tarih tarih, String aciklama);
 
   Future<void> icraDurumu(String icraId, IcraDurumu durum);
+
+  Future<void> gorevKapat(String gorevId, {String? kanit});
+
+  /// Kaydeder; varsa çakışma nedenlerini döner.
+  Future<List<String>> durusmaEkle({
+    required String dosyaId,
+    required DateTime baslangic,
+    required String yer,
+    required String katilan,
+    String tur,
+  });
+
+  /// Kaydedilen tebligatı döner (tebliğ tarihi sunucuda hesaplanır).
+  Future<Tebligat> tebligatEkle(Tebligat t);
+
+  Future<void> tebligatBagla(String tebligatId, String dosyaId);
+
+  Future<void> vekaletnameEkle({
+    required String muvekkilId,
+    required Set<String> avukatlar,
+    required Tarih duzenlemeTarihi,
+    String? noter,
+    String? yevmiyeNo,
+    bool genel,
+    Set<String> dosyalar,
+    Set<OzelYetki> ozelYetkiler,
+    String? asilEvrakYeri,
+  });
 }
 
 class SunucuSenkronu implements UzakIslemler {
@@ -185,6 +221,90 @@ class SunucuSenkronu implements UzakIslemler {
 
   static List<Map<String, dynamic>> _liste(Object? v) => (v! as List).cast<Map<String, dynamic>>();
 
+  static Gorev gorevJson(Map<String, dynamic> j) => Gorev(
+        id: j['id'] as String,
+        baslik: j['baslik'] as String,
+        atanan: j['atanan'] as String,
+        dosyaId: j['dosyaId'] as String?,
+        yedek: j['yedek'] as String?,
+        sonTarih: _tn(j['sonTarih']),
+        oncelik: GorevOnceligi.values.firstWhere((x) => x.name == j['oncelik'], orElse: () => GorevOnceligi.normal),
+        durum: GorevDurumu.values.firstWhere((x) => x.name == j['durum'], orElse: () => GorevDurumu.acik),
+        kaynakSureId: j['kaynakSureId'] as String?,
+        kanitGerekir: j['kanitGerekir'] == true,
+        kapanisKaniti: j['kapanisKaniti'] as String?,
+      );
+
+  static Durusma durusmaJson(Map<String, dynamic> j) => Durusma(
+        id: j['id'] as String,
+        dosyaId: j['dosyaId'] as String,
+        baslangic: DateTime.parse(j['baslangic'] as String).toLocal(),
+        yer: j['yer'] as String,
+        katilan: j['katilan'] as String,
+        sureDakika: j['sureDakika'] as int? ?? 60,
+        tur: j['tur'] as String? ?? 'Duruşma',
+      );
+
+  static Tebligat tebligatJson(Map<String, dynamic> j, String kiraciId) => Tebligat(
+        id: j['id'] as String,
+        kiraciId: kiraciId,
+        kanal: TebligatKanali.values.firstWhere((x) => x.name == j['kanal'], orElse: () => TebligatKanali.fiziki),
+        ulasmaTarihi: _t(j['ulasmaTarihi']),
+        tebligTarihi: _t(j['tebligTarihi']),
+        gonderen: j['gonderen'] as String,
+        konu: j['konu'] as String,
+        esasNo: j['esasNo'] as String?,
+        taraflar: [for (final x in (j['taraflar'] as List? ?? const [])) '$x'],
+        belgeOzeti: j['belgeOzeti'] as String?,
+        dosyaId: j['dosyaId'] as String?,
+        eslesmeDurumu: j['dosyaId'] == null ? EslesmeDurumu.eslesmedi : EslesmeDurumu.eslesti,
+      );
+
+  static Vekaletname vekaletnameJson(Map<String, dynamic> j, String kiraciId) => Vekaletname(
+        id: j['id'] as String,
+        kiraciId: kiraciId,
+        muvekkilId: j['muvekkilId'] as String,
+        avukatlar: {for (final x in (j['avukatlar'] as List? ?? const [])) '$x'},
+        duzenlemeTarihi: _t(j['duzenlemeTarihi']),
+        noter: j['noter'] as String?,
+        yevmiyeNo: j['yevmiyeNo'] as String?,
+        genel: j['genel'] != false,
+        ozelYetkiler: {
+          for (final x in (j['ozelYetkiler'] as List? ?? const []))
+            ...OzelYetki.values.where((y) => y.name == x),
+        },
+        dosyalar: {for (final x in (j['dosyalar'] as List? ?? const [])) '$x'},
+        bitisTarihi: _tn(j['bitisTarihi']),
+        durum: VekaletDurumu.values.firstWhere((x) => x.name == j['durum'], orElse: () => VekaletDurumu.gecerli),
+        durumTarihi: _tn(j['durumTarihi']),
+        asilEvrakYeri: j['asilEvrakYeri'] as String?,
+      );
+
+  static DosyaTarafKaydi tarafJson(Map<String, dynamic> j) => DosyaTarafKaydi(
+        dosyaId: j['dosyaId'] as String,
+        dosyaAdi: j['dosyaAdi'] as String? ?? '',
+        kisiId: j['kisiId'] as String,
+        sifat: TarafSifati.values.firstWhere((x) => x.name == j['sifat'], orElse: () => TarafSifati.diger),
+        gizli: j['gizli'] == true,
+        kapali: j['kapali'] == true,
+      );
+
+  /// Taraf, görev, duruşma, tebligat ve vekâletname verisini yükler.
+  Future<void> _buroVerisiniYenile() async {
+    final taraflar = _liste(await api.get('/taraflar'));
+    final gorevler = _liste(await api.get('/gorevler'));
+    final durusmalar = _liste(await api.get('/durusmalar'));
+    final tebligatlar = _liste(await api.get('/tebligatlar'));
+    final vekaletnameler = _liste(await api.get('/vekaletnameler'));
+    depo.sunucuBuroVerisiniYukle(
+      taraflar: [for (final j in taraflar) tarafJson(j)],
+      gorevler: [for (final j in gorevler) gorevJson(j)],
+      durusmalar: [for (final j in durusmalar) durusmaJson(j)],
+      tebligatlar: [for (final j in tebligatlar) tebligatJson(j, depo.kiraciId)],
+      vekaletnameler: [for (final j in vekaletnameler) vekaletnameJson(j, depo.kiraciId)],
+    );
+  }
+
   /// Kişi, cari, emanet, zaman (son bir yıl) ve icra verisini yükler.
   Future<void> _isVerisiniYenile() async {
     final bugun = Tarih.from(DateTime.now());
@@ -218,6 +338,7 @@ class SunucuSenkronu implements UzakIslemler {
     }
     depo.sunucuVerisiniYukle(dosyalar: dosyalar, sureler: sureler);
     await _isVerisiniYenile();
+    await _buroVerisiniYenile();
   }
 
   @override
@@ -227,6 +348,8 @@ class SunucuSenkronu implements UzakIslemler {
     required String sorumlu,
     String? yedekSorumlu,
     bool gizli = false,
+    String? muvekkilId,
+    String? karsiTarafId,
   }) async {
     await api.post('/dosyalar', {
       'tur': tur.name,
@@ -234,6 +357,10 @@ class SunucuSenkronu implements UzakIslemler {
       'sorumlu': sorumlu,
       if (yedekSorumlu != null) 'yedekSorumlu': yedekSorumlu,
       'gizli': gizli,
+      'taraflar': [
+        if (muvekkilId != null) {'kisiId': muvekkilId, 'sifat': 'muvekkil'},
+        if (karsiTarafId != null) {'kisiId': karsiTarafId, 'sifat': 'karsiTaraf'},
+      ],
     });
     await yenile();
   }
@@ -373,5 +500,79 @@ class SunucuSenkronu implements UzakIslemler {
   Future<void> icraDurumu(String icraId, IcraDurumu durum) async {
     await api.post('/icra/$icraId/durum', {'durum': durum.name});
     await _isVerisiniYenile();
+  }
+
+  @override
+  Future<void> gorevKapat(String gorevId, {String? kanit}) async {
+    await api.post('/gorevler/$gorevId/kapat', {if (kanit != null) 'kanit': kanit});
+    await _buroVerisiniYenile();
+  }
+
+  @override
+  Future<List<String>> durusmaEkle({
+    required String dosyaId,
+    required DateTime baslangic,
+    required String yer,
+    required String katilan,
+    String tur = 'Duruşma',
+  }) async {
+    final y = await api.post('/durusmalar', {
+      'dosyaId': dosyaId,
+      'baslangic': baslangic.toUtc().toIso8601String(),
+      'yer': yer,
+      'katilan': katilan,
+      'tur': tur,
+    }) as Map<String, dynamic>;
+    await _buroVerisiniYenile();
+    return [for (final c in _liste(y['cakismalar'] ?? const [])) c['neden'] as String];
+  }
+
+  @override
+  Future<Tebligat> tebligatEkle(Tebligat t) async {
+    final y = await api.post('/tebligatlar', {
+      'kanal': t.kanal.name,
+      'ulasmaTarihi': t.ulasmaTarihi.isoBicim,
+      'tebligTarihi': t.tebligTarihi.isoBicim,
+      'gonderen': t.gonderen,
+      'konu': t.konu,
+      if (t.esasNo != null) 'esasNo': t.esasNo,
+      'taraflar': t.taraflar,
+      if (t.belgeOzeti != null) 'belgeOzeti': t.belgeOzeti,
+      if (t.dosyaId != null) 'dosyaId': t.dosyaId,
+    }) as Map<String, dynamic>;
+    await _buroVerisiniYenile();
+    return tebligatJson(y, depo.kiraciId);
+  }
+
+  @override
+  Future<void> tebligatBagla(String tebligatId, String dosyaId) async {
+    await api.post('/tebligatlar/$tebligatId/bagla', {'dosyaId': dosyaId});
+    await _buroVerisiniYenile();
+  }
+
+  @override
+  Future<void> vekaletnameEkle({
+    required String muvekkilId,
+    required Set<String> avukatlar,
+    required Tarih duzenlemeTarihi,
+    String? noter,
+    String? yevmiyeNo,
+    bool genel = true,
+    Set<String> dosyalar = const {},
+    Set<OzelYetki> ozelYetkiler = const {},
+    String? asilEvrakYeri,
+  }) async {
+    await api.post('/vekaletnameler', {
+      'muvekkilId': muvekkilId,
+      'avukatlar': avukatlar.toList(),
+      'duzenlemeTarihi': duzenlemeTarihi.isoBicim,
+      if (noter != null) 'noter': noter,
+      if (yevmiyeNo != null) 'yevmiyeNo': yevmiyeNo,
+      'genel': genel,
+      'dosyalar': dosyalar.toList(),
+      'ozelYetkiler': [for (final y in ozelYetkiler) y.name],
+      if (asilEvrakYeri != null) 'asilEvrakYeri': asilEvrakYeri,
+    });
+    await _buroVerisiniYenile();
   }
 }

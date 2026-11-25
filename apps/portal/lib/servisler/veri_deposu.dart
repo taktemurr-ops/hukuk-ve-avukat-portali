@@ -663,6 +663,48 @@ class BellekVeriDeposu extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sunucudan gelen büro işleri verisini önbelleğe yazar. Eşleşmemiş tebligatlar için öneri durumu yerelde hesaplanır.
+  void sunucuBuroVerisiniYukle({
+    required List<DosyaTarafKaydi> taraflar,
+    required List<Gorev> gorevler,
+    required List<Durusma> durusmalar,
+    required List<Tebligat> tebligatlar,
+    required List<Vekaletname> vekaletnameler,
+  }) {
+    _dosyaKayitlari
+      ..clear()
+      ..addAll(taraflar);
+    _gorevler
+      ..clear()
+      ..addAll(gorevler);
+    _durusmalar
+      ..clear()
+      ..addAll(durusmalar);
+    _vekaletnameler
+      ..clear()
+      ..addAll(vekaletnameler);
+    _tebligatlar.clear();
+    for (final t in tebligatlar) {
+      final oneriVar = t.dosyaId == null && TebligatEslestirici.oner(t, _dosyalar, dosyaTaraflari: dosyaTaraflari).isNotEmpty;
+      _tebligatlar.add(oneriVar
+          ? Tebligat(
+              id: t.id,
+              kiraciId: t.kiraciId,
+              kanal: t.kanal,
+              ulasmaTarihi: t.ulasmaTarihi,
+              tebligTarihi: t.tebligTarihi,
+              gonderen: t.gonderen,
+              konu: t.konu,
+              esasNo: t.esasNo,
+              taraflar: t.taraflar,
+              belgeOzeti: t.belgeOzeti,
+              eslesmeDurumu: EslesmeDurumu.onerildi,
+            )
+          : t);
+    }
+    notifyListeners();
+  }
+
   /// Sunucu bağlıyken işlemi sunucuda, değilse yerelde yapar. Hata varsa kullanıcıya gösterilecek mesajı döner.
   Future<String?> sunucudaVeyaYerelde({
     required Future<void> Function(UzakIslemler uzak) sunucuda,

@@ -43,6 +43,12 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | POST | `/sureler/{id}/teyit` | Teyit (hesaplayan kendisi teyit edemez) |
 | POST | `/sureler/{id}/tamamla` | Kanıtla tamamlama |
 | GET | `/denetim/dogrula` | Denetim zinciri sağlam mı |
+| GET | `/taraflar` · POST `/dosyalar/{id}/taraflar` | Görünür dosyaların tarafları / taraf ekleme (dosya açarken `taraflar` da gönderilebilir) |
+| GET/POST | `/gorevler` | Görevler / yeni görev |
+| POST | `/gorevler/{id}/kapat` · `/iptal` | Kapatma (kritik süreden doğan görev kanıtsız kapanmaz, iptal edilemez) |
+| GET/POST | `/durusmalar` · DELETE `/durusmalar/{id}` | Duruşmalar / ekleme (aynı avukatın çakışmaları uyarı olarak döner) / silme |
+| GET/POST | `/tebligatlar` · POST `/tebligatlar/{id}/bagla` | Tebligatlar (tebliğ tarihi sunucuda, mükerrer kayıt engellenir) / dosyaya bağlama |
+| GET/POST | `/vekaletnameler` · POST `/vekaletnameler/{id}/durum` | Vekâletnameler / azil, istifa, süre dolması (sona eren kilitlenir) |
 | GET/POST | `/kisiler` | Kişiler / yeni kişi (TCKN/VKN ve e-posta doğrulanır) |
 | GET | `/kisiler/{id}/cari` | Müvekkil carisi: avans bakiyesi, masraf, ücret alacağı ve hareketler |
 | GET/POST | `/cari` | Tüm cari hareketler / yeni hareket (avans, masraf, iade, ücret tahakkuku/tahsilatı) |

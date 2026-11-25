@@ -112,6 +112,29 @@ class SahteSunucu {
         tahsilatlar.add({'id': 't${tahsilatlar.length + 1}', 'tarih': j['tarih'], 'tutarKurus': j['tutarKurus'],
           'aciklama': j['aciklama']});
         return _json({'id': 't${tahsilatlar.length}'}, 201);
+      case 'GET /taraflar':
+        return _json([
+          {'dosyaId': 'd1', 'kisiId': 'm1', 'sifat': 'muvekkil', 'dosyaAdi': '2026/0001 · Sunucudaki dosya', 'gizli': false, 'kapali': false},
+        ]);
+      case 'GET /gorevler':
+        return _json([
+          {
+            'id': 'g1', 'baslik': 'Sunucudaki görev', 'atanan': 'u2', 'dosyaId': 'd1', 'yedek': null, 'sonTarih': '2026-12-01',
+            'oncelik': 'yuksek', 'durum': 'acik', 'kaynakSureId': 's1', 'kanitGerekir': true, 'kapanisKaniti': null,
+          },
+        ]);
+      case 'GET /durusmalar':
+        return _json([
+          {'id': 'du1', 'dosyaId': 'd1', 'baslangic': '2026-12-03T07:30:00.000Z', 'yer': 'İstanbul 3. Asliye Ticaret',
+            'katilan': 'u2', 'sureDakika': 60, 'tur': 'Duruşma'},
+        ]);
+      case 'GET /tebligatlar':
+        return _json([
+          {'id': 'tb1', 'kanal': 'uets', 'ulasmaTarihi': '2026-11-20', 'tebligTarihi': '2026-11-25', 'gonderen': 'X Mahkemesi',
+            'konu': 'Bilirkişi raporu', 'esasNo': null, 'taraflar': [], 'belgeOzeti': null, 'dosyaId': null},
+        ]);
+      case 'GET /vekaletnameler':
+        return _json([]);
       case 'GET /sirketler':
         return _json([
           {'id': 'sr1', 'unvan': 'ABC Holding A.Ş.', 'kisaAd': 'ABC Holding', 'vkn': null, 'anaSirketId': null},
@@ -215,7 +238,8 @@ void main() {
     await _bas(tester, 'giris-yap');
     expect(api.token, 'tkn');
     expect(sunucu.istekler, containsAll(['GET /ben', 'GET /kullanicilar', 'GET /dosyalar', 'GET /dosyalar/d1/sureler',
-      'GET /kisiler', 'GET /cari', 'GET /emanet', 'GET /zaman', 'GET /icra']));
+      'GET /kisiler', 'GET /cari', 'GET /emanet', 'GET /zaman', 'GET /icra', 'GET /taraflar', 'GET /gorevler',
+      'GET /durusmalar', 'GET /tebligatlar', 'GET /vekaletnameler']));
 
     await _bas(tester, 'menu-dosyalar');
     expect(find.textContaining('Sunucudaki dosya'), findsWidgets);
@@ -342,6 +366,31 @@ void main() {
     });
     expect(v.kurulSonZaman.toUtc(), DateTime.utc(2026, 11, 27, 8));
     expect(v.gecikti(DateTime.utc(2026, 11, 27, 9)), isTrue);
+  });
+
+  test('Sunucu JSON\'undan görev, duruşma, tebligat ve vekâletname', () {
+    final g = SunucuSenkronu.gorevJson({
+      'id': 'g1', 'baslik': 'İstinaf gönder', 'atanan': 'u2', 'sonTarih': '2026-12-01', 'oncelik': 'kritik',
+      'durum': 'acik', 'kaynakSureId': 's1', 'kanitGerekir': true,
+    });
+    expect(() => g.kapat(), throwsArgumentError);
+    expect(g.gecikti(Tarih(2026, 12, 2)), isTrue);
+    final du = SunucuSenkronu.durusmaJson({
+      'id': 'du1', 'dosyaId': 'd1', 'baslangic': '2026-12-03T07:30:00.000Z', 'yer': 'A', 'katilan': 'u2', 'sureDakika': 90,
+    });
+    expect(du.bitis.toUtc(), DateTime.utc(2026, 12, 3, 9));
+    final t = SunucuSenkronu.tebligatJson({
+      'id': 'tb1', 'kanal': 'uets', 'ulasmaTarihi': '2026-11-20', 'tebligTarihi': '2026-11-25', 'gonderen': 'X',
+      'konu': 'Y', 'taraflar': ['A'], 'dosyaId': 'd1',
+    }, 'k1');
+    expect(t.tebligTarihi, Tarih(2026, 11, 25));
+    expect(t.eslesmeDurumu, EslesmeDurumu.eslesti);
+    final v = SunucuSenkronu.vekaletnameJson({
+      'id': 'v1', 'muvekkilId': 'm1', 'avukatlar': ['u1'], 'duzenlemeTarihi': '2026-01-05', 'genel': true,
+      'ozelYetkiler': ['sulh', 'bilinmeyen'], 'dosyalar': [], 'durum': 'azil', 'durumTarihi': '2026-11-01',
+    }, 'k1');
+    expect(v.ozelYetkiler, {OzelYetki.sulh});
+    expect(v.durum, VekaletDurumu.azil);
   });
 
   testWidgets('Birden çok kurumda hesap varsa kurum seçilir', (tester) async {

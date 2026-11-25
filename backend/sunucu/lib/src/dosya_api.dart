@@ -75,22 +75,34 @@ class DosyaApi {
     final sorumlu = (j['sorumlu'] as String?) ?? k.kullaniciId;
     final yedek = j['yedekSorumlu'] as String?;
     final gizli = j['gizli'] == true;
+    // Taraflar: [{"kisiId": "...", "sifat": "muvekkil" | "karsiTaraf" | "diger"}]
+    final taraflar = <(String, String)>[
+      for (final t in (j['taraflar'] as List? ?? const []))
+        if (t is Map && t['kisiId'] is String && const {'muvekkil', 'karsiTaraf', 'diger'}.contains(t['sifat']))
+          (t['kisiId'] as String, t['sifat'] as String)
+        else
+          throw const ApiHatasi(400, 'Taraf: kisiId ve sifat (muvekkil, karsiTaraf, diger) gerekli.', kod: 'gecersiz_istek'),
+    ];
     final id = await vt.kiraciIcin(k, (tx) async {
-      // Yıl bazında sıra numarası; aynı anda açılan dosyalar için kiracı kilidi.
+      // Yıl bazında sıra numarası; aynı anda açılan dosyalar için kiracı kilidi. Sayım gizli dosyaları da kapsar
+      // (SECURITY DEFINER fonksiyon), yoksa görmediği dosya numarasıyla çakışırdı.
       await tx.execute(Sql.named("SELECT pg_advisory_xact_lock(hashtextextended('dosya_no' || @k, 0))"),
           parameters: {'k': k.kiraciId});
-      final yil = DateTime.now().year;
-      final sira = await tx.execute(
-        Sql.named("SELECT count(*) + 1 FROM hukuk.dosya WHERE ic_no LIKE @y || '/%'"),
-        parameters: {'y': '$yil'},
-      );
-      final icNo = '$yil/${(sira.first[0]! as int).toString().padLeft(4, '0')}';
+      final noRs = await tx.execute(Sql.named('SELECT hukuk.sonraki_dosya_no(@y)'), parameters: {'y': DateTime.now().year});
+      final icNo = noRs.first[0]! as String;
       final rs = await tx.execute(
         Sql.named('INSERT INTO hukuk.dosya (kiraci_id, ic_no, tur, baslik, sorumlu, yedek_sorumlu, gizli) '
             'VALUES (CAST(@k AS uuid), @n, @t, @b, CAST(@s AS uuid), CAST(@y AS uuid), @g) RETURNING id::text'),
         parameters: {'k': k.kiraciId, 'n': icNo, 't': tur, 'b': baslik, 's': sorumlu, 'y': yedek, 'g': gizli},
       );
       final yeniId = rs.first[0]! as String;
+      for (final t in taraflar) {
+        await tx.execute(
+          Sql.named('INSERT INTO hukuk.dosya_taraf (kiraci_id, dosya_id, kisi_id, sifat) '
+              'VALUES (CAST(@k AS uuid), CAST(@d AS uuid), CAST(@p AS uuid), @s)'),
+          parameters: {'k': k.kiraciId, 'd': yeniId, 'p': t.$1, 's': t.$2},
+        );
+      }
       await denetim(tx, k, 'olusturma', 'dosya', yeniId, '$icNo · $baslik');
       return yeniId;
     });

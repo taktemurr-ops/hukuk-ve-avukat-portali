@@ -212,11 +212,18 @@ class DosyaDetayEkrani extends StatelessWidget {
                             kanit = await _kanitIste(context, 'Görevi kapat');
                             if (kanit == null || !context.mounted) return;
                           }
-                          try {
-                            depo.gorevGuncelle(g.kapat(kanit: kanit));
-                          } on ArgumentError catch (e) {
-                            if (context.mounted) _mesaj(context, '${e.message}');
-                          }
+                          final hata = await depo.sunucudaVeyaYerelde(
+                            sunucuda: (u) => u.gorevKapat(g.id, kanit: kanit),
+                            yerelde: () {
+                              try {
+                                depo.gorevGuncelle(g.kapat(kanit: kanit));
+                                return null;
+                              } on ArgumentError catch (e) {
+                                return '${e.message}';
+                              }
+                            },
+                          );
+                          if (hata != null && context.mounted) _mesaj(context, hata);
                         },
                   title: Text(g.baslik),
                   subtitle: Text(
@@ -240,13 +247,29 @@ class DosyaDetayEkrani extends StatelessWidget {
                       );
                       if (r == null || !context.mounted) return;
                       final (zaman, yer, tur) = r;
-                      final cakismalar =
-                          depo.durusmaEkle(dosyaId: d.id, baslangic: zaman, yer: yer, katilan: oturum.kullaniciId, tur: tur);
+                      final uzak = depo.uzak;
+                      final List<String> cakismalar;
+                      if (uzak != null) {
+                        try {
+                          cakismalar = await uzak.durusmaEkle(
+                              dosyaId: d.id, baslangic: zaman, yer: yer, katilan: oturum.kullaniciId, tur: tur);
+                        } on Exception catch (e) {
+                          if (context.mounted) _mesaj(context, '$e');
+                          return;
+                        }
+                      } else {
+                        cakismalar = [
+                          for (final c in depo.durusmaEkle(
+                              dosyaId: d.id, baslangic: zaman, yer: yer, katilan: oturum.kullaniciId, tur: tur))
+                            c.neden,
+                        ];
+                      }
+                      if (!context.mounted) return;
                       _mesaj(
                         context,
                         cakismalar.isEmpty
                             ? '$tur eklendi.'
-                            : 'Eklendi, ancak çakışma var: ${cakismalar.first.neden}. Mazeret dilekçesi veya tevkil gerekebilir.',
+                            : 'Eklendi, ancak çakışma var: ${cakismalar.first}. Mazeret dilekçesi veya tevkil gerekebilir.',
                       );
                     },
                     icon: const Icon(Icons.event_outlined),

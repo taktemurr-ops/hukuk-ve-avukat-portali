@@ -57,7 +57,15 @@ class _DosyaFormuState extends State<DosyaFormu> {
     final uzak = widget.depo.uzak;
     if (uzak != null) {
       try {
-        await uzak.dosyaAc(tur: _tur, baslik: _baslik.text, sorumlu: _sorumlu, yedekSorumlu: _yedek, gizli: _gizli);
+        await uzak.dosyaAc(
+          tur: _tur,
+          baslik: _baslik.text,
+          sorumlu: _sorumlu,
+          yedekSorumlu: _yedek,
+          gizli: _gizli,
+          muvekkilId: _muvekkil,
+          karsiTarafId: _karsiTaraf,
+        );
         if (mounted) Navigator.of(context).pop(true);
       } on Exception catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
@@ -323,21 +331,46 @@ class _VekaletnameFormuState extends State<VekaletnameFormu> {
     super.dispose();
   }
 
-  void _kaydet() {
-    if (_muvekkil == null) {
+  Future<void> _kaydet() async {
+    final muvekkil = _muvekkil;
+    if (muvekkil == null) {
       setState(() => _hata = 'Müvekkil seçin.');
       return;
     }
-    widget.depo.vekaletnameEkle(
-      muvekkilId: _muvekkil!,
-      avukatlar: {widget.oturum.kullaniciId},
-      duzenlemeTarihi: _tarih,
-      noter: _noter.text.trim().isEmpty ? null : _noter.text.trim(),
-      yevmiyeNo: _yevmiye.text.trim().isEmpty ? null : _yevmiye.text.trim(),
-      genel: _genel,
-      ozelYetkiler: {..._yetkiler},
-      asilEvrakYeri: _evrakYeri.text.trim().isEmpty ? null : _evrakYeri.text.trim(),
+    final noter = _noter.text.trim().isEmpty ? null : _noter.text.trim();
+    final yevmiye = _yevmiye.text.trim().isEmpty ? null : _yevmiye.text.trim();
+    final evrakYeri = _evrakYeri.text.trim().isEmpty ? null : _evrakYeri.text.trim();
+    final yetkiler = {..._yetkiler};
+    final hata = await widget.depo.sunucudaVeyaYerelde(
+      sunucuda: (u) => u.vekaletnameEkle(
+        muvekkilId: muvekkil,
+        avukatlar: {widget.oturum.kullaniciId},
+        duzenlemeTarihi: _tarih,
+        noter: noter,
+        yevmiyeNo: yevmiye,
+        genel: _genel,
+        ozelYetkiler: yetkiler,
+        asilEvrakYeri: evrakYeri,
+      ),
+      yerelde: () {
+        widget.depo.vekaletnameEkle(
+          muvekkilId: muvekkil,
+          avukatlar: {widget.oturum.kullaniciId},
+          duzenlemeTarihi: _tarih,
+          noter: noter,
+          yevmiyeNo: yevmiye,
+          genel: _genel,
+          ozelYetkiler: yetkiler,
+          asilEvrakYeri: evrakYeri,
+        );
+        return null;
+      },
     );
+    if (!mounted) return;
+    if (hata != null) {
+      setState(() => _hata = hata);
+      return;
+    }
     Navigator.of(context).pop(true);
   }
 
