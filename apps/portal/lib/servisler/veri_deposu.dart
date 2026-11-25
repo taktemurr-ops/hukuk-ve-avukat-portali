@@ -704,6 +704,68 @@ class BellekVeriDeposu extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // KVKK: saklama ve imha
+  // ---------------------------------------------------------------------------
+
+  late final SaklamaVeImha saklama =
+      SaklamaVeImha(sonPeriyodikImha: Tarih.from(DateTime.now()).ayEkle(-7));
+
+  /// Fiziksel/elektronik arşivdeki eski kayıtlar (demo verisi; gerçekte belge servisinden gelir).
+  final List<SaklamaKaydi> _arsiv = [
+    SaklamaKaydi(id: 'ar1', ad: '2013/45 E. Alacak davası (arşiv kutusu 12)', kategori: VeriKategorisi.davaDosyasi, kapanis: Tarih(2015, 3, 12)),
+    SaklamaKaydi(id: 'ar2', ad: '2012/3 E. Tazminat davası', kategori: VeriKategorisi.davaDosyasi, kapanis: Tarih(2013, 1, 10),
+        yasalSaklamaEngeli: 'Bağlı rücu davası devam ediyor'),
+    SaklamaKaydi(id: 'ar3', ad: '2014 yılı serbest meslek makbuzları', kategori: VeriKategorisi.muhasebe, kapanis: Tarih(2014, 12, 31)),
+    SaklamaKaydi(id: 'ar4', ad: 'Kabul edilmeyen başvuru: Yıldız Tekstil', kategori: VeriKategorisi.adayKaydi, kapanis: Tarih(2023, 5, 4)),
+    SaklamaKaydi(id: 'ar5', ad: '2021/77 E. İşe iade davası', kategori: VeriKategorisi.davaDosyasi, kapanis: Tarih(2022, 9, 30)),
+  ];
+  final Set<String> _imhaEdilen = {};
+
+  List<SaklamaKaydi> get saklamaKayitlari => [
+        for (final k in _arsiv)
+          if (!_imhaEdilen.contains(k.id)) k,
+        for (final d in _dosyalar)
+          SaklamaKaydi(
+            id: d.id,
+            ad: '${d.icNo} · ${d.baslik}',
+            kategori: d.tur == DosyaTuru.danismanlik ? VeriKategorisi.danismanlik : VeriKategorisi.davaDosyasi,
+            kapanis: d.acik ? null : d.kapanisTarihi,
+          ),
+      ];
+
+  /// Hata varsa mesajı döner.
+  String? imhaTutanagiHazirla(Set<String> idler, ImhaYontemi yontem) {
+    try {
+      final t = saklama.tutanakHazirla(
+        secilen: saklamaKayitlari.where((k) => idler.contains(k.id)),
+        yontem: yontem,
+        hazirlayan: aktifKullanici,
+        bugun: Tarih.from(DateTime.now()),
+      );
+      _kaydet(DenetimIslemi.olusturma, 'imha_tutanagi', t.no, '${t.kayitIdleri.length} kayıt · ${yontem.ad}');
+      notifyListeners();
+      return null;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    } on StateError catch (e) {
+      return e.message;
+    }
+  }
+
+  /// Onaylanan tutanaktaki kayıtlar imha edilmiş sayılır (gerçekte belge servisi siler ve kanıt üretir).
+  String? imhaTutanagiOnayla(ImhaTutanagi t) {
+    try {
+      saklama.tutanakOnayla(t, aktifKullanici, Tarih.from(DateTime.now()));
+      _imhaEdilen.addAll(t.kayitIdleri);
+      _kaydet(DenetimIslemi.silme, 'imha_tutanagi', t.no, '${t.kayitIdleri.length} kayıt imha edildi (${t.yontem.ad})');
+      notifyListeners();
+      return null;
+    } on StateError catch (e) {
+      return e.message;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Zaman kaydı ve gelir paylaşımı
   // ---------------------------------------------------------------------------
 

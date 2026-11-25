@@ -42,4 +42,5 @@ export 'src/sozlesme/sozlesme_tarayici.dart';
 export 'src/sozlesme/talep.dart';
 export 'src/icra/icra.dart';
 export 'src/rapor/raporlar.dart';
+export 'src/uyum/saklama_imha.dart';
 export 'src/portal/muvekkil_portali.dart';

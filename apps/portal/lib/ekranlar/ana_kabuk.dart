@@ -14,6 +14,7 @@ import 'dosyalar_ekrani.dart';
 import 'genel_bakis_ekrani.dart';
 import 'hesap_ekranlari.dart';
 import 'icra_ekrani.dart';
+import 'kvkk_ekrani.dart';
 import 'hesap_turleri_ekrani.dart';
 import 'muvekkiller_ekrani.dart';
 import 'raporlar_ekrani.dart';
@@ -604,6 +605,16 @@ class _AyarlarSayfasi extends StatelessWidget {
                 subtitle: const Text('Kim, neyi, ne zaman yaptı; değiştirilemez kayıt zinciri.'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => ac(DenetimKaydiEkrani(depo: depo)),
+              ),
+              const Divider(),
+              ListTile(
+                key: const Key('ayar-kvkk'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.auto_delete_outlined),
+                title: const Text('KVKK: saklama ve imha'),
+                subtitle: const Text('Saklama süreleri, imha zamanı gelen kayıtlar ve dört göz onaylı imha tutanakları.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ac(KvkkEkrani(depo: depo)),
               ),
             ],
           ),
