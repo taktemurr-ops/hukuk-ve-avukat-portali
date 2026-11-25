@@ -28,6 +28,7 @@ export 'src/hesaplama/para.dart';
 export 'src/hesaplama/faiz.dart';
 export 'src/hesaplama/ucret_ve_harc.dart';
 export 'src/finans/finans.dart';
+export 'src/finans/zaman.dart';
 export 'src/belge/belge.dart';
 export 'src/belge/sablon_motoru.dart';
 export 'src/guvenlik/denetim.dart';

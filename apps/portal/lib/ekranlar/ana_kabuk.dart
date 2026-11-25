@@ -22,6 +22,7 @@ import 'takvim_ekrani.dart';
 import 'tebligatlar_ekrani.dart';
 import 'vekaletler_ekrani.dart';
 import 'yonetim_ekranlari.dart';
+import 'zaman_ekrani.dart';
 
 enum _B {
   genelBakis,
@@ -34,6 +35,7 @@ enum _B {
   cikarCatismasi,
   vekaletler,
   finans,
+  zaman,
   hesaplamalar,
   raporlar,
   ayarlar,
@@ -95,6 +97,7 @@ class _AnaKabukState extends State<AnaKabuk> {
     _Bolum(_B.vekaletler, 'Vekâletler', Icons.assignment_ind_outlined),
     _Bolum(_B.finans, 'Finans', Icons.account_balance_wallet_outlined,
         yalnizca: {HesapTuru.avukatlikBurosu, HesapTuru.hukukBurosu}),
+    _Bolum(_B.zaman, 'Zaman kaydı', Icons.timer_outlined, yalnizca: {HesapTuru.hukukBurosu}),
     _Bolum(_B.hesaplamalar, 'Hesaplamalar', Icons.calculate_outlined),
     _Bolum(_B.raporlar, 'Raporlar', Icons.bar_chart_rounded),
   ];
@@ -151,6 +154,7 @@ class _AnaKabukState extends State<AnaKabuk> {
         _B.cikarCatismasi => CikarCatismasiEkrani(depo: _depo, oturum: widget.oturum),
         _B.vekaletler => VekaletlerEkrani(depo: _depo, oturum: widget.oturum),
         _B.finans => FinansEkrani(depo: _depo),
+        _B.zaman => ZamanEkrani(depo: _depo, oturum: widget.oturum),
         _B.hesaplamalar => const HesaplamalarEkrani(),
         _B.raporlar => RaporlarEkrani(
             depo: _depo,

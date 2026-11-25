@@ -297,6 +297,12 @@ class BellekVeriDeposu extends ChangeNotifier {
     const av2 = 'demo-av2';
     const stj = 'demo-stj';
     _kullaniciAdlari.addAll({av1: 'Siz', av2: 'Av. Mert Şahin', stj: 'Stj. Av. Elif Koç'});
+    zaman = ZamanDefteri(
+      tarife: SaatlikUcretTarifesi(
+        kullanici: {av1: Para.tl(3000), av2: Para.tl(2500), stj: Para.tl(1000)},
+        varsayilan: Para.tl(2000),
+      ),
+    );
 
     Dosya dosyaOlustur(String id, DosyaTuru tur, String baslik, String sorumlu, String? yedek,
             {String? mahkeme, String? esas, bool gizli = false, DosyaAsamasi asama = DosyaAsamasi.ilkDerece}) =>
@@ -560,6 +566,100 @@ class BellekVeriDeposu extends ChangeNotifier {
       );
 
   List<Dosya> get tumDosyalar => List.unmodifiable(_dosyalar);
+
+  // ---------------------------------------------------------------------------
+  // Zaman kaydı ve gelir paylaşımı
+  // ---------------------------------------------------------------------------
+
+  ZamanDefteri zaman = ZamanDefteri(tarife: SaatlikUcretTarifesi(kullanici: const {}, varsayilan: Para.tl(2000)));
+
+  /// Hata varsa mesajı döner.
+  String? zamanEkle({
+    required String dosyaId,
+    required int dakika,
+    required String aciklama,
+    bool faturalanabilir = true,
+    Tarih? tarih,
+  }) {
+    final bugun = Tarih.from(DateTime.now());
+    try {
+      final k = zaman.ekle(
+        kullanici: aktifKullanici,
+        dosyaId: dosyaId,
+        tarih: tarih ?? bugun,
+        dakika: dakika,
+        aciklama: aciklama,
+        bugun: bugun,
+        faturalanabilir: faturalanabilir,
+      );
+      _kaydet(DenetimIslemi.olusturma, 'zaman', k.id, '${dosya(dosyaId)?.icNo ?? dosyaId} · ${k.dakika} dk');
+      notifyListeners();
+      return null;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    }
+  }
+
+  String? zamanOnayla(String id) {
+    try {
+      zaman.onayla(id, aktifKullanici);
+      _kaydet(DenetimIslemi.degisiklik, 'zaman', id, 'Onaylandı');
+      notifyListeners();
+      return null;
+    } on StateError catch (e) {
+      return e.message;
+    }
+  }
+
+  String? zamanSil(String id) {
+    final k = zaman.kayit(id);
+    if (k == null) return 'Kayıt bulunamadı.';
+    if (k.kullanici != aktifKullanici) return 'Yalnızca kendi kaydınızı silebilirsiniz.';
+    try {
+      zaman.sil(id);
+      _kaydet(DenetimIslemi.silme, 'zaman', id, '${k.dakika} dk · ${k.aciklama}');
+      notifyListeners();
+      return null;
+    } on StateError catch (e) {
+      return e.message;
+    }
+  }
+
+  ZamanFaturaTaslagi zamanFaturaOnizleme(String dosyaId) =>
+      zaman.faturaTaslagi(dosyaId, yil: DateTime.now().year);
+
+  /// Onaylı kayıtları faturalar ve müvekkil carisine vekâlet ücreti tahakkuku (KDV hariç) yazar.
+  String? zamanFaturaKes(String dosyaId) {
+    final muvekkil = dosyaMuvekkili(dosyaId);
+    if (muvekkil == null) return 'Dosyada müvekkil kaydı yok.';
+    try {
+      final t = zaman.faturaTaslagi(dosyaId, yil: DateTime.now().year, kesinlestir: true);
+      _cari.add(CariHareket(
+        id: yeniId('c'),
+        muvekkilId: muvekkil,
+        dosyaId: dosyaId,
+        tur: CariHareketTuru.ucretTahakkuku,
+        tutar: t.toplam,
+        tarih: Tarih.from(DateTime.now()),
+        aciklama: 'Zaman kaydı faturası ${t.no} (${t.kalemler.length} kalem)',
+        belge: t.no,
+      ));
+      _kaydet(DenetimIslemi.olusturma, 'zaman_fatura', t.no, '${t.toplam.bicimli} · ${dosya(dosyaId)?.icNo ?? dosyaId}');
+      notifyListeners();
+      return null;
+    } on StateError catch (e) {
+      return e.message;
+    }
+  }
+
+  /// Dosyada kişi bazında çalışılan dakika (gelir paylaşımı için).
+  Map<String, int> dosyaCalisanDakikalari(String dosyaId) {
+    final m = <String, int>{};
+    for (final k in zaman.kayitlar.where((k) => k.dosyaId == dosyaId)) {
+      m[k.kullanici] = (m[k.kullanici] ?? 0) + k.dakika;
+    }
+    return m;
+  }
   List<CariHareket> get tumCariHareketler => List.unmodifiable(_cari);
 
   String? belgeMetni(String belgeId) => _belgeMetinleri[belgeId];
@@ -681,6 +781,18 @@ class BellekVeriDeposu extends ChangeNotifier {
         zaman: simdi.subtract(const Duration(days: 1)),
       ),
     ]);
+    const av2 = 'demo-av2';
+    const stj = 'demo-stj';
+    void z(String kim, String dosyaId, int gunOnce, int dk, String aciklama) => zaman.ekle(
+        kullanici: kim, dosyaId: dosyaId, tarih: bugun.gunEkle(-gunOnce), dakika: dk, aciklama: aciklama, bugun: bugun);
+    z(av1, 'd1', 2, 95, 'Cevap dilekçesine karşı beyan hazırlığı');
+    z(av2, 'd1', 1, 60, 'Ön inceleme duruşmasına katılım');
+    z(stj, 'd1', 1, 40, 'UYAP evrak takibi ve dosya düzeni');
+    z(av1, 'd2', 0, 30, 'Müvekkil görüşmesi');
+    z(av2, 'd3', 3, 120, 'Birleşme hukuki inceleme raporu');
+    for (final k in zaman.kayitlar.where((k) => k.dosyaId == 'd1' && k.kullanici != av1)) {
+      zaman.onayla(k.id, av1);
+    }
     belgeOlustur(
       dosyaId: 'd1',
       ad: 'Gerekçeli karar',
