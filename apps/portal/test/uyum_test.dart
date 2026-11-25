@@ -53,16 +53,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final yeni = k.ihbarlar.last;
-    // TANI: geçici
-    debugPrint('TANI ihbarlar=${k.ihbarlar.map((i) => i.id).toList()} yeni=${yeni.id} '
-        'sorusturma=${k.sorusturmaOf(yeni.id)?.id} tamam=${find.text('Tamam').evaluate().length} '
-        'anahtarlar=${find.byWidgetPredicate((w) => w.key is ValueKey<String> && '${(w.key! as ValueKey<String>).value}'.startsWith('sorusturma-ac')).evaluate().map((e) => e.widget.key).toList()} '
-        'dialog=${find.byType(Dialog).evaluate().length} kart=${find.byType(Card).evaluate().length} '
-        'ihbarAnahtar=${find.byWidgetPredicate((w) => w.key is ValueKey<String> && '${(w.key! as ValueKey<String>).value}'.startsWith('ihbar-')).evaluate().map((e) => e.widget.key).toList()} '
-        'soruac=${find.text('Soruşturma aç').evaluate().length} sekme=${find.text('İhbarlar').evaluate().length} '
-        'baslik=${find.text('Uyum ve iç soruşturma').evaluate().length} '
-        'sekmeNo=${DefaultTabController.of(tester.element(find.byType(TabBarView))).index} '
-        'kartMetin=${find.descendant(of: find.byType(Card), matching: find.byType(Text)).evaluate().map((e) => (e.widget as Text).data).toList()}');
+    // Kayıttan sonra ihbar sekmesine dönülür.
+    await _bas(tester, 'uyum-sekme-ihbar');
     await _bas(tester, 'sorusturma-ac-${yeni.id}');
     await _bas(tester, 'sorusturma-sorumlu');
     await tester.tap(find.text('Siz').last);
