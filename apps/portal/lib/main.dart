@@ -4,17 +4,32 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'ekranlar/ana_kabuk.dart';
 import 'ekranlar/giris_ekrani.dart';
 import 'ekranlar/muvekkil_portali_ekrani.dart';
+import 'ekranlar/sunuculu_kabuk.dart';
+import 'servisler/api_istemcisi.dart';
 import 'servisler/kimlik_servisi.dart';
+import 'servisler/sunucu_kimlik_servisi.dart';
 import 'tema/tema.dart';
 
+/// Derlemede `--dart-define=SUNUCU_ADRESI=https://api.ornek.com.tr/` verilirse uygulama gerçek sunucuya bağlanır;
+/// verilmezse demo verisiyle bellekte çalışır.
+const _sunucuAdresi = String.fromEnvironment('SUNUCU_ADRESI');
+
 void main() {
-  runApp(PortalUygulamasi(kimlikServisi: BellekKimlikServisi()));
+  if (_sunucuAdresi.isEmpty) {
+    runApp(PortalUygulamasi(kimlikServisi: BellekKimlikServisi()));
+  } else {
+    final api = ApiIstemcisi(Uri.parse(_sunucuAdresi));
+    runApp(PortalUygulamasi(kimlikServisi: SunucuKimlikServisi(api), api: api));
+  }
 }
 
 class PortalUygulamasi extends StatefulWidget {
-  const PortalUygulamasi({super.key, required this.kimlikServisi});
+  const PortalUygulamasi({super.key, required this.kimlikServisi, this.api});
 
   final KimlikServisi kimlikServisi;
+
+  /// Sunucu bağlantısı (yoksa demo modu).
+  final ApiIstemcisi? api;
 
   @override
   State<PortalUygulamasi> createState() => _PortalUygulamasiState();
@@ -32,6 +47,11 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
   Future<void> _cikisYap() async {
     await widget.kimlikServisi.cikisYap();
     if (mounted) setState(() => _oturum = null);
+  }
+
+  bool get _sunucuOturumu {
+    final s = widget.kimlikServisi;
+    return widget.api != null && s is SunucuKimlikServisi && s.sunucuOturumu;
   }
 
   @override
@@ -56,7 +76,9 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
             )
           : oturum.muvekkilPortali
               ? MuvekkilPortaliEkrani(oturum: oturum, cikisYap: _cikisYap)
-              : AnaKabuk(oturum: oturum, cikisYap: _cikisYap),
+              : _sunucuOturumu
+                  ? SunuculuKabuk(oturum: oturum, api: widget.api!, cikisYap: _cikisYap)
+                  : AnaKabuk(oturum: oturum, cikisYap: _cikisYap),
     );
   }
 }

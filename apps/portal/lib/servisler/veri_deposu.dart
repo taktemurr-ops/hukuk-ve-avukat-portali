@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
+import 'sunucu_senkronu.dart';
+
 /// Kaydedilmiş iş kabul kararı.
 class KayitliKarar {
   const KayitliKarar({required this.adaylar, required this.rapor, required this.karar, required this.zaman});
@@ -609,6 +611,30 @@ class BellekVeriDeposu extends ChangeNotifier {
       );
 
   List<Dosya> get tumDosyalar => List.unmodifiable(_dosyalar);
+
+  // ---------------------------------------------------------------------------
+  // Sunucu bağlantısı
+  // ---------------------------------------------------------------------------
+
+  /// Sunucuya bağlıyken dosya ve süre işlemleri bu kancadan geçer.
+  UzakIslemler? uzak;
+
+  void kullaniciAdlariniYukle(Map<String, String> adlar) {
+    _kullaniciAdlari
+      ..clear()
+      ..addAll(adlar);
+  }
+
+  /// Sunucudan gelen dosya ve süreleri yerel önbelleğe yazar (öncekilerin yerine).
+  void sunucuVerisiniYukle({required List<Dosya> dosyalar, required List<SureKaydi> sureler}) {
+    _dosyalar
+      ..clear()
+      ..addAll(dosyalar);
+    _sureler
+      ..clear()
+      ..addAll(sureler);
+    notifyListeners();
+  }
 
   // ---------------------------------------------------------------------------
   // İcra takipleri

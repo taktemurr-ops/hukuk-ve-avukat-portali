@@ -34,7 +34,9 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET | `/saglik` | Durum |
 | POST | `/giris` | E-posta + şifre → oturum token'ı (birden çok kurumda hesap varsa kurum seçimi) |
 | POST | `/cikis` | Oturumu kapatır |
+| POST | `/kayit` | Yeni müşteri: kurum + kurucu kullanıcı + 14 gün deneme (şifre kuralları sunucuda da denetlenir) |
 | GET | `/ben` | Kullanıcı, kurum ve roller |
+| GET | `/kullanicilar` | Kurumdaki kullanıcılar ve rolleri |
 | GET/POST | `/dosyalar` | Görünür dosyalar / yeni dosya (yıl bazında numara) |
 | GET | `/dosyalar/{id}` | Dosya (görülemiyorsa 404; görüntüleme denetime yazılır) |
 | GET/POST | `/dosyalar/{id}/sureler` | Süreler / süre hesapla ve kaydet (sunucuda hesaplanır, teyit bekler) |

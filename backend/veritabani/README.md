@@ -17,6 +17,7 @@ veritabanı seviyesinde de garanti eder:
 | Sözleşme onayı | Aynı turda bir kişi yalnızca bir adımı onaylayabilir; ret/revizyon gerekçe ister |
 | İhbar ve soruşturma | İhbarı kaydeden sonradan göremez; içerik yalnızca soruşturma ekibine açılır; ihbar edilen kişi soruşturmada yer alamaz |
 | Davet | Kodun yalnızca özeti saklanır; 72 saat geçerlidir |
+| Hesap açma | Kurum, kurucu kullanıcı (hesap türüne göre rol) ve 14 günlük deneme tek işlemde; ilk denetim kaydı |
 | Giriş ve oturum | Oturum token'ının yalnızca özeti saklanır; 15 dakikada 5 hatalı denemede kilit; süresi dolan, kapatılan veya pasifleştirilen kullanıcının oturumu geçersiz |
 
 Uygulama sunucusu veritabanına `hukuk_uygulama` rolüyle bağlanır (tablo sahibi değildir, RLS'ten muaf değildir).
@@ -24,7 +25,7 @@ Yeni müşteri kaydında uygulama önce yeni kiracı kimliğini üretir, `app.ki
 
 ## Testler
 
-Gerçek PostgreSQL'e karşı çalışır (18 test):
+Gerçek PostgreSQL'e karşı çalışır (21 test):
 
 ```bash
 pip install "psycopg[binary]" pytest

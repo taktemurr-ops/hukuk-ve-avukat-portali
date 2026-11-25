@@ -51,9 +51,19 @@ class _DosyaFormuState extends State<DosyaFormu> {
     setState(() => _rapor = adaylar.isEmpty ? null : widget.depo.tarayici.tara(adaylar));
   }
 
-  void _kaydet() {
+  Future<void> _kaydet() async {
     if (!_form.currentState!.validate()) return;
     if (_rapor?.catismaVar ?? false) return;
+    final uzak = widget.depo.uzak;
+    if (uzak != null) {
+      try {
+        await uzak.dosyaAc(tur: _tur, baslik: _baslik.text, sorumlu: _sorumlu, yedekSorumlu: _yedek, gizli: _gizli);
+        if (mounted) Navigator.of(context).pop(true);
+      } on Exception catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+      return;
+    }
     widget.depo.dosyaAc(
       tur: _tur,
       baslik: _baslik.text,

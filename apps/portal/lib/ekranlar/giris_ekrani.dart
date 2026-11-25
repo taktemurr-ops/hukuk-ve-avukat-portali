@@ -3,6 +3,7 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
+import '../servisler/sunucu_kimlik_servisi.dart';
 import '../tema/tema.dart';
 import 'kayit_sihirbazi.dart';
 
@@ -42,6 +43,29 @@ class _GirisEkraniState extends State<GirisEkrani> {
       final oturum = await widget.servis.girisYap(eposta: _eposta.text, sifre: _sifre.text);
       if (!mounted) return;
       widget.girisYapildi(oturum);
+    } on KurumSecimiGerekli catch (e) {
+      if (!mounted) return;
+      final kiraci = await showDialog<String>(
+        context: context,
+        builder: (c) => SimpleDialog(
+          title: const Text('Hangi kurumla giriş yapılsın?'),
+          children: [
+            for (final k in e.kurumlar.entries)
+              SimpleDialogOption(
+                key: Key('kurum-${k.key}'),
+                onPressed: () => Navigator.pop(c, k.key),
+                child: Text(k.value),
+              ),
+          ],
+        ),
+      );
+      if (kiraci == null || !mounted) return;
+      try {
+        final oturum = await widget.servis.girisYap(eposta: _eposta.text, sifre: _sifre.text, kiraciId: kiraci);
+        if (mounted) widget.girisYapildi(oturum);
+      } on KimlikHatasi catch (h) {
+        if (mounted) setState(() => _hata = h.mesaj);
+      }
     } on KimlikHatasi catch (e) {
       if (!mounted) return;
       setState(() => _hata = e.mesaj);

@@ -151,12 +151,19 @@ class DosyaDetayEkrani extends StatelessWidget {
                             if (s.durum == SureDurumu.teyitBekliyor)
                               FilledButton.tonal(
                                 key: Key('teyit-${s.id}'),
-                                onPressed: () {
+                                onPressed: () async {
+                                  final uzak = depo.uzak;
                                   try {
-                                    depo.sureGuncelle(s.teyitEt(kullanici: oturum.kullaniciId, tarih: bugun));
-                                    _mesaj(context, 'Süre teyit edildi.');
+                                    if (uzak != null) {
+                                      await uzak.sureTeyit(s.id);
+                                    } else {
+                                      depo.sureGuncelle(s.teyitEt(kullanici: oturum.kullaniciId, tarih: bugun));
+                                    }
+                                    if (context.mounted) _mesaj(context, 'Süre teyit edildi.');
                                   } on StateError catch (e) {
                                     _mesaj(context, e.message);
+                                  } on Exception catch (e) {
+                                    if (context.mounted) _mesaj(context, '$e');
                                   }
                                 },
                                 child: const Text('Hesabı teyit et'),
@@ -167,11 +174,18 @@ class DosyaDetayEkrani extends StatelessWidget {
                                 onPressed: () async {
                                   final kanit = await _kanitIste(context, 'Süreyi tamamla');
                                   if (kanit == null || !context.mounted) return;
+                                  final uzak = depo.uzak;
                                   try {
-                                    depo.sureGuncelle(s.tamamla(kanit: kanit));
-                                    _mesaj(context, 'Süre tamamlandı.');
+                                    if (uzak != null) {
+                                      await uzak.sureTamamla(s.id, kanit);
+                                    } else {
+                                      depo.sureGuncelle(s.tamamla(kanit: kanit));
+                                    }
+                                    if (context.mounted) _mesaj(context, 'Süre tamamlandı.');
                                   } on ArgumentError catch (e) {
                                     _mesaj(context, '${e.message}');
+                                  } on Exception catch (e) {
+                                    if (context.mounted) _mesaj(context, '$e');
                                   }
                                 },
                                 child: const Text('İşlem yapıldı'),

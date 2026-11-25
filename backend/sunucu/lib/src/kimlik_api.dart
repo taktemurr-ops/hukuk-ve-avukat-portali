@@ -56,7 +56,8 @@ class KimlikApi {
     ..post('/giris', _giris)
     ..post('/kayit', _kayit)
     ..post('/cikis', _cikis)
-    ..get('/ben', _ben);
+    ..get('/ben', _ben)
+    ..get('/kullanicilar', _kullanicilar);
 
   Future<Response> _giris(Request istek) async {
     final j = await jsonGovde(istek);
@@ -147,6 +148,19 @@ class KimlikApi {
     await vt.genel((tx) => tx.execute(Sql.named('SELECT hukuk.oturum_kapat(@o)'),
         parameters: {'o': tokenOzeti(baslik.replaceFirst('Bearer ', '').trim())}));
     return jsonYanit({'durum': 'kapatildi'});
+  }
+
+  /// Aynı kurumdaki kullanıcılar (atama listeleri ve adların gösterimi için).
+  Future<Response> _kullanicilar(Request istek) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute('SELECT u.id::text, u.ad_soyad, u.aktif, coalesce(array_agg(r.rol) FILTER (WHERE r.rol IS NOT NULL), '
+            "'{}') FROM hukuk.kullanici u LEFT JOIN hukuk.kullanici_rol r ON r.kullanici_id = u.id "
+            'GROUP BY u.id ORDER BY u.ad_soyad'));
+    return jsonYanit([
+      for (final r in rs) {'id': r[0], 'adSoyad': r[1], 'aktif': r[2], 'roller': r[3]},
+    ]);
   }
 
   Future<Response> _ben(Request istek) async {

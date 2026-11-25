@@ -80,7 +80,8 @@ class KimlikHatasi implements Exception {
 abstract class KimlikServisi {
   Oturum? get oturum;
 
-  Future<Oturum> girisYap({required String eposta, required String sifre});
+  /// [kiraciId]: aynı e-postayla birden çok kurumda hesap varsa seçilen kurum.
+  Future<Oturum> girisYap({required String eposta, required String sifre, String? kiraciId});
 
   Future<void> cikisYap();
 
@@ -134,7 +135,7 @@ class BellekKimlikServisi implements KimlikServisi {
   }
 
   @override
-  Future<Oturum> girisYap({required String eposta, required String sifre}) async {
+  Future<Oturum> girisYap({required String eposta, required String sifre, String? kiraciId}) async {
     final anahtar = eposta.trim().toLowerCase();
     final hatali = _hataliDenemeler[anahtar] ?? 0;
     if (hatali >= azamiHataliDeneme) {

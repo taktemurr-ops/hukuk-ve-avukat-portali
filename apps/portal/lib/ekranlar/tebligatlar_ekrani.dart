@@ -30,6 +30,19 @@ class TebligatlarEkrani extends StatelessWidget {
       ),
     );
     if (kural == null || !context.mounted) return;
+    final uzak = depo.uzak;
+    if (uzak != null) {
+      try {
+        final sonGun = await uzak.sureHesapla(dosyaId: dosyaId, kuralKodu: kural.kod, tarih: t.tebligTarihi);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Süre sunucuda hesaplandı: son gün ${sonGun.turkceBicim}. Teyit bekleniyor.')));
+        }
+      } on Exception catch (e) {
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+      return;
+    }
     final sure = depo.sureOlustur(
       dosyaId: dosyaId,
       kural: kural,
