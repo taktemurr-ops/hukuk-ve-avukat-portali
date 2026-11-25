@@ -59,6 +59,32 @@ class KurumsalDepo extends ChangeNotifier {
     k.onaySurecleri[nda.id] = OnaySureci(sozlesmeId: nda.id, adimlar: k.onayPolitikasi.adimlar(nda), baslatan: 'hu2')
       ..karar('hu2', OnayKarariTuru.onay, DateTime.now().subtract(const Duration(days: 1)));
 
+    final simdi = DateTime.now();
+    final ih1 = k.ihbarKaydet(
+      kanal: IhbarKanali.web,
+      kategori: IhbarKategorisi.rusvetYolsuzluk,
+      aciklama: 'Lojistik satın alma biriminde bir tedarikçiden değerli hediye alındığı ve ihalenin yönlendirildiği iddiası.',
+      ilgiliKisiler: {'hu3'},
+      zaman: simdi.subtract(const Duration(days: 9)),
+    );
+    k.sorusturmaAc(ih1, kullaniciId, zaman: simdi.subtract(const Duration(days: 8)));
+    k.sorusturmalar.first
+      ..ekipEkle('hu2', ekleyen: kullaniciId)
+      ..geriBildirimVer(kullaniciId, simdi.subtract(const Duration(days: 6)))
+      ..sorusturmayaAl(kullaniciId)
+      ..notEkle('hu2', 'Son iki yılın satın alma ve fatura kayıtları istendi.', simdi.subtract(const Duration(days: 5)));
+    final ih2 = k.ihbarKaydet(
+      kanal: IhbarKanali.eposta,
+      kategori: IhbarKategorisi.tacizMobbing,
+      aciklama: 'Depo vardiya amirinin ekibine sürekli bağırdığı ve izinleri keyfi reddettiği bildirildi.',
+      anonim: false,
+      iletisim: 'çalışan e-postası (gizli)',
+      zaman: simdi.subtract(const Duration(days: 2)),
+    );
+    k.sorusturmaAc(ih2, 'hu2', zaman: simdi.subtract(const Duration(days: 2)));
+    k.ihlalKaydet('Müşteri listesi içeren e-posta yanlışlıkla dış bir alıcıya gönderildi.',
+        simdi.subtract(const Duration(hours: 30)), etkilenen: 340);
+
     final eski = b.gunEkle(-6);
     final t1 = k.defter.olustur(
         baslik: 'Northwind gizlilik sözleşmesi incelemesi', aciklama: 'İngiliz hukuku seçilmiş, görüşünüzü rica ederiz.',
@@ -130,6 +156,87 @@ class KurumsalDepo extends ChangeNotifier {
     if (id.isEmpty) return '(atanmamış)';
     if (id == kullaniciId) return 'Siz';
     return hukukEkibi[id] ?? yoneticiler[id] ?? depo.kullaniciAdi(id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Uyum: ihbar, iç soruşturma, veri ihlali
+  // ---------------------------------------------------------------------------
+
+  final List<Ihbar> ihbarlar = [];
+  final List<Sorusturma> sorusturmalar = [];
+  final List<VeriIhlali> veriIhlalleri = [];
+  int _uyumSira = 0;
+
+  String _uyumId(String onek) => '$onek${++_uyumSira}';
+
+  Ihbar ihbarKaydet({
+    required IhbarKanali kanal,
+    required IhbarKategorisi kategori,
+    required String aciklama,
+    bool anonim = true,
+    String? iletisim,
+    Set<String> ilgiliKisiler = const {},
+    DateTime? zaman,
+  }) {
+    if (aciklama.trim().length < 20) throw ArgumentError('İhbarı en az 20 karakterle açıklayın.');
+    final i = Ihbar(
+      id: _uyumId('ih'),
+      takipKodu: Ihbar.takipKoduUret(),
+      zaman: zaman ?? DateTime.now(),
+      kanal: kanal,
+      kategori: kategori,
+      aciklama: aciklama.trim(),
+      anonim: anonim,
+      ihbarciIletisim: anonim ? null : iletisim,
+      ilgiliKisiler: ilgiliKisiler,
+      sirketId: aktifSirketId,
+    );
+    ihbarlar.add(i);
+    // İçerik denetim kaydına yazılmaz; yalnızca kategori.
+    depo.okumaKaydet(DenetimIslemi.olusturma, 'ihbar', i.id, i.kategori.ad);
+    notifyListeners();
+    return i;
+  }
+
+  Sorusturma? sorusturmaOf(String ihbarId) {
+    for (final s in sorusturmalar) {
+      if (s.ihbar.id == ihbarId) return s;
+    }
+    return null;
+  }
+
+  String? sorusturmaAc(Ihbar ihbar, String sorumlu, {DateTime? zaman}) {
+    if (sorusturmaOf(ihbar.id) != null) return 'Bu ihbar için soruşturma zaten açık.';
+    try {
+      final s = Sorusturma(id: _uyumId('so'), ihbar: ihbar, sorumlu: sorumlu, acilis: zaman ?? DateTime.now());
+      sorusturmalar.add(s);
+      depo.okumaKaydet(DenetimIslemi.olusturma, 'sorusturma', s.id, 'Sorumlu: ${kisiAdi(sorumlu)}');
+      notifyListeners();
+      return null;
+    } on StateError catch (e) {
+      return e.message;
+    }
+  }
+
+  String? uyumIslemi(String aciklama, String nesneId, void Function() islem) {
+    try {
+      islem();
+      depo.okumaKaydet(DenetimIslemi.degisiklik, 'uyum', nesneId, aciklama);
+      notifyListeners();
+      return null;
+    } on StateError catch (e) {
+      return e.message;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    }
+  }
+
+  VeriIhlali ihlalKaydet(String aciklama, DateTime ogrenilme, {int? etkilenen}) {
+    final v = VeriIhlali(id: _uyumId('vi'), ogrenilme: ogrenilme, aciklama: aciklama.trim(), etkilenenKisiSayisi: etkilenen);
+    veriIhlalleri.add(v);
+    depo.okumaKaydet(DenetimIslemi.olusturma, 'veri_ihlali', v.id, 'Öğrenilme ${ogrenilme.toIso8601String()}');
+    notifyListeners();
+    return v;
   }
 
   // ---------------------------------------------------------------------------

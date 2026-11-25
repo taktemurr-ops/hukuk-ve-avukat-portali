@@ -25,6 +25,7 @@ import 'raporlar_ekrani.dart';
 import 'sozlesmeler_ekrani.dart';
 import 'takvim_ekrani.dart';
 import 'talepler_ekrani.dart';
+import 'uyum_ekrani.dart';
 import 'tebligatlar_ekrani.dart';
 import 'vekaletler_ekrani.dart';
 import 'yonetim_ekranlari.dart';
@@ -38,6 +39,7 @@ enum _B {
   sozlesmeler,
   disAvukatlar,
   organizasyon,
+  uyum,
   tebligatlar,
   takvim,
   muvekkiller,
@@ -128,6 +130,7 @@ class _AnaKabukState extends State<AnaKabuk> {
     _Bolum(_B.sozlesmeler, 'Sözleşmeler', Icons.article_outlined, yalnizca: {HesapTuru.kurumsal}),
     _Bolum(_B.disAvukatlar, 'Dış avukatlar', Icons.handshake_outlined, yalnizca: {HesapTuru.kurumsal}),
     _Bolum(_B.organizasyon, 'Grup şirketleri', Icons.account_tree_outlined, yalnizca: {HesapTuru.kurumsal}),
+    _Bolum(_B.uyum, 'Uyum ve soruşturma', Icons.policy_outlined, yalnizca: {HesapTuru.kurumsal}),
     _Bolum(_B.tebligatlar, 'Tebligatlar', Icons.mail_outline),
     _Bolum(_B.takvim, 'Takvim', Icons.calendar_today_outlined),
     _Bolum(_B.muvekkiller, 'Müvekkiller', Icons.people_outline),
@@ -189,6 +192,7 @@ class _AnaKabukState extends State<AnaKabuk> {
         _B.sozlesmeler => SozlesmelerEkrani(kurumsal: _kurumsal),
         _B.disAvukatlar => DisAvukatlarEkrani(kurumsal: _kurumsal),
         _B.organizasyon => OrganizasyonEkrani(kurumsal: _kurumsal),
+        _B.uyum => UyumEkrani(kurumsal: _kurumsal),
         _B.tebligatlar => TebligatlarEkrani(depo: _depo, oturum: widget.oturum),
         _B.takvim => TakvimEkrani(depo: _depo, dosyaAc: _dosyaAc),
         _B.muvekkiller => MuvekkillerEkrani(depo: _depo),

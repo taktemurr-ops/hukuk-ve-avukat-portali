@@ -45,5 +45,6 @@ export 'src/kurumsal/dis_avukat.dart';
 export 'src/kurumsal/grup.dart';
 export 'src/icra/icra.dart';
 export 'src/rapor/raporlar.dart';
+export 'src/uyum/ihbar_sorusturma.dart';
 export 'src/uyum/saklama_imha.dart';
 export 'src/portal/muvekkil_portali.dart';
