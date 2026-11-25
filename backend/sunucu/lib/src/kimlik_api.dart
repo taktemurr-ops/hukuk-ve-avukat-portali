@@ -46,8 +46,20 @@ Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris'
           if (baglam.portal && !(yol.startsWith('portal/') || yol == 'ben' || yol == 'cikis')) {
             throw const ApiHatasi(403, 'Bu işlem müvekkil portalında kullanılamaz.', kod: 'yasak');
           }
+          // Askıdaki veya iptal edilmiş hesapta veriler salt okunur (silinmez); abonelik ve çıkış işlemleri serbest.
+          if (istek.method != 'GET' && !baglam.portal && !_yazmaKilidiMuaf(yol)) {
+            final rs = await vt.genel((tx) => tx.execute(Sql.named('SELECT hukuk.abonelik_yazilabilir(CAST(@k AS uuid))'),
+                parameters: {'k': baglam.kiraciId}));
+            if (rs.first[0] == false) {
+              throw const ApiHatasi(402,
+                  'Aboneliğiniz askıda: verileriniz korunuyor ve görüntülenebilir, ancak değişiklik için ödeme gerekiyor.',
+                  kod: 'abonelik_askida');
+            }
+          }
           return ic(istek.change(context: {_kimlikAnahtari: baglam}));
         };
+
+bool _yazmaKilidiMuaf(String yol) => yol == 'cikis' || yol.startsWith('abonelik') || yol.startsWith('ben/');
 
 class KimlikApi {
   KimlikApi(this.vt, this.sifreleyici, {Random? rastgele, this.oturumSuresi = const Duration(hours: 8), DateTime Function()? saat})

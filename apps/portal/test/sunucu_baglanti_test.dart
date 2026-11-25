@@ -5,11 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:portal/ekranlar/sunucu_abonelik_ekrani.dart';
 import 'package:portal/main.dart';
 import 'package:portal/servisler/api_istemcisi.dart';
 import 'package:portal/servisler/kurumsal_senkronu.dart';
 import 'package:portal/servisler/sunucu_kimlik_servisi.dart';
 import 'package:portal/servisler/sunucu_senkronu.dart';
+import 'package:portal/servisler/veri_deposu.dart';
 
 /// Sunucu sözleşmesini taklit eden sahte API: backend/sunucu uçlarıyla aynı JSON.
 class SahteSunucu {
@@ -134,6 +136,22 @@ class SahteSunucu {
           return _json({'hata': 'kural_ihlali', 'mesaj': 'Davet geçersiz, süresi dolmuş veya bu e-posta için değil'}, 409);
         }
         return _json({'kiraciId': 'k1', 'kullaniciId': 'u7'}, 201);
+      case 'GET /abonelik':
+        return _json({
+          'durum': 'deneme', 'etkinDurum': 'deneme', 'etkinDurumAdi': 'Deneme', 'donem': 'aylik',
+          'donemBasi': '2026-11-20', 'donemSonu': '2026-12-04', 'ucretliKoltuk': 1, 'kullanilanKoltuk': 3,
+          'donemSonundaIptal': false, 'yazilabilir': true,
+          'paket': {'hesapTuru': 'hukukBurosu', 'fiyatTuru': 'koltukBasi', 'aylikFiyatKurus': 150000},
+          'fiyatlar': [
+            {'donem': 'aylik', 'koltuk': 3, 'matrahKurus': 450000, 'kdvKurus': 90000, 'toplamKurus': 540000},
+            {'donem': 'yillik', 'koltuk': 3, 'matrahKurus': 4500000, 'kdvKurus': 900000, 'toplamKurus': 5400000},
+          ],
+          'odemeAltyapisi': true, 'odemeler': [],
+        });
+      case 'POST /abonelik/odeme':
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        return _json({'referans': 'r' * 32, 'toplamKurus': j['donem'] == 'yillik' ? 5400000 : 540000,
+          'odemeAdresi': 'https://odeme.ornek.test/sayfa/${j['donem']}'}, 201);
       case 'GET /portal/dosyalar':
         return _json([
           {
@@ -483,6 +501,27 @@ void main() {
     await tester.enterText(find.byKey(const Key('giris-iki-adimli-kod')), '123456');
     await _bas(tester, 'giris-iki-adimli-onay');
     expect(api.token, 'tkn');
+  });
+
+  testWidgets('Abonelik ödemesi sunucunun hesapladığı tutarla ödeme sayfasını açar', (tester) async {
+    final sunucu = SahteSunucu();
+    final api = ApiIstemcisi(Uri.parse('https://api.ornek.test/'), istemci: MockClient(sunucu.yanit))..token = 'tkn';
+    final senkron = SunucuSenkronu(api, BellekVeriDeposu('k1'));
+    Uri? acilan;
+    await tester.pumpWidget(MaterialApp(
+      home: SunucuAbonelikEkrani(uzak: senkron, sayfaAc: (u) async {
+        acilan = u;
+        return true;
+      }),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('5.400,00'), findsOneWidget);
+    await tester.tap(find.text('Yıllık (2 ay hediye)'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('54.000,00'), findsOneWidget);
+    await _bas(tester, 'sunucu-odeme-yap');
+    expect(acilan.toString(), 'https://odeme.ornek.test/sayfa/yillik');
+    expect(sunucu.istekler, contains('POST /abonelik/odeme'));
   });
 
   testWidgets('Birden çok kurumda hesap varsa kurum seçilir', (tester) async {

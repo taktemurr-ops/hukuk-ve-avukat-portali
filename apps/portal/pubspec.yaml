@@ -14,6 +14,8 @@ dependencies:
   hukuk_cekirdek:
     path: ../../packages/hukuk_cekirdek
   http: ^1.2.2
+  # Ödeme sayfasını (ödeme kuruluşunun sitesi) tarayıcıda açmak için.
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

@@ -20,8 +20,9 @@ Response jsonYanit(Object? govde, {int durum = 200}) => Response(
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
 
-Future<Map<String, dynamic>> jsonGovde(Request istek) async {
-  final metin = await istek.readAsString();
+Future<Map<String, dynamic>> jsonGovde(Request istek) async => jsonGovdeMetinden(await istek.readAsString());
+
+Map<String, dynamic> jsonGovdeMetinden(String metin) {
   if (metin.length > 1024 * 1024) throw const ApiHatasi(413, 'İstek çok büyük.');
   try {
     final j = jsonDecode(metin);

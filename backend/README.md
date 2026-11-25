@@ -61,6 +61,9 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET/POST | `/portal/dosyalar/{id}/mesajlar` · POST `/portal/dosyalar/{id}/okundu` | Müvekkil yazışması (dosya başına saatte en çok 30 mesaj) |
 | GET | `/portal-paylasimlari` · POST `/dosyalar/{id}/portal` · `/belgeler/{id}/portal` | Büro: portal paylaşımı (gizli belge paylaşılamaz) |
 | GET/POST | `/dosyalar/{id}/mesajlar` · POST `/dosyalar/{id}/mesajlar/okundu` | Büro: müvekkille yazışma |
+| GET | `/abonelik` | Abonelik durumu (geçerli durum anlık hesaplanır), fiyatlar (sunucuda), ödeme geçmişi |
+| POST | `/abonelik/odeme` · `/abonelik/iptal` | Ödeme başlatma (yalnızca yönetici; ödeme kuruluşu sayfa adresi döner) / dönem sonunda iptal |
+| POST | `/acik/odeme-bildirimi/{saglayici}` | **Oturumsuz** sağlayıcı bildirimi: imza doğrulanır, tutar kayıtla karşılaştırılır, tek seferlik işlenir |
 | GET/POST | `/kisiler` | Kişiler / yeni kişi (TCKN/VKN ve e-posta doğrulanır) |
 | GET | `/kisiler/{id}/cari` | Müvekkil carisi: avans bakiyesi, masraf, ücret alacağı ve hareketler |
 | GET/POST | `/cari` | Tüm cari hareketler / yeni hareket (avans, masraf, iade, ücret tahakkuku/tahsilatı) |
@@ -91,6 +94,11 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 Belge yüklemede uzantı listesi, boyut sınırı (`BELGE_AZAMI_MB`, varsayılan 50) ve içerik imzası denetlenir; uzantısı
 değiştirilmiş ve çalıştırılabilir dosyalar reddedilir. İçerikler `BELGE_KLASORU` altında saklanır (Türkiye'de, şifreli
 kalıcı disk; S3 uyumlu yurt içi nesne deposu sonra). Virüs taraması (ClamAV) henüz bağlı değil.
+
+Ödeme sağlayıcıdan bağımsızdır (`OdemeSaglayici`); iyzico/PayTR gibi kuruluş seçildiğinde aynı yüzeyle eklenir.
+Geliştirmede `ODEME_SAGLAYICI=sahte` (+ `ODEME_GIZLI`, `DIS_ADRES`) gerçek para çekmeyen test sayfası açar; `ORTAM=canli`
+iken reddedilir. Abonelik satırını uygulama rolü yazamaz; yalnızca imzası doğrulanmış bildirim dönemi uzatır.
+Askıdaki veya iptal edilmiş hesapta veriler salt okunurdur (değiştiren istekler 402 alır; abonelik ve çıkış hariç).
 
 İki adımlı doğrulama açık hesapta `/giris` önce `{"ikiAdimliGerekli": true}` döner; istemci aynı isteği `ikiAdimliKod`
 ile tekrarlar. TOTP sırları `TOTP_ANAHTARI` (32 bayt, base64; gizli kasada) ile AES-256-GCM şifrelenir, kullanıcı

@@ -23,6 +23,7 @@ import 'muvekkiller_ekrani.dart';
 import 'organizasyon_ekrani.dart';
 import 'raporlar_ekrani.dart';
 import 'sozlesmeler_ekrani.dart';
+import 'sunucu_abonelik_ekrani.dart';
 import 'takvim_ekrani.dart';
 import 'talepler_ekrani.dart';
 import 'uyum_ekrani.dart';
@@ -554,7 +555,10 @@ class _AyarlarSayfasi extends StatelessWidget {
                 title: const Text('Abonelik ve ödeme'),
                 subtitle: Text('${yonetim.abonelik.paket.hesapTuru.ad} · ${yonetim.abonelik.durum.ad}'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => ac(AbonelikEkrani(yonetim: yonetim)),
+                onTap: () {
+                  final uzak = yonetim.depo.uzak;
+                  ac(uzak != null ? SunucuAbonelikEkrani(uzak: uzak) : AbonelikEkrani(yonetim: yonetim));
+                },
               ),
               const Divider(),
               ListTile(

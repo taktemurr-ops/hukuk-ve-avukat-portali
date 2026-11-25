@@ -80,6 +80,14 @@ abstract class UzakIslemler {
 
   Future<bool> ikiAdimliAcikMi();
 
+  /// Abonelik durumu, fiyatlar ve ödeme geçmişi (ham JSON).
+  Future<Map<String, dynamic>> abonelik();
+
+  /// Ödeme başlatır; ödeme kuruluşunun sayfa adresini döner (tutar sunucuda hesaplanır).
+  Future<Uri> odemeBaslat(OdemeDonemi donem, {int? koltuk});
+
+  Future<void> abonelikIptal(bool iptal);
+
   /// Kurulum: (base32 anahtar, otpauth bağlantısı). Sır sunucuda şifreli saklanır.
   Future<(String, String)> ikiAdimliBaslat();
 
@@ -785,5 +793,19 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
   @override
   Future<void> ikiAdimliKapat(String kod) async {
     await api.post('/ben/iki-adimli/kapat', {'kod': kod.trim()});
+  }
+
+  @override
+  Future<Map<String, dynamic>> abonelik() async => await api.get('/abonelik') as Map<String, dynamic>;
+
+  @override
+  Future<Uri> odemeBaslat(OdemeDonemi donem, {int? koltuk}) async {
+    final y = await api.post('/abonelik/odeme', {'donem': donem.name, if (koltuk != null) 'koltuk': koltuk}) as Map<String, dynamic>;
+    return Uri.parse(y['odemeAdresi'] as String);
+  }
+
+  @override
+  Future<void> abonelikIptal(bool iptal) async {
+    await api.post('/abonelik/iptal', {'iptal': iptal});
   }
 }

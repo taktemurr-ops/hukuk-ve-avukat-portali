@@ -113,7 +113,7 @@ def test_ihbar_ve_sorusturma_gizliligi(uygulama, veri, yonetici):
                     (veri["k1"], ihbar, veri["elif"]))
 
 
-def test_davet_ve_abonelik(uygulama, veri):
+def test_davet_ve_abonelik(uygulama, veri, yonetici):
     u = uygulama.oturum(veri["k1"], veri["ayse"])
     with pytest.raises(psycopg.errors.CheckViolation):
         u.c.execute("INSERT INTO hukuk.davet (kiraci_id, eposta, roller, kod_ozeti, davet_eden) VALUES (%s, 'a@b.com', '{}', %s, %s)",
@@ -121,9 +121,13 @@ def test_davet_ve_abonelik(uygulama, veri):
     u.c.execute("INSERT INTO hukuk.davet (kiraci_id, eposta, roller, kod_ozeti, davet_eden) VALUES (%s, 'a@b.com', '{avukat}', %s, %s)",
                 (veri["k1"], "b" * 64, veri["ayse"]))
     assert u.deger("SELECT son_gecerlilik - olusturma FROM hukuk.davet") == dt.timedelta(hours=72)
-    with pytest.raises(psycopg.errors.CheckViolation):
+    # Abonelik uygulama rolüyle hiç yazılamaz (yalnızca ödeme bildirimi); dönem tutarlılığı tabloda da zorlanır.
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
         u.c.execute("INSERT INTO hukuk.abonelik (kiraci_id, durum, donem, donem_basi, donem_sonu) "
-                    "VALUES (%s, 'aktif', 'aylik', '2026-12-01', '2026-12-01')", (veri["k1"],))
+                    "VALUES (%s, 'aktif', 'aylik', '2026-12-01', '2027-01-01')", (veri["k1"],))
+    with pytest.raises(psycopg.errors.CheckViolation):
+        yonetici.execute("INSERT INTO hukuk.abonelik (kiraci_id, durum, donem, donem_basi, donem_sonu) "
+                         "VALUES (%s, 'aktif', 'aylik', '2026-12-01', '2026-12-01')", (veri["k1"],))
 
 
 def test_icra_akdi_faiz_oran_ister_ve_masraf_eksi_olamaz(uygulama, veri):

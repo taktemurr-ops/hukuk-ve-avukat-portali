@@ -3,6 +3,7 @@ library;
 
 import 'package:shelf/shelf.dart';
 
+import 'src/abonelik_api.dart';
 import 'src/belge_api.dart';
 import 'src/buro_api.dart';
 import 'src/davet_api.dart';
@@ -12,11 +13,13 @@ import 'src/is_api.dart';
 import 'src/kimlik_api.dart';
 import 'src/kurumsal_api.dart';
 import 'src/nesne_deposu.dart';
+import 'src/odeme_saglayici.dart';
 import 'src/portal_api.dart';
 import 'src/sifreleme.dart';
 import 'src/uyum_api.dart';
 import 'src/veritabani.dart';
 
+export 'src/abonelik_api.dart';
 export 'src/belge_api.dart';
 export 'src/buro_api.dart';
 export 'src/davet_api.dart';
@@ -26,6 +29,7 @@ export 'src/is_api.dart';
 export 'src/kimlik_api.dart';
 export 'src/kurumsal_api.dart';
 export 'src/nesne_deposu.dart';
+export 'src/odeme_saglayici.dart';
 export 'src/portal_api.dart';
 export 'src/sifre.dart';
 export 'src/sifreleme.dart';
@@ -55,6 +59,7 @@ Handler uygulama(
   Veritabani vt, {
   required NesneDeposu depo,
   required AlanSifreleyici sifreleyici,
+  OdemeSaglayici? odemeSaglayici,
   Set<String> izinliKokenler = const {},
   int belgeAzamiBoyut = 50 * 1024 * 1024,
   void Function(Object, StackTrace)? kaydet,
@@ -69,7 +74,8 @@ Handler uygulama(
       .add(BuroApi(vt).router.call)
       .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut).router.call)
       .add(DavetApi(vt).router.call)
-      .add(PortalApi(vt, depo).router.call);
+      .add(PortalApi(vt, depo).router.call)
+      .add(AbonelikApi(vt, odemeSaglayici).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))

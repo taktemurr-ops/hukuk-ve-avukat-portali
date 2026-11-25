@@ -17,8 +17,26 @@ Future<void> main() async {
     stderr.writeln('TOTP_ANAHTARI tanımlı değil (32 bayt, base64; ör. openssl rand -base64 32). Gizli kasada tutulmalı.');
     exit(2);
   }
+  // Ödeme sağlayıcısı: ODEME_SAGLAYICI=sahte yalnızca geliştirme/test içindir ve canlı ortamda reddedilir.
+  OdemeSaglayici? odeme;
+  switch (ortam['ODEME_SAGLAYICI']) {
+    case 'sahte':
+      if (ortam['ORTAM'] == 'canli') {
+        stderr.writeln('Sahte ödeme sağlayıcısı canlı ortamda kullanılamaz.');
+        exit(2);
+      }
+      odeme = SahteOdemeSaglayici(
+          kokAdres: Uri.parse(ortam['DIS_ADRES'] ?? 'http://localhost:8080/'), gizli: ortam['ODEME_GIZLI'] ?? '');
+      stdout.writeln('UYARI: sahte ödeme sağlayıcısı etkin (gerçek ödeme alınmaz).');
+    case null || '':
+      stdout.writeln('Ödeme sağlayıcısı tanımlı değil; ödeme başlatma kapalı.');
+    default:
+      stderr.writeln('Bilinmeyen ödeme sağlayıcısı: ${ortam['ODEME_SAGLAYICI']}');
+      exit(2);
+  }
   final handler = uygulama(
     vt,
+    odemeSaglayici: odeme,
     depo: YerelNesneDeposu(belgeKlasoru),
     sifreleyici: AlanSifreleyici.base64(totpAnahtari),
     izinliKokenler: kokenler,
