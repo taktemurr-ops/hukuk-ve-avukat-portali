@@ -15,3 +15,7 @@ export 'src/sure/kural_katalogu.dart';
 export 'src/hesap/hesap_turu.dart';
 export 'src/kimlik/dogrulayicilar.dart';
 export 'src/yetki/yetki_denetcisi.dart';
+export 'src/taraf/isim_eslestirme.dart';
+export 'src/taraf/kisi.dart';
+export 'src/taraf/cikar_catismasi.dart';
+export 'src/vekalet/vekaletname.dart';

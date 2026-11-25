@@ -30,9 +30,9 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 
 | Durum | İş |
 | --- | --- |
-| ☐ | Kişi/taraf kartı, ilişkiler, mükerrer birleştirme |
-| ☐ | Çıkar çatışması taraması, gerekçeli karar ve onay |
-| ☐ | Vekâletname, alt vekil, işlem öncesi yetki kontrolü, yetki belgesi |
+| ◐ | Kişi/taraf kartı, ilişkiler, mükerrer birleştirme — çekirdek kurallar (Türkçe isim eşleştirme, unvan geçmişi, birleştirme) ve liste/arama/yeni kişi ekranı hazır; düzenleme, ilişki ekranı ve sunucu bekliyor |
+| ◐ | Çıkar çatışması taraması, gerekçeli karar ve onay — tarayıcı (kimlik no, aynı/benzer isim, ilişkili kişi, gizli dosya maskeleme) ve karar ekranı hazır; denetim kaydı ve sunucu bekliyor |
+| ◐ | Vekâletname, alt vekil, işlem öncesi yetki kontrolü, yetki belgesi — kurallar (HMK m.74 özel yetkiler, tevkil) ve kontrol ekranı hazır; vekâletname ekleme formu, yetki belgesi çıktısı ve özel yetki listesinin avukat kontrolü bekliyor |
 
 ## Sprint 5–7 — Dosya, süre, görev, tebligat
 
