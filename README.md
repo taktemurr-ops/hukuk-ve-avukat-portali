@@ -28,6 +28,7 @@ Ayrıntı: [docs/01-mimari.md](docs/01-mimari.md) · Tasarım: [docs/06-tasarim.
 ```
 apps/portal/              Flutter uygulaması (web + mobil + masaüstü)
 packages/hukuk_cekirdek/  Saf Dart çekirdek: süre hesabı, tatil takvimi, hesap türleri
+services/belge/           Python belge servisi: metin çıkarma, Türkçe OCR, Word çıktısı
 site/                     Statik tanıtım sitesi (gömülü fontlar, çerezsiz)
 backend/                  Serverpod sunucusu (kurulum adımları içinde)
 docs/                     Mimari, veri modeli, yetki modeli, iş listesi

@@ -38,3 +38,18 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build web
+
+  belge:
+    name: Belge servisi (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/belge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-tur poppler-utils
+      - run: pip install -r requirements-test.txt
+      - run: python -m pytest -q

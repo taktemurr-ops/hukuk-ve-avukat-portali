@@ -24,3 +24,5 @@ Thumbs.db
 config/passwords.yaml
 *.pem
 *.key
+__pycache__/
+.pytest_cache/
