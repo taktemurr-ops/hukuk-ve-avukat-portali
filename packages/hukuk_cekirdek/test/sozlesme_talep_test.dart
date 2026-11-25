@@ -194,4 +194,26 @@ void main() {
       expect(t1.gecmis.map((o) => o.aciklama).last, 'Tamamlandı');
     });
   });
+
+  test('sunucudan yüklenen beklemedeki talep SLA ötelemesini korur', () {
+    final hesap = IsGunuHesabi(TurkiyeTatilleri.takvim([2026]));
+    final t = HukukTalebi(
+      id: 't1',
+      no: 'HT-2026-0001',
+      baslik: 'NDA',
+      aciklama: '',
+      tur: TalepTuru.sozlesmeInceleme,
+      oncelik: Oncelik.normal,
+      talepEden: 'Satış',
+      birim: 'Satış',
+      olusturma: Tarih(2026, 11, 2),
+      slaSonGun: Tarih(2026, 11, 5),
+      beklemeBaslangici: Tarih(2026, 11, 3),
+    )..durum = TalepDurumu.bilgiBekleniyor;
+    expect(t.beklemeBaslangici, Tarih(2026, 11, 3));
+    // 3 Kasım Salı → 6 Kasım Cuma: 3 iş günü bekleme; SLA 5 Kasım'dan 3 iş günü sonraya (10 Kasım) kayar.
+    t.durumDegistir(TalepDurumu.incelemede, kullanici: 'a', bugun: Tarih(2026, 11, 6), hesap: hesap);
+    expect(t.slaSonGun, Tarih(2026, 11, 10));
+    expect(t.beklemeBaslangici, isNull);
+  });
 }

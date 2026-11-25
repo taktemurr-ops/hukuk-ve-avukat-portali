@@ -36,6 +36,8 @@ def dize_degeri(n, sabitler):
         icerik = re.sub(r'\$\{(\w+)\}|\$(\w+)', coz, icerik)
     except KeyError:
         return None
+    if '${' in icerik:  # ifade gömülü (ör. koşullu parça): statik olarak çözülemez, atlanır
+        return None
     return icerik.replace("\\'", "'").replace('\\"', '"').replace('\\$', '$')
 
 

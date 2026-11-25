@@ -54,6 +54,13 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET | `/icra/{id}?tarih=` | Kapak hesabı: faiz, masraf, harçlar, tahsilat mahsupları (masraf → faiz → anapara) |
 | POST | `/icra/{id}/tahsilat` | Tahsilat ekleme |
 | POST | `/icra/{id}/durum` | Takip aşaması (ve tebliğ tarihi) |
+| GET/POST | `/sirketler` | Grup şirketleri (VKN doğrulanır; ekleme hukuk ekibine açık) |
+| GET/POST | `/sozlesmeler` | Sözleşmeler ve uyarıları / yeni sözleşme (SZ-yıl-sıra numarası sunucuda) |
+| POST | `/sozlesmeler/{id}/durum` | Durum geçişi; "onayda"ya geçiş yeni onay turu açar, imzaya yalnızca zincir tamamlanınca geçilir |
+| GET/POST | `/sozlesmeler/{id}/onay` | Onay zinciri (rollerden: hukuk, direktör, finans ≥1 M TL, genel müdür ≥5 M TL) / karar |
+| GET/POST | `/talepler` | Talepler ve geçmişi / yeni talep (SLA iş günüyle hesaplanır, en az yüklü ekip üyesine atanır) |
+| POST | `/talepler/{id}/durum` | Durum geçişi (bilgi beklemesi SLA'yı öteler, ret gerekçe ister) |
+| POST | `/talepler/{id}/ata` | Hukuk ekibinden birine atama |
 
 Tutarlar istemciyle sunucu arasında kuruş cinsinden tam sayı olarak taşınır. Sunucudaki tüm SQL metinleri CI'da
 şemaya karşı `PREPARE` edilir (`araclar/sql_denetim.py`).

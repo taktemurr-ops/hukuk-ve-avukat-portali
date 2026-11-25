@@ -121,7 +121,8 @@ class HukukTalebi {
     required this.slaSonGun,
     this.sozlesmeId,
     this.sirketId,
-  });
+    Tarih? beklemeBaslangici,
+  }) : _beklemeBaslangici = beklemeBaslangici;
 
   final String id;
   final String no;
@@ -140,6 +141,9 @@ class HukukTalebi {
   TalepDurumu durum = TalepDurumu.yeni;
   Tarih slaSonGun;
   Tarih? _beklemeBaslangici;
+
+  /// Bilgi beklemesinin başladığı gün (sunucuda saklanır; SLA bu kadar iş günü ötelenir).
+  Tarih? get beklemeBaslangici => _beklemeBaslangici;
   Tarih? kapanis;
   final List<TalepOlayi> gecmis = [];
 
