@@ -66,6 +66,7 @@ Handler uygulama(
   OdemeSaglayici? odemeSaglayici,
   Uri? davetAdresi,
   Uri? sifirlamaAdresi,
+  Uri? dogrulamaAdresi,
   VirusTarayici? virusTarayici,
   Set<String> izinliKokenler = const {},
   int belgeAzamiBoyut = 50 * 1024 * 1024,
@@ -73,7 +74,7 @@ Handler uygulama(
 }) {
   final cascade = Cascade()
       .add((Request r) => r.url.path == 'saglik' ? jsonYanit({'durum': 'ok'}) : Response.notFound(null))
-      .add(KimlikApi(vt, sifreleyici, sifirlamaAdresi: sifirlamaAdresi).router.call)
+      .add(KimlikApi(vt, sifreleyici, sifirlamaAdresi: sifirlamaAdresi, dogrulamaAdresi: dogrulamaAdresi).router.call)
       .add(DosyaApi(vt).router.call)
       .add(IsApi(vt).router.call)
       .add(KurumsalApi(vt).router.call)

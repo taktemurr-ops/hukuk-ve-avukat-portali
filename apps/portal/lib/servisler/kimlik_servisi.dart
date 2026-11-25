@@ -75,6 +75,11 @@ class KimlikHatasi implements Exception {
   String toString() => mesaj;
 }
 
+/// Şifre doğru ama e-posta adresi henüz doğrulanmamış (kendi kendine kayıtta).
+class EpostaDogrulanmadi extends KimlikHatasi {
+  const EpostaDogrulanmadi(super.mesaj);
+}
+
 /// Kimlik işlemleri. Sunucu (Serverpod) hazır olduğunda gerçek uygulaması yazılacak;
 /// ekranlar yalnızca bu arayüze bağlıdır.
 abstract class KimlikServisi {
@@ -94,6 +99,12 @@ abstract class KimlikServisi {
 
   /// E-postadaki kodla yeni şifre belirler; geçersiz/süresi dolmuş kodda [KimlikHatasi].
   Future<void> sifreSifirla({required String kod, required String yeniSifre});
+
+  /// Kayıt e-postasındaki kodla adresi doğrular; geçersiz/süresi dolmuş kodda [KimlikHatasi].
+  Future<void> epostaDogrula(String kod);
+
+  /// Doğrulanmamış hesap varsa yeni bağlantı gönderir; yanıt her durumda aynıdır.
+  Future<void> dogrulamaYeniden(String eposta);
 
   /// Kayıt olmadan, örnek verilerle salt deneme oturumu. Demo verisi kalıcı değildir.
   Future<Oturum> demoGiris(HesapTuru tur);
@@ -166,6 +177,12 @@ class BellekKimlikServisi implements KimlikServisi {
   @override
   Future<void> sifreSifirla({required String kod, required String yeniSifre}) async =>
       throw const KimlikHatasi('Demo modunda şifre sıfırlanamaz.');
+
+  @override
+  Future<void> epostaDogrula(String kod) async {}
+
+  @override
+  Future<void> dogrulamaYeniden(String eposta) async {}
 
   @override
   Future<void> davetKabul({required String kod, required String eposta, required String adSoyad, required String sifre}) async {

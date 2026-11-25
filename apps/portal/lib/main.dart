@@ -76,6 +76,7 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
               // Web'de davet e-postasındaki bağlantı (…/davet?kod=…) doğrudan davet sayfasını açar.
               davetBaglantisi: Uri.base.path.endsWith('/davet') ? Uri.base : null,
               sifirlamaBaglantisi: Uri.base.path.endsWith('/sifre-sifirla') ? Uri.base : null,
+              dogrulamaBaglantisi: Uri.base.path.endsWith('/eposta-dogrula') ? Uri.base : null,
             )
           : oturum.muvekkilPortali
               ? (_sunucuOturumu

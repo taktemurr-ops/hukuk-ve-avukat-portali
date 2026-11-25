@@ -36,6 +36,9 @@ class SahteSunucu {
         if (j['sifre'] != 'Dogru-Sifre-2026') {
           return _json({'hata': 'giris_hatali', 'mesaj': 'E-posta veya şifre hatalı ya da hesap geçici olarak kilitli.'}, 401);
         }
+        if (j['eposta'] == 'yeni@buro.com.tr') {
+          return _json({'hata': 'eposta_dogrulanmadi', 'mesaj': 'E-posta adresiniz henüz doğrulanmadı.'}, 403);
+        }
         if (ikiAdimli) {
           if (j['ikiAdimliKod'] == null) return _json({'ikiAdimliGerekli': true});
           if (j['ikiAdimliKod'] != '123456') {
@@ -147,6 +150,10 @@ class SahteSunucu {
         if (j['kod'] != 'k0d') {
           return _json({'hata': 'gecersiz_istek', 'mesaj': 'Bağlantı geçersiz ya da süresi dolmuş.'}, 400);
         }
+        return _json({'hesapSayisi': 1});
+      case 'POST /acik/dogrulama-yeniden':
+        return _json({'durum': 'gönderildi'}, 202);
+      case 'POST /acik/eposta-dogrula':
         return _json({'hesapSayisi': 1});
       case 'GET /abonelik':
         return _json({
@@ -560,6 +567,17 @@ void main() {
     await _bas(tester, 'sunucu-odeme-yap');
     expect(acilan.toString(), 'https://odeme.ornek.test/sayfa/yillik');
     expect(sunucu.istekler, contains('POST /abonelik/odeme'));
+  });
+
+  testWidgets('Doğrulanmamış e-postada açıklama ve yeni bağlantı düğmesi gösterilir', (tester) async {
+    final (sunucu, api) = await _uygulama(tester);
+    await tester.enterText(find.byKey(const Key('giris-eposta')), 'yeni@buro.com.tr');
+    await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
+    await _bas(tester, 'giris-yap');
+    expect(find.textContaining('henüz doğrulanmadı'), findsOneWidget);
+    expect(api.token, isNull);
+    await _bas(tester, 'dogrulama-yeniden');
+    expect(sunucu.istekler, contains('POST /acik/dogrulama-yeniden'));
   });
 
   testWidgets('Birden çok kurumda hesap varsa kurum seçilir', (tester) async {

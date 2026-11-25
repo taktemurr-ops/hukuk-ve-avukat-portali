@@ -64,7 +64,11 @@ bool _yazmaKilidiMuaf(String yol) => yol == 'cikis' || yol.startsWith('abonelik'
 
 class KimlikApi {
   KimlikApi(this.vt, this.sifreleyici,
-      {Random? rastgele, this.oturumSuresi = const Duration(hours: 8), DateTime Function()? saat, this.sifirlamaAdresi})
+      {Random? rastgele,
+      this.oturumSuresi = const Duration(hours: 8),
+      DateTime Function()? saat,
+      this.sifirlamaAdresi,
+      this.dogrulamaAdresi})
       : _rastgele = rastgele ?? Random.secure(),
         _saat = saat ?? DateTime.now;
 
@@ -80,6 +84,21 @@ class KimlikApi {
   /// Şifre sıfırlama sayfası (ör. https://app.../sifre-sifirla); bağlantıya `kod` eklenir. Yoksa e-postada yalnızca kod.
   final Uri? sifirlamaAdresi;
 
+  /// E-posta doğrulama sayfası (ör. https://app.../eposta-dogrula); bağlantıya `kod` eklenir.
+  final Uri? dogrulamaAdresi;
+
+  /// 128 bit tek kullanımlık kod (yalnızca SHA-256 özeti saklanır).
+  String _kod() => List.generate(16, (_) => _rastgele.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+
+  String _dogrulamaMetni(String kod) {
+    final adres = dogrulamaAdresi;
+    final baglanti = adres == null
+        ? 'Uygulamada "E-postamı doğrula" bölümüne bu kodu girin: $kod'
+        : 'Adresinizi doğrulamak için: ${adres.replace(queryParameters: {'kod': kod})}';
+    return '$_yayinci hesabınızı açtığınız için teşekkürler.\n\n$baglanti\n\n'
+        'Bağlantı 48 saat geçerlidir. Bu kaydı siz yapmadıysanız bu e-postayı dikkate almayın.';
+  }
+
   /// Kullanıcı yokken de aynı sürede yanıt vermek için sahte özet (kullanıcı varlığı sızmasın).
   static final _sahteOzet = SifreOzeti.olustur('sahte-sifre', tuz: Uint8List.fromList(List.filled(16, 7)));
 
@@ -87,6 +106,8 @@ class KimlikApi {
     ..post('/giris', _giris)
     ..post('/kayit', _kayit)
     ..post('/acik/sifre-sifirlama', _sifirlamaIste)
+    ..post('/acik/eposta-dogrula', _epostaDogrula)
+    ..post('/acik/dogrulama-yeniden', _dogrulamaYeniden)
     ..post('/acik/sifre-sifirla', _sifirla)
     ..post('/cikis', _cikis)
     ..get('/ben', _ben)
@@ -129,6 +150,13 @@ class KimlikApi {
       });
     }
     final kullanici = secilen.single;
+    // Şifre doğru olduktan sonra söylenir; yanlış şifrede hesap varlığı sızmaz.
+    final dogrulandi = await vt.genel((tx) => tx.execute(Sql.named('SELECT hukuk.eposta_dogrulandi_mi(CAST(@u AS uuid))'),
+        parameters: {'u': kullanici[0]}));
+    if (dogrulandi.first[0] != true) {
+      throw const ApiHatasi(403, 'E-posta adresiniz henüz doğrulanmadı. Size gönderdiğimiz bağlantıya tıklayın ya da yeni bağlantı isteyin.',
+          kod: 'eposta_dogrulanmadi');
+    }
     if (kullanici[4] == true) {
       // Şifre doğru; ikinci adım: doğrulayıcı uygulamadaki 6 haneli kod. Başarı ancak kod da doğruysa kaydedilir.
       final kod = j['ikiAdimliKod'] as String?;
@@ -179,18 +207,29 @@ class KimlikApi {
     final sifreHatasi = Dogrulayicilar.sifre(sifre, eposta: eposta);
     if (sifreHatasi != null) throw ApiHatasi(400, sifreHatasi, kod: 'zayif_sifre');
     final ad = zorunluMetin(j, 'adSoyad');
-    final rs = await vt.genel((tx) => tx.execute(
-          Sql.named('SELECT kiraci_id::text, kullanici_id::text FROM hukuk.hesap_ac(@k, @t, @e, @a, @s)'),
-          parameters: {'k': kurum, 't': tur, 'e': eposta, 'a': ad, 's': SifreOzeti.olustur(sifre)},
-        ));
-    return jsonYanit({'kiraciId': rs.first[0], 'kullaniciId': rs.first[1]}, durum: 201);
+    final kod = _kod();
+    // Hesap ve doğrulama e-postası tek işlemde: e-posta kuyruğa yazılamazsa hesap da açılmaz.
+    final rs = await vt.genel((tx) async {
+      final h = await tx.execute(
+        Sql.named('SELECT kiraci_id::text, kullanici_id::text FROM hukuk.hesap_ac(@k, @t, @e, @a, @s)'),
+        parameters: {'k': kurum, 't': tur, 'e': eposta, 'a': ad, 's': SifreOzeti.olustur(sifre)},
+      );
+      await tx.execute(Sql.named('SELECT hukuk.eposta_dogrulama_baslat(CAST(@u AS uuid), @o, @k, @m)'), parameters: {
+        'u': h.first[1],
+        'o': tokenOzeti(kod),
+        'k': 'E-posta doğrulama · $_yayinci',
+        'm': _dogrulamaMetni(kod),
+      });
+      return h;
+    });
+    return jsonYanit({'kiraciId': rs.first[0], 'kullaniciId': rs.first[1], 'dogrulamaGerekli': true}, durum: 201);
   }
 
   /// Adres kayıtlı olsun olmasın aynı yanıt (hesap varlığı sızmaz). Kod 128 bit, yalnızca özeti saklanır.
   Future<Response> _sifirlamaIste(Request istek) async {
     final eposta = zorunluMetin(await jsonGovde(istek), 'eposta').toLowerCase();
     if (Dogrulayicilar.eposta(eposta) == null) {
-      final kod = List.generate(16, (_) => _rastgele.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+      final kod = _kod();
       final adres = sifirlamaAdresi;
       final baglanti = adres == null
           ? 'Uygulamada "Şifremi unuttum" bölümünde bu kodu girin: $kod'
@@ -208,6 +247,27 @@ class KimlikApi {
           ));
     }
     return jsonYanit({'durum': 'Adres kayıtlıysa şifre sıfırlama bağlantısı gönderildi.'}, durum: 202);
+  }
+
+  Future<Response> _epostaDogrula(Request istek) async {
+    final kod = zorunluMetin(await jsonGovde(istek), 'kod').trim().toLowerCase();
+    final rs = await vt.genel((tx) =>
+        tx.execute(Sql.named('SELECT hukuk.eposta_dogrula(@o)'), parameters: {'o': tokenOzeti(kod)}));
+    return jsonYanit({'hesapSayisi': rs.first[0]});
+  }
+
+  Future<Response> _dogrulamaYeniden(Request istek) async {
+    final eposta = zorunluMetin(await jsonGovde(istek), 'eposta').toLowerCase();
+    if (Dogrulayicilar.eposta(eposta) == null) {
+      final kod = _kod();
+      await vt.genel((tx) => tx.execute(Sql.named('SELECT hukuk.eposta_dogrulama_yenile(@e, @o, @k, @m)'), parameters: {
+            'e': eposta,
+            'o': tokenOzeti(kod),
+            'k': 'E-posta doğrulama · $_yayinci',
+            'm': _dogrulamaMetni(kod),
+          }));
+    }
+    return jsonYanit({'durum': 'Doğrulanmamış bir hesap varsa yeni bağlantı gönderildi.'}, durum: 202);
   }
 
   Future<Response> _sifirla(Request istek) async {

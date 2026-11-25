@@ -63,6 +63,7 @@ class SunucuKimlikServisi implements KimlikServisi {
         muvekkilKisiId: ben['portalKisiId'] as String?,
       );
     } on SunucuHatasi catch (e) {
+      if (e.kod == 'eposta_dogrulanmadi') throw EpostaDogrulanmadi(e.mesaj);
       throw KimlikHatasi(e.mesaj);
     }
   }
@@ -110,6 +111,24 @@ class SunucuKimlikServisi implements KimlikServisi {
     // Sunucu her durumda aynı yanıtı verir; ağ hatasında da kullanıcıya hesap bilgisi sızdırılmaz.
     try {
       await api.post('/acik/sifre-sifirlama', {'eposta': eposta.trim()});
+    } on SunucuHatasi catch (e) {
+      throw KimlikHatasi(e.mesaj);
+    }
+  }
+
+  @override
+  Future<void> epostaDogrula(String kod) async {
+    try {
+      await api.post('/acik/eposta-dogrula', {'kod': kod.trim()});
+    } on SunucuHatasi catch (e) {
+      throw KimlikHatasi(e.mesaj);
+    }
+  }
+
+  @override
+  Future<void> dogrulamaYeniden(String eposta) async {
+    try {
+      await api.post('/acik/dogrulama-yeniden', {'eposta': eposta.trim()});
     } on SunucuHatasi catch (e) {
       throw KimlikHatasi(e.mesaj);
     }

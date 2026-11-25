@@ -15,6 +15,7 @@ class GirisEkrani extends StatefulWidget {
     required this.girisYapildi,
     this.davetBaglantisi,
     this.sifirlamaBaglantisi,
+    this.dogrulamaBaglantisi,
   });
 
   final KimlikServisi servis;
@@ -26,6 +27,9 @@ class GirisEkrani extends StatefulWidget {
   /// Şifre sıfırlama e-postasındaki bağlantı (…/sifre-sifirla?kod=…).
   final Uri? sifirlamaBaglantisi;
 
+  /// Kayıt e-postasındaki doğrulama bağlantısı (…/eposta-dogrula?kod=…).
+  final Uri? dogrulamaBaglantisi;
+
   @override
   State<GirisEkrani> createState() => _GirisEkraniState();
 }
@@ -36,6 +40,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
   final _sifre = TextEditingController();
   bool _sifreGizli = true;
   bool _bekliyor = false;
+  bool _dogrulamaBekliyor = false;
   String? _hata;
 
   @override
@@ -49,6 +54,10 @@ class _GirisEkraniState extends State<GirisEkrani> {
         Navigator.of(context).push(MaterialPageRoute<void>(
             builder: (_) => DavetKabulEkrani(servis: widget.servis, kod: kod, eposta: b.queryParameters['eposta'])));
       });
+    }
+    final dk = widget.dogrulamaBaglantisi?.queryParameters['kod'];
+    if (dk != null && dk.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _dogrula(dk));
     }
     final sk = widget.sifirlamaBaglantisi?.queryParameters['kod'];
     if (sk != null && sk.isNotEmpty) {
@@ -118,9 +127,41 @@ class _GirisEkraniState extends State<GirisEkrani> {
       );
       if (kiraci == null || !mounted) return;
       await _dene(kiraciId: kiraci, kod: kod);
+    } on EpostaDogrulanmadi catch (e) {
+      if (mounted) {
+        setState(() {
+          _hata = e.mesaj;
+          _dogrulamaBekliyor = true;
+        });
+      }
     } on KimlikHatasi catch (e) {
       if (mounted) setState(() => _hata = e.mesaj);
     }
+  }
+
+  /// Bağlantıyla açıldıysa adresi doğrular ve sonucu gösterir.
+  Future<void> _dogrula(String kod) async {
+    String mesaj;
+    try {
+      await widget.servis.epostaDogrula(kod);
+      mesaj = 'E-posta adresiniz doğrulandı. Şimdi giriş yapabilirsiniz.';
+    } on KimlikHatasi catch (e) {
+      mesaj = e.mesaj;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj, key: const Key('dogrulama-sonuc'))));
+  }
+
+  Future<void> _dogrulamaYeniden() async {
+    try {
+      await widget.servis.dogrulamaYeniden(_eposta.text);
+    } on KimlikHatasi catch (e) {
+      if (mounted) setState(() => _hata = e.mesaj);
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Doğrulanmamış bir hesap varsa yeni bağlantı gönderildi (48 saat geçerli).')));
   }
 
   Future<void> _sifremiUnuttum() async {
@@ -275,6 +316,15 @@ class _GirisEkraniState extends State<GirisEkrani> {
                         _hata!,
                         key: const Key('giris-hata'),
                         style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      ),
+                    ),
+                  if (_dogrulamaBekliyor)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const Key('dogrulama-yeniden'),
+                        onPressed: _dogrulamaYeniden,
+                        child: const Text('Doğrulama bağlantısını yeniden gönder'),
                       ),
                     ),
                   FilledButton(

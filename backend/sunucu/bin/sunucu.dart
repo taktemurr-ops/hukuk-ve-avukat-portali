@@ -76,6 +76,7 @@ Future<void> main() async {
     virusTarayici: tarayici,
     davetAdresi: davetAdresi == null || davetAdresi.isEmpty ? null : Uri.parse(davetAdresi),
     sifirlamaAdresi: portalAdresi.isEmpty ? null : Uri.parse(portalAdresi).resolve('sifre-sifirla'),
+    dogrulamaAdresi: portalAdresi.isEmpty ? null : Uri.parse(portalAdresi).resolve('eposta-dogrula'),
     odemeSaglayici: odeme,
     depo: YerelNesneDeposu(belgeKlasoru),
     sifreleyici: AlanSifreleyici.base64(totpAnahtari),
