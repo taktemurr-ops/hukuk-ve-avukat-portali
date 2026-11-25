@@ -27,6 +27,10 @@ void main() {
       expect(Totp.dogrula(sir, '287 082', t(80)), isTrue, reason: 'bir sonraki adımda da kabul');
       expect(Totp.dogrula(sir, '287082', t(200)), isFalse);
       expect(Totp.dogrula(sir, 'abc', t(59)), isFalse);
+      // 59 sn → adım 1; 80 sn'de bir önceki adımla eşleşir (yeniden oynatma kontrolü için adım döner).
+      expect(Totp.eslesenAdim(sir, '287082', t(59)), 1);
+      expect(Totp.eslesenAdim(sir, '287082', t(80)), 1);
+      expect(Totp.eslesenAdim(sir, '287082', t(200)), isNull);
     });
 
     test('Base32 (RFC 4648)', () {

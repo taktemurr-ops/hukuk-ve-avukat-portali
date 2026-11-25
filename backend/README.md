@@ -34,6 +34,7 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET | `/saglik` | Durum |
 | POST | `/giris` | E-posta + şifre → oturum token'ı (birden çok kurumda hesap varsa kurum seçimi) |
 | POST | `/cikis` | Oturumu kapatır |
+| POST | `/ben/iki-adimli/baslat` · `/etkinlestir` · `/kapat` | İki adımlı doğrulama (TOTP) kurulumu; kapatmak için güncel kod gerekir |
 | POST | `/kayit` | Yeni müşteri: kurum + kurucu kullanıcı + 14 gün deneme (şifre kuralları sunucuda da denetlenir) |
 | GET | `/ben` | Kullanıcı, kurum ve roller |
 | GET | `/kullanicilar` | Kurumdaki kullanıcılar ve rolleri |
@@ -90,6 +91,14 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 Belge yüklemede uzantı listesi, boyut sınırı (`BELGE_AZAMI_MB`, varsayılan 50) ve içerik imzası denetlenir; uzantısı
 değiştirilmiş ve çalıştırılabilir dosyalar reddedilir. İçerikler `BELGE_KLASORU` altında saklanır (Türkiye'de, şifreli
 kalıcı disk; S3 uyumlu yurt içi nesne deposu sonra). Virüs taraması (ClamAV) henüz bağlı değil.
+
+İki adımlı doğrulama açık hesapta `/giris` önce `{"ikiAdimliGerekli": true}` döner; istemci aynı isteği `ikiAdimliKod`
+ile tekrarlar. TOTP sırları `TOTP_ANAHTARI` (32 bayt, base64; gizli kasada) ile AES-256-GCM şifrelenir, kullanıcı
+kimliği ek doğrulanmış veridir. Aynı kod ikinci kez kullanılamaz; hatalı kod hatalı giriş denemesi sayılır.
+
+Uygulama veritabanı rolü kullanıcı, rol ve kurum kayıtlarını doğrudan değiştiremez; şifre özetlerini ve TOTP
+sırlarını göremez. Rol verme ve dosya ekibi değişikliği yalnızca yöneticilere (ekip için dosya sorumlusuna da) açıktır.
+`araclar/sql_denetim.py` sorguları uygulama rolüyle `EXPLAIN` ederek tablo/sütun yetkilerini de denetler.
 
 Müvekkil oturumunda sunucu kiracı bağlamını hiç ayarlamaz: büro tablolarının satır politikaları boş döner ve müvekkil
 yalnızca `portal/` uçlarını (SECURITY DEFINER portal fonksiyonları) kullanabilir; başka bir uca giden istek 403 alır.

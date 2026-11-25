@@ -81,7 +81,8 @@ abstract class KimlikServisi {
   Oturum? get oturum;
 
   /// [kiraciId]: aynı e-postayla birden çok kurumda hesap varsa seçilen kurum.
-  Future<Oturum> girisYap({required String eposta, required String sifre, String? kiraciId});
+  /// [ikiAdimliKod]: iki adımlı doğrulama açıksa doğrulayıcı uygulamadaki 6 haneli kod.
+  Future<Oturum> girisYap({required String eposta, required String sifre, String? kiraciId, String? ikiAdimliKod});
 
   Future<void> cikisYap();
 
@@ -138,7 +139,7 @@ class BellekKimlikServisi implements KimlikServisi {
   }
 
   @override
-  Future<Oturum> girisYap({required String eposta, required String sifre, String? kiraciId}) async {
+  Future<Oturum> girisYap({required String eposta, required String sifre, String? kiraciId, String? ikiAdimliKod}) async {
     final anahtar = eposta.trim().toLowerCase();
     final hatali = _hataliDenemeler[anahtar] ?? 0;
     if (hatali >= azamiHataliDeneme) {

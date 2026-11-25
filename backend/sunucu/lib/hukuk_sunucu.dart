@@ -13,6 +13,7 @@ import 'src/kimlik_api.dart';
 import 'src/kurumsal_api.dart';
 import 'src/nesne_deposu.dart';
 import 'src/portal_api.dart';
+import 'src/sifreleme.dart';
 import 'src/uyum_api.dart';
 import 'src/veritabani.dart';
 
@@ -27,6 +28,7 @@ export 'src/kurumsal_api.dart';
 export 'src/nesne_deposu.dart';
 export 'src/portal_api.dart';
 export 'src/sifre.dart';
+export 'src/sifreleme.dart';
 export 'src/uyum_api.dart';
 export 'src/veritabani.dart';
 
@@ -52,13 +54,14 @@ Middleware cors(Set<String> izinliKokenler) => (ic) => (istek) async {
 Handler uygulama(
   Veritabani vt, {
   required NesneDeposu depo,
+  required AlanSifreleyici sifreleyici,
   Set<String> izinliKokenler = const {},
   int belgeAzamiBoyut = 50 * 1024 * 1024,
   void Function(Object, StackTrace)? kaydet,
 }) {
   final cascade = Cascade()
       .add((Request r) => r.url.path == 'saglik' ? jsonYanit({'durum': 'ok'}) : Response.notFound(null))
-      .add(KimlikApi(vt).router.call)
+      .add(KimlikApi(vt, sifreleyici).router.call)
       .add(DosyaApi(vt).router.call)
       .add(IsApi(vt).router.call)
       .add(KurumsalApi(vt).router.call)

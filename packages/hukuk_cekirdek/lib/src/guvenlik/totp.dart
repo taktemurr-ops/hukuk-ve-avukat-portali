@@ -73,14 +73,19 @@ class Totp {
       hotp(sir, zaman.toUtc().millisecondsSinceEpoch ~/ 1000 ~/ adimSaniye, hane: hane);
 
   /// Saat kaymasına karşı ±[pencere] adım kabul edilir.
-  static bool dogrula(List<int> sir, String girilen, DateTime zaman, {int pencere = 1, int adimSaniye = 30}) {
+  static bool dogrula(List<int> sir, String girilen, DateTime zaman, {int pencere = 1, int adimSaniye = 30}) =>
+      eslesenAdim(sir, girilen, zaman, pencere: pencere, adimSaniye: adimSaniye) != null;
+
+  /// Kodun eşleştiği zaman adımı (sayaç); eşleşmezse null. Sunucu aynı adımın ikinci kez kullanılmasını
+  /// (yeniden oynatma) bu değerle engeller.
+  static int? eslesenAdim(List<int> sir, String girilen, DateTime zaman, {int pencere = 1, int adimSaniye = 30}) {
     final temiz = girilen.replaceAll(' ', '');
-    if (!RegExp(r'^\d{6}$').hasMatch(temiz)) return false;
+    if (!RegExp(r'^\d{6}$').hasMatch(temiz)) return null;
     final sayac = zaman.toUtc().millisecondsSinceEpoch ~/ 1000 ~/ adimSaniye;
     for (var d = -pencere; d <= pencere; d++) {
-      if (hotp(sir, sayac + d) == temiz) return true;
+      if (hotp(sir, sayac + d) == temiz) return sayac + d;
     }
-    return false;
+    return null;
   }
 
   /// 160 bitlik rastgele sır.

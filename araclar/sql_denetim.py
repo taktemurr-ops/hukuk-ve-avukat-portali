@@ -122,14 +122,23 @@ def main():
         with psycopg.connect(dsn + f' dbname={vt}', autocommit=True) as c:
             for m in sorted(glob.glob(str(KOK / 'backend/veritabani/migrations/*.sql'))):
                 c.execute(pathlib.Path(m).read_text())
+            # Uygulama rolüyle: PREPARE sözdizimi/tür/sütunları, EXPLAIN EXECUTE tablo ve sütun yetkilerini denetler
+            # (sorgu çalıştırılmaz; parametreler NULL verilir).
+            c.execute('SET ROLE hukuk_uygulama')
             for i, (yer, sql) in enumerate(metinler):
-                donusmus, _ = yer_tutucular(sql)
+                donusmus, adlar = yer_tutucular(sql)
                 try:
                     c.execute(f'PREPARE d{i} AS {donusmus}')
+                    bos = ', '.join(['NULL'] * len(adlar))
+                    c.execute(f'EXPLAIN EXECUTE d{i}' + (f'({bos})' if adlar else ''))
                     c.execute(f'DEALLOCATE d{i}')
                 except psycopg.Error as e:
                     hata += 1
                     print(f'{yer}: {str(e).splitlines()[0]}\n    {sql}')
+                    try:
+                        c.execute(f'DEALLOCATE d{i}')
+                    except psycopg.Error:
+                        pass
     finally:
         with psycopg.connect(dsn, autocommit=True) as c:
             c.execute(f'DROP DATABASE {vt}')

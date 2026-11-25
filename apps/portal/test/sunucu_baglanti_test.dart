@@ -18,6 +18,7 @@ class SahteSunucu {
   var ikiKurum = false;
   var kurumsal = false;
   var muvekkil = false;
+  var ikiAdimli = false;
   final portalMesajlari = <Map<String, Object?>>[];
   final tahsilatlar = <Map<String, Object?>>[];
 
@@ -32,6 +33,12 @@ class SahteSunucu {
         final j = jsonDecode(r.body) as Map<String, dynamic>;
         if (j['sifre'] != 'Dogru-Sifre-2026') {
           return _json({'hata': 'giris_hatali', 'mesaj': 'E-posta veya şifre hatalı ya da hesap geçici olarak kilitli.'}, 401);
+        }
+        if (ikiAdimli) {
+          if (j['ikiAdimliKod'] == null) return _json({'ikiAdimliGerekli': true});
+          if (j['ikiAdimliKod'] != '123456') {
+            return _json({'hata': 'iki_adimli_hatali', 'mesaj': 'Doğrulama kodu hatalı veya daha önce kullanılmış.'}, 401);
+          }
         }
         if (ikiKurum && j['kiraciId'] == null) {
           return _json({
@@ -460,6 +467,22 @@ void main() {
     await _bas(tester, 'davet-kabul-gonder');
     expect(find.byKey(const Key('davet-tamam')), findsOneWidget);
     expect(sunucu.istekler.where((i) => i == 'POST /acik/davet-kabul').length, 2);
+  });
+
+  testWidgets('İki adımlı doğrulama açık hesapta kod sorulur', (tester) async {
+    final (sunucu, api) = await _uygulama(tester);
+    sunucu.ikiAdimli = true;
+    await tester.enterText(find.byKey(const Key('giris-eposta')), 'ayse@yilmaz.av.tr');
+    await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
+    await _bas(tester, 'giris-yap');
+    await tester.enterText(find.byKey(const Key('giris-iki-adimli-kod')), '000000');
+    await _bas(tester, 'giris-iki-adimli-onay');
+    expect(find.textContaining('Doğrulama kodu hatalı'), findsOneWidget);
+    expect(api.token, isNull);
+    await _bas(tester, 'giris-yap');
+    await tester.enterText(find.byKey(const Key('giris-iki-adimli-kod')), '123456');
+    await _bas(tester, 'giris-iki-adimli-onay');
+    expect(api.token, 'tkn');
   });
 
   testWidgets('Birden çok kurumda hesap varsa kurum seçilir', (tester) async {

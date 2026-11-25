@@ -33,7 +33,49 @@ class HesapYonetimi extends ChangeNotifier {
 
   List<int>? _ikiAdimliSir;
   List<int>? _bekleyenSir;
-  bool get ikiAdimliAcik => _ikiAdimliSir != null;
+  bool? _sunucuIkiAdimli;
+  bool get ikiAdimliAcik => _sunucuIkiAdimli ?? _ikiAdimliSir != null;
+
+  /// Sunucu bağlıyken iki adımlı doğrulamanın durumu sunucudan okunur.
+  Future<void> ikiAdimliDurumuYukle() async {
+    final u = depo.uzak;
+    if (u == null) return;
+    _sunucuIkiAdimli = await u.ikiAdimliAcikMi();
+    notifyListeners();
+  }
+
+  /// Kurulumu başlatır: (sır, otpauth bağlantısı). Sunucu bağlıyken sır sunucuda üretilip şifreli saklanır.
+  Future<(List<int>, String)> ikiAdimliKurulum() async {
+    final u = depo.uzak;
+    if (u == null) {
+      final sir = ikiAdimliBaslat();
+      return (sir, Totp.otpauthUri(yayinci: urunAdi, hesap: oturum.eposta, sir: sir));
+    }
+    final (anahtar, baglanti) = await u.ikiAdimliBaslat();
+    return (Totp.base32Coz(anahtar), baglanti);
+  }
+
+  /// Açıksa kapatır, kapalıysa etkinleştirir; hata varsa mesajı döner.
+  Future<String?> ikiAdimliOnayla(String kod) async {
+    final u = depo.uzak;
+    if (u == null) {
+      final ok = ikiAdimliAcik ? ikiAdimliKapat(kod) : ikiAdimliEtkinlestir(kod);
+      return ok ? null : 'Kod doğrulanamadı. Uygulamadaki güncel 6 haneli kodu girin.';
+    }
+    try {
+      if (ikiAdimliAcik) {
+        await u.ikiAdimliKapat(kod);
+        _sunucuIkiAdimli = false;
+      } else {
+        await u.ikiAdimliEtkinlestir(kod);
+        _sunucuIkiAdimli = true;
+      }
+      notifyListeners();
+      return null;
+    } on Exception catch (e) {
+      return '$e';
+    }
+  }
 
   List<Davet> bekleyenDavetler() => davetler.where((d) => d.gecerliMi(_saat())).toList();
 
@@ -418,7 +460,14 @@ class IkiAdimliEkrani extends StatefulWidget {
 class _IkiAdimliEkraniState extends State<IkiAdimliEkrani> {
   final _kod = TextEditingController();
   List<int>? _sir;
+  String? _baglanti;
   String? _hata;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.yonetim.ikiAdimliDurumuYukle().then((_) {}, onError: (Object _) {});
+  }
 
   @override
   void dispose() {
@@ -426,13 +475,16 @@ class _IkiAdimliEkraniState extends State<IkiAdimliEkrani> {
     super.dispose();
   }
 
-  void _onayla() {
+  Future<void> _onayla() async {
     final y = widget.yonetim;
-    final ok = y.ikiAdimliAcik ? y.ikiAdimliKapat(_kod.text) : y.ikiAdimliEtkinlestir(_kod.text);
+    final hata = await y.ikiAdimliOnayla(_kod.text);
+    if (!mounted) return;
+    final ok = hata == null;
     setState(() {
-      _hata = ok ? null : 'Kod doğrulanamadı. Uygulamadaki güncel 6 haneli kodu girin.';
+      _hata = hata;
       if (ok) {
         _sir = null;
+        _baglanti = null;
         _kod.clear();
       }
     });
@@ -483,7 +535,19 @@ class _IkiAdimliEkraniState extends State<IkiAdimliEkrani> {
           else if (sir == null)
             FilledButton.icon(
               key: const Key('totp-baslat'),
-              onPressed: () => setState(() => _sir = y.ikiAdimliBaslat()),
+              onPressed: () async {
+                try {
+                  final (sir, baglanti) = await y.ikiAdimliKurulum();
+                  if (mounted) {
+                    setState(() {
+                      _sir = sir;
+                      _baglanti = baglanti;
+                    });
+                  }
+                } on Exception catch (e) {
+                  if (mounted) setState(() => _hata = '$e');
+                }
+              },
               icon: const Icon(Icons.phonelink_lock_outlined),
               label: const Text('Kurulumu başlat'),
             )
@@ -503,7 +567,7 @@ class _IkiAdimliEkraniState extends State<IkiAdimliEkrani> {
                   const SizedBox(height: 4),
                   TextButton.icon(
                     onPressed: () => Clipboard.setData(ClipboardData(
-                        text: Totp.otpauthUri(yayinci: urunAdi, hesap: y.oturum.eposta, sir: sir))),
+                        text: _baglanti ?? Totp.otpauthUri(yayinci: urunAdi, hesap: y.oturum.eposta, sir: sir))),
                     icon: const Icon(Icons.copy, size: 18),
                     label: const Text('Kurulum bağlantısını kopyala'),
                   ),

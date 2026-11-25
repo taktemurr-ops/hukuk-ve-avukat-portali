@@ -11,6 +11,11 @@ class KurumSecimiGerekli implements Exception {
   final Map<String, String> kurumlar;
 }
 
+/// Şifre doğru; hesapta iki adımlı doğrulama açık, 6 haneli kod gerekiyor.
+class IkiAdimliGerekli implements Exception {
+  const IkiAdimliGerekli();
+}
+
 /// Gerçek sunucuya bağlanan kimlik servisi. Demo girişi bellekte kalır (sunucuya veri yazmaz).
 class SunucuKimlikServisi implements KimlikServisi {
   SunucuKimlikServisi(this.api, {KimlikServisi? demo}) : _demo = demo ?? BellekKimlikServisi();
@@ -26,9 +31,15 @@ class SunucuKimlikServisi implements KimlikServisi {
   Oturum? get oturum => _oturum;
 
   @override
-  Future<Oturum> girisYap({required String eposta, required String sifre, String? kiraciId}) async {
+  Future<Oturum> girisYap({required String eposta, required String sifre, String? kiraciId, String? ikiAdimliKod}) async {
     try {
-      final y = await api.post('/giris', {'eposta': eposta, 'sifre': sifre, if (kiraciId != null) 'kiraciId': kiraciId}) as Map<String, dynamic>;
+      final y = await api.post('/giris', {
+        'eposta': eposta,
+        'sifre': sifre,
+        if (kiraciId != null) 'kiraciId': kiraciId,
+        if (ikiAdimliKod != null) 'ikiAdimliKod': ikiAdimliKod,
+      }) as Map<String, dynamic>;
+      if (y['ikiAdimliGerekli'] == true) throw const IkiAdimliGerekli();
       final secenekler = y['kurumSecin'];
       if (secenekler is List) {
         throw KurumSecimiGerekli({

@@ -40,9 +40,32 @@ class _GirisEkraniState extends State<GirisEkrani> {
       _hata = null;
     });
     try {
-      final oturum = await widget.servis.girisYap(eposta: _eposta.text, sifre: _sifre.text);
+      await _dene();
+    } finally {
+      if (mounted) setState(() => _bekliyor = false);
+    }
+  }
+
+  /// Girişi dener; kurum seçimi ve iki adımlı kod istenirse kullanıcıya sorup yeniden dener.
+  Future<void> _dene({String? kiraciId, String? kod}) async {
+    try {
+      final oturum =
+          await widget.servis.girisYap(eposta: _eposta.text, sifre: _sifre.text, kiraciId: kiraciId, ikiAdimliKod: kod);
+      if (mounted) widget.girisYapildi(oturum);
+    } on IkiAdimliGerekli {
       if (!mounted) return;
-      widget.girisYapildi(oturum);
+      final girilen = await MetinGirisDiyalogu.goster(
+        context,
+        const MetinGirisDiyalogu(
+          baslik: 'İki adımlı doğrulama',
+          etiket: 'Doğrulayıcı uygulamadaki 6 haneli kod',
+          onayMetni: 'Doğrula',
+          alanAnahtari: Key('giris-iki-adimli-kod'),
+          onayAnahtari: Key('giris-iki-adimli-onay'),
+        ),
+      );
+      if (girilen == null || girilen.trim().isEmpty || !mounted) return;
+      await _dene(kiraciId: kiraciId, kod: girilen.trim());
     } on KurumSecimiGerekli catch (e) {
       if (!mounted) return;
       final kiraci = await showDialog<String>(
@@ -60,17 +83,9 @@ class _GirisEkraniState extends State<GirisEkrani> {
         ),
       );
       if (kiraci == null || !mounted) return;
-      try {
-        final oturum = await widget.servis.girisYap(eposta: _eposta.text, sifre: _sifre.text, kiraciId: kiraci);
-        if (mounted) widget.girisYapildi(oturum);
-      } on KimlikHatasi catch (h) {
-        if (mounted) setState(() => _hata = h.mesaj);
-      }
+      await _dene(kiraciId: kiraci, kod: kod);
     } on KimlikHatasi catch (e) {
-      if (!mounted) return;
-      setState(() => _hata = e.mesaj);
-    } finally {
-      if (mounted) setState(() => _bekliyor = false);
+      if (mounted) setState(() => _hata = e.mesaj);
     }
   }
 

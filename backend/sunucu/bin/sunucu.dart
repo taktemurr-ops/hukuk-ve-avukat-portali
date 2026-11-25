@@ -12,9 +12,15 @@ Future<void> main() async {
     stderr.writeln('BELGE_KLASORU tanımlı değil (belge içeriklerinin saklanacağı, Türkiye\'deki kalıcı ve şifreli disk).');
     exit(2);
   }
+  final totpAnahtari = ortam['TOTP_ANAHTARI'];
+  if (totpAnahtari == null || totpAnahtari.isEmpty) {
+    stderr.writeln('TOTP_ANAHTARI tanımlı değil (32 bayt, base64; ör. openssl rand -base64 32). Gizli kasada tutulmalı.');
+    exit(2);
+  }
   final handler = uygulama(
     vt,
     depo: YerelNesneDeposu(belgeKlasoru),
+    sifreleyici: AlanSifreleyici.base64(totpAnahtari),
     izinliKokenler: kokenler,
     belgeAzamiBoyut: int.parse(ortam['BELGE_AZAMI_MB'] ?? '50') * 1024 * 1024,
     kaydet: (h, iz) => stderr.writeln('HATA: $h\n$iz'),

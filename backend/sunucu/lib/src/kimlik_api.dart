@@ -10,6 +10,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'hata.dart';
 import 'sifre.dart';
+import 'sifreleme.dart';
 import 'veritabani.dart';
 
 const _kimlikAnahtari = 'hukuk.kimlik';
@@ -49,10 +50,16 @@ Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris'
         };
 
 class KimlikApi {
-  KimlikApi(this.vt, {Random? rastgele, this.oturumSuresi = const Duration(hours: 8)})
-      : _rastgele = rastgele ?? Random.secure();
+  KimlikApi(this.vt, this.sifreleyici, {Random? rastgele, this.oturumSuresi = const Duration(hours: 8), DateTime Function()? saat})
+      : _rastgele = rastgele ?? Random.secure(),
+        _saat = saat ?? DateTime.now;
 
   final Veritabani vt;
+
+  /// TOTP sırlarını şifreler (anahtar ortamdan; veritabanında yalnızca şifreli sır durur).
+  final AlanSifreleyici sifreleyici;
+  final DateTime Function() _saat;
+  static const _yayinci = 'Hukuk ve Avukat Portalı';
   final Random _rastgele;
   final Duration oturumSuresi;
 
@@ -64,7 +71,10 @@ class KimlikApi {
     ..post('/kayit', _kayit)
     ..post('/cikis', _cikis)
     ..get('/ben', _ben)
-    ..get('/kullanicilar', _kullanicilar);
+    ..get('/kullanicilar', _kullanicilar)
+    ..post('/ben/iki-adimli/baslat', _ikiAdimliBaslat)
+    ..post('/ben/iki-adimli/etkinlestir', _ikiAdimliEtkinlestir)
+    ..post('/ben/iki-adimli/kapat', _ikiAdimliKapat);
 
   Future<Response> _giris(Request istek) async {
     final j = await jsonGovde(istek);
@@ -83,9 +93,10 @@ class KimlikApi {
     ];
     if (adaylar.isEmpty) SifreOzeti.dogrula(sifre, _sahteOzet);
 
-    await vt.genel((tx) => tx.execute(Sql.named('SELECT hukuk.giris_denemesi_kaydet(@e, @b)'),
-        parameters: {'e': eposta, 'b': eslesen.isNotEmpty}));
+    Future<void> denemeKaydet(bool basarili) => vt.genel((tx) => tx.execute(
+        Sql.named('SELECT hukuk.giris_denemesi_kaydet(@e, @b)'), parameters: {'e': eposta, 'b': basarili}));
     if (eslesen.isEmpty) {
+      await denemeKaydet(false);
       // Kilitli hesap, yanlış şifre ve olmayan hesap aynı yanıtı alır.
       throw const ApiHatasi(401, 'E-posta veya şifre hatalı ya da hesap geçici olarak kilitli.', kod: 'giris_hatali');
     }
@@ -100,9 +111,15 @@ class KimlikApi {
     }
     final kullanici = secilen.single;
     if (kullanici[4] == true) {
-      // İki adımlı doğrulama sırrı şifreli sütuna taşındığında burada kod istenecek.
-      throw const ApiHatasi(501, 'İki adımlı doğrulama sunucuda henüz etkin değil.', kod: 'iki_adimli');
+      // Şifre doğru; ikinci adım: doğrulayıcı uygulamadaki 6 haneli kod. Başarı ancak kod da doğruysa kaydedilir.
+      final kod = j['ikiAdimliKod'] as String?;
+      if (kod == null || kod.trim().isEmpty) return jsonYanit({'ikiAdimliGerekli': true});
+      if (!await _ikinciAdimDogru(kullanici[0]! as String, kod)) {
+        await denemeKaydet(false);
+        throw const ApiHatasi(401, 'Doğrulama kodu hatalı veya daha önce kullanılmış.', kod: 'iki_adimli_hatali');
+      }
     }
+    await denemeKaydet(true);
 
     final token = base64Url.encode(List.generate(32, (_) => _rastgele.nextInt(256))).replaceAll('=', '');
     await vt.genel((tx) => tx.execute(
@@ -191,7 +208,7 @@ class KimlikApi {
     }
     final sonuc = await vt.kiraciIcin(k, (tx) async {
       final u = await tx.execute(
-        Sql.named('SELECT u.ad_soyad, u.eposta, k.ad, k.hesap_turu FROM hukuk.kullanici u '
+        Sql.named('SELECT u.ad_soyad, u.eposta, k.ad, k.hesap_turu, u.iki_adimli FROM hukuk.kullanici u '
             'JOIN hukuk.kiraci k ON k.id = u.kiraci_id WHERE u.id = CAST(@u AS uuid)'),
         parameters: {'u': k.kullaniciId},
       );
@@ -211,8 +228,69 @@ class KimlikApi {
       'eposta': s[1],
       'kurumAdi': s[2],
       'hesapTuru': s[3],
+      'ikiAdimli': s[4],
       'roller': [for (final x in r) x[0]],
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // İki adımlı doğrulama (TOTP)
+  // ---------------------------------------------------------------------------
+
+  /// Girişte: şifreli sır çözülür, kod ±1 adım penceresinde doğrulanır ve adım bir kez kullanılabilir.
+  Future<bool> _ikinciAdimDogru(String kullaniciId, String kod) async {
+    final rs = await vt.genel((tx) => tx.execute(Sql.named('SELECT sir, son_adim FROM hukuk.iki_adimli_sir(CAST(@u AS uuid))'),
+        parameters: {'u': kullaniciId}));
+    if (rs.isEmpty || rs.first[0] == null) return false;
+    final sir = sifreleyici.coz(rs.first[0]! as List<int>, baglam: kullaniciId);
+    final adim = Totp.eslesenAdim(sir, kod, _saat());
+    if (adim == null) return false;
+    final kullanildi = await vt.genel((tx) => tx.execute(
+        Sql.named('SELECT hukuk.iki_adimli_adim_kullan(CAST(@u AS uuid), @a)'), parameters: {'u': kullaniciId, 'a': adim}));
+    return kullanildi.first[0] == true;
+  }
+
+  /// Kurulum: yeni sır üretilir, şifreli olarak "bekleyen" saklanır; uygulamaya QR (otpauth) bağlantısı döner.
+  Future<Response> _ikiAdimliBaslat(Request istek) async {
+    final k = kimlik(istek);
+    final sir = Totp.sirUret();
+    final eposta = await vt.kiraciIcin(k, (tx) async {
+      await tx.execute(Sql.named('SELECT hukuk.iki_adimli_bekleyen_yaz(@s)'),
+          parameters: {'s': TypedValue(Type.byteArray, sifreleyici.sifrele(sir, baglam: k.kullaniciId))});
+      final e = await tx.execute(Sql.named('SELECT eposta FROM hukuk.kullanici WHERE id = CAST(@u AS uuid)'),
+          parameters: {'u': k.kullaniciId});
+      return e.first[0]! as String;
+    });
+    return jsonYanit({
+      'sir': Totp.base32Kodla(sir),
+      'otpauth': Totp.otpauthUri(yayinci: _yayinci, hesap: eposta, sir: sir),
+    });
+  }
+
+  Future<Response> _ikiAdimliEtkinlestir(Request istek) async {
+    final k = kimlik(istek);
+    final kod = zorunluMetin(await jsonGovde(istek), 'kod');
+    await vt.kiraciIcin(k, (tx) async {
+      final b = await tx.execute('SELECT hukuk.iki_adimli_bekleyen()');
+      final sifreli = b.first[0];
+      if (sifreli == null) throw const ApiHatasi(409, 'Önce kurulumu başlatın.', kod: 'kural');
+      final sir = sifreleyici.coz(sifreli as List<int>, baglam: k.kullaniciId);
+      final adim = Totp.eslesenAdim(sir, kod, _saat());
+      if (adim == null) throw const ApiHatasi(400, 'Kod doğrulanamadı; uygulamadaki güncel kodu girin.', kod: 'gecersiz_kod');
+      await tx.execute(Sql.named('SELECT hukuk.iki_adimli_etkinlestir(@a)'), parameters: {'a': adim});
+    });
+    return jsonYanit({'ikiAdimli': true});
+  }
+
+  /// Kapatmak için güncel kod gerekir (oturumu ele geçiren biri korumayı kaldıramasın).
+  Future<Response> _ikiAdimliKapat(Request istek) async {
+    final k = kimlik(istek);
+    final kod = zorunluMetin(await jsonGovde(istek), 'kod');
+    if (!await _ikinciAdimDogru(k.kullaniciId, kod)) {
+      throw const ApiHatasi(400, 'Kod doğrulanamadı veya daha önce kullanılmış.', kod: 'gecersiz_kod');
+    }
+    await vt.kiraciIcin(k, (tx) => tx.execute('SELECT hukuk.iki_adimli_kapat()'));
+    return jsonYanit({'ikiAdimli': false});
   }
 }
 

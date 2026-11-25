@@ -78,6 +78,15 @@ abstract class UzakIslemler {
   /// (lisans, dolu)
   Future<(int, int)> koltuklar();
 
+  Future<bool> ikiAdimliAcikMi();
+
+  /// Kurulum: (base32 anahtar, otpauth bağlantısı). Sır sunucuda şifreli saklanır.
+  Future<(String, String)> ikiAdimliBaslat();
+
+  Future<void> ikiAdimliEtkinlestir(String kod);
+
+  Future<void> ikiAdimliKapat(String kod);
+
   Future<void> belgePaylas(String belgeId, bool paylas);
 
   /// Belgeyi yükler (sürüm 1); SHA-256 özeti sunucuda hesaplanır.
@@ -757,5 +766,24 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
   Future<(int, int)> koltuklar() async {
     final y = await api.get('/koltuklar') as Map<String, dynamic>;
     return (y['lisans'] as int, y['dolu'] as int);
+  }
+
+  @override
+  Future<bool> ikiAdimliAcikMi() async => (await api.get('/ben') as Map<String, dynamic>)['ikiAdimli'] == true;
+
+  @override
+  Future<(String, String)> ikiAdimliBaslat() async {
+    final y = await api.post('/ben/iki-adimli/baslat') as Map<String, dynamic>;
+    return (y['sir'] as String, y['otpauth'] as String);
+  }
+
+  @override
+  Future<void> ikiAdimliEtkinlestir(String kod) async {
+    await api.post('/ben/iki-adimli/etkinlestir', {'kod': kod.trim()});
+  }
+
+  @override
+  Future<void> ikiAdimliKapat(String kod) async {
+    await api.post('/ben/iki-adimli/kapat', {'kod': kod.trim()});
   }
 }
