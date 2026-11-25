@@ -87,6 +87,9 @@ void main() {
   testWidgets('Yeni tebligat esas no ve mahkemeyle otomatik eşleşir, ikinci kayıt çoğalmaz', (tester) async {
     final depo = await _ac(tester, menu: 'tebligatlar');
     Future<void> kaydet() async {
+      // Önceki kaydın bildirimi (SnackBar) yeni tebligat düğmesinin üstünde kalmasın.
+      tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first).removeCurrentSnackBar();
+      await tester.pumpAndSettle();
       await _bas(tester, 'yeni-tebligat');
       await tester.enterText(find.byKey(const Key('tebligat-gonderen')), 'İstanbul 5. Asliye Ticaret Mahkemesi');
       await tester.enterText(find.byKey(const Key('tebligat-konu')), 'Ara karar');

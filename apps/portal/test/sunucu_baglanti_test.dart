@@ -572,7 +572,9 @@ void main() {
     expect(api.token, isNull);
     await _bas(tester, 'giris-yap');
     await tester.enterText(find.byKey(const Key('giris-iki-adimli-kod')), '123456');
-    await _bas(tester, 'giris-iki-adimli-onay');
+    // Girişten sonra uygulama yüklenir (sürekli animasyon olabilir); yalnızca oturumun açıldığına bakılır.
+    await tester.tap(find.byKey(const Key('giris-iki-adimli-onay')));
+    await tester.pump(const Duration(seconds: 1));
     expect(api.token, 'tkn');
   });
 
@@ -614,7 +616,9 @@ void main() {
     await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
     await _bas(tester, 'giris-yap');
     expect(find.text('ABC Gıda Hukuk'), findsOneWidget);
-    await _bas(tester, 'kurum-k2');
+    await tester.ensureVisible(find.byKey(const Key('kurum-k2')));
+    await tester.tap(find.byKey(const Key('kurum-k2')));
+    await tester.pump(const Duration(seconds: 1));
     expect(api.token, 'tkn');
   });
 

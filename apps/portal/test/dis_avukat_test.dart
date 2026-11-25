@@ -59,6 +59,8 @@ void main() {
     await _bas(tester, 'ret-onay');
     expect(k.disAvukatIsleri[1].faturalar.single.durum, FaturaDurumu.reddedildi);
 
+    tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first).removeCurrentSnackBar();
+    await tester.pumpAndSettle();
     await _bas(tester, 'dis-is-yeni');
     await _bas(tester, 'dis-is-avukat');
     await tester.tap(find.text('Ege Ortak Avukatlık').last);

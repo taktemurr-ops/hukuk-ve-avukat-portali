@@ -39,6 +39,8 @@ void main() {
 
     await tester.tap(find.byTooltip('Menüyü aç'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Hesaplamalar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Hesaplamalar'));
     await tester.pumpAndSettle();
 

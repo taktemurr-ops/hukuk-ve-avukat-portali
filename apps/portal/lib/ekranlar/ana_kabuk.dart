@@ -271,9 +271,13 @@ class _YanMenu extends StatelessWidget {
           children: [
             const Padding(padding: EdgeInsets.fromLTRB(28, 28, 16, 36), child: Logo()),
             Expanded(
-              child: ListView(
+              // Tüm öğeler kurulur (menü kısa); böylece dar ekranda da her öğe bulunup kaydırılarak gösterilebilir.
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                children: [for (final b in bolumler) _ogeler(b)],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [for (final b in bolumler) _ogeler(b)],
+                ),
               ),
             ),
             const Divider(color: Color(0x33FFFFFF), indent: 20, endIndent: 20),

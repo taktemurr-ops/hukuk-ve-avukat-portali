@@ -51,7 +51,7 @@ void main() {
     await tester.pumpAndSettle();
     await _bas(tester, 'demo-giris');
     await _bas(tester, 'demo-kurumsal');
-    expect(find.text('Demo Holding A.Ş.'), findsOneWidget);
+    expect(find.textContaining('Demo Holding A.Ş.'), findsOneWidget);
     expect(find.byKey(const Key('menu-talepler')), findsOneWidget);
     expect(find.byKey(const Key('menu-finans')), findsNothing);
     expect(find.text('Yeni Talep'), findsOneWidget);

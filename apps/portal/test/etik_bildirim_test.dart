@@ -77,7 +77,9 @@ void main() {
 
     await _bas(tester, 'bildirimler');
     expect(find.text('Bildirimler'), findsOneWidget);
-    await tester.ensureVisible(find.text('1 yeni müvekkil mesajı'));
+    // Panel yüksekliği sınırlı ve liste tembel kurulur: bildirime kaydırarak ulaşılır.
+    await tester.scrollUntilVisible(find.text('1 yeni müvekkil mesajı'), 120,
+        scrollable: find.descendant(of: find.byType(Dialog), matching: find.byType(Scrollable)).first);
     await tester.tap(find.text('1 yeni müvekkil mesajı'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('portal-paylas')), findsOneWidget);
