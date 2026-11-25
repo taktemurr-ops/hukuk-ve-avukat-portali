@@ -18,6 +18,7 @@ jobs:
       - run: python araclar/dart_sozdizimi.py | tee /tmp/s && grep -q 'hatali dosya: 0' /tmp/s
       - run: python araclar/dart_cakisma.py | tee /tmp/c && grep -q 'sorun: 0' /tmp/c
       - run: python araclar/dart_baglanti.py | tee /tmp/b && grep -q 'sorun: 0' /tmp/b
+      - run: python araclar/dart_parametre.py | tee /tmp/p && grep -q 'sorun: 0' /tmp/p
 
   cekirdek:
     name: Çekirdek paket (Dart)

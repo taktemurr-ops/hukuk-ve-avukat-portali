@@ -8,4 +8,5 @@ pip install tree-sitter-language-pack
 python araclar/dart_sozdizimi.py   # sözdizimi hataları
 python araclar/dart_cakisma.py     # içe/dışa aktarmalarda isim çakışması (ambiguous import/export)
 python araclar/dart_baglanti.py    # çözülmeyen import'lar ve testlerde olup ekranda olmayan Key'ler
+python araclar/dart_parametre.py   # depodaki kurucu/yöntem çağrılarında bilinmeyen veya eksik adlandırılmış argüman
 ```
