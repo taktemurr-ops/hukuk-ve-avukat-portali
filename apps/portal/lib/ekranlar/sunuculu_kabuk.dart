@@ -31,7 +31,7 @@ class _SunuculuKabukState extends State<SunuculuKabuk> {
   late final KurumsalDepo? _kurumsal = widget.oturum.hesapTuru == HesapTuru.kurumsal
       ? KurumsalDepo(depo: _depo, kullaniciId: widget.oturum.kullaniciId)
       : null;
-  late final KurumsalSenkronu? _kurumsalSenkron = _kurumsal == null ? null : KurumsalSenkronu(widget.api, _kurumsal!);
+  late final KurumsalSenkronu? _kurumsalSenkron = _kurumsal == null ? null : KurumsalSenkronu(widget.api, _kurumsal);
   late Future<void> _yukleme = _yukle();
 
   Future<void> _yukle() async {

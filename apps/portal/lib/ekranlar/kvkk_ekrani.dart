@@ -4,7 +4,6 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
 import '../servisler/veri_deposu.dart';
-import '../tema/tema.dart';
 
 RozetTuru _imhaRozeti(ImhaDurumu d) => switch (d) {
       ImhaDurumu.imhayaHazir => RozetTuru.uyari,

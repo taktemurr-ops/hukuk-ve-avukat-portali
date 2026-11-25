@@ -326,7 +326,7 @@ class _YetkiBelgesiEkraniState extends State<YetkiBelgesiEkrani> {
           const SizedBox(height: 12),
           FilledButton.icon(
             key: const Key('yb-kaydet'),
-            onPressed: eksik.isNotEmpty || _dosyaId == null || _bekliyor ? null : () => _kaydet(cikti!),
+            onPressed: eksik.isNotEmpty || _dosyaId == null || _bekliyor ? null : () => _kaydet(cikti),
             icon: const Icon(Icons.save_alt),
             label: Text(widget.depo.uzak == null ? 'Dosyaya kaydet' : '${_pdf ? 'PDF' : 'Word'} olarak dosyaya kaydet'),
           ),
