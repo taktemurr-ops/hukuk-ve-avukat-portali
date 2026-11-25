@@ -123,4 +123,26 @@ void main() {
             kural: const PaylasimKurali(getiren: 20, calisan: 50, buro: 40)),
         throwsArgumentError);
   });
+
+  test('sunucudan yükleme önbelleği değiştirir', () {
+    final d = ZamanDefteri(tarife: SaatlikUcretTarifesi(kullanici: const {}, varsayilan: Para.tl(1000)));
+    d.yukle([
+      ZamanKaydi(id: 'z1', kullanici: 'u1', dosyaId: 'd1', tarih: Tarih(2026, 11, 20), dakika: 61, aciklama: 'Dilekçe taslağı',
+          saatlikUcret: Para.tl(1000)),
+    ]);
+    expect(d.kayitlar.single.faturaDakikasi(), 66);
+    d.yukle(const []);
+    expect(d.kayitlar, isEmpty);
+  });
+
+  test('emanet hesabı sunucudan yüklenen hareketlerle bakiye verir', () {
+    final e = EmanetHesabi()
+      ..yukle([
+        EmanetHareketi(id: 'e1', muvekkilId: 'm', dosyaId: 'd', tur: EmanetHareketTuru.giris, tutar: Para.tl(500),
+            tarih: Tarih(2026, 11, 1), aciklama: 'İcra tahsilatı'),
+        EmanetHareketi(id: 'e2', muvekkilId: 'm', dosyaId: 'd', tur: EmanetHareketTuru.muvekkileAktarim, tutar: Para.tl(200),
+            tarih: Tarih(2026, 11, 2), aciklama: 'Havale'),
+      ]);
+    expect(e.bakiye('m').kurus, 30000);
+  });
 }

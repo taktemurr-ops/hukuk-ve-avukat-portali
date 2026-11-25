@@ -15,6 +15,7 @@ class SahteSunucu {
   final istekler = <String>[];
   var sureDurumu = 'teyitBekliyor';
   var ikiKurum = false;
+  final tahsilatlar = <Map<String, Object?>>[];
 
   http.Response _json(Object? o, [int d = 200]) =>
       http.Response.bytes(utf8.encode(jsonEncode(o)), d, headers: {'content-type': 'application/json'});
@@ -74,6 +75,41 @@ class SahteSunucu {
       case 'POST /sureler/s1/teyit':
         sureDurumu = 'teyitli';
         return _json({'durum': 'teyitli'});
+      case 'GET /kisiler':
+        return _json([
+          {'id': 'm1', 'tur': 'tuzel', 'ad': 'Sunucu Müvekkil A.Ş.', 'kimlikNo': null, 'eposta': null},
+        ]);
+      case 'GET /cari':
+        return _json([
+          {'id': 'c1', 'muvekkilId': 'm1', 'dosyaId': 'd1', 'tur': 'masrafAvansiAlindi', 'tutarKurus': 500000,
+            'tarih': '2026-11-02', 'aciklama': 'Avans', 'belgeNo': null},
+        ]);
+      case 'GET /emanet':
+        return _json([
+          {'id': 'e1', 'muvekkilId': 'm1', 'dosyaId': 'd1', 'tur': 'giris', 'tutarKurus': 1250000, 'tarih': '2026-11-03',
+            'aciklama': 'İcra tahsilatı', 'mahsupOnayi': null},
+        ]);
+      case 'GET /zaman':
+        return _json([
+          {'id': 'z1', 'kullanici': 'u2', 'dosyaId': 'd1', 'tarih': '2026-11-20', 'dakika': 90, 'faturaDakikasi': 90,
+            'aciklama': 'Sunucudan gelen çalışma', 'saatlikKurus': 200000, 'tutarKurus': 300000, 'faturalanabilir': true,
+            'durum': 'taslak', 'onaylayan': null, 'faturaNo': null},
+        ]);
+      case 'GET /icra':
+        return _json([
+          {
+            'id': 'i1', 'dosyaId': 'd1', 'icraDairesi': 'İstanbul 5. İcra Dairesi', 'esasNo': '2026/123',
+            'borclu': 'Sunucu Borçlu Ltd.', 'takipTuru': 'ilamsiz', 'asilKurus': 10000000, 'temerrut': '2026-01-01',
+            'takipTarihi': '2026-03-01', 'faizTuru': 'yasal', 'durum': 'haciz', 'vekaletKurus': 0,
+            'takipOncesiMasrafKurus': 0, 'takipSonrasiMasrafKurus': 0, 'islemisFaizElleKurus': null,
+            'tebligTarihi': null, 'akdiOran': null, 'tahsilatlar': tahsilatlar,
+          },
+        ]);
+      case 'POST /icra/i1/tahsilat':
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        tahsilatlar.add({'id': 't${tahsilatlar.length + 1}', 'tarih': j['tarih'], 'tutarKurus': j['tutarKurus'],
+          'aciklama': j['aciklama']});
+        return _json({'id': 't${tahsilatlar.length}'}, 201);
       case 'POST /cikis':
         return _json({'durum': 'kapatildi'});
     }
@@ -113,7 +149,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
     await _bas(tester, 'giris-yap');
     expect(api.token, 'tkn');
-    expect(sunucu.istekler, containsAll(['GET /ben', 'GET /kullanicilar', 'GET /dosyalar', 'GET /dosyalar/d1/sureler']));
+    expect(sunucu.istekler, containsAll(['GET /ben', 'GET /kullanicilar', 'GET /dosyalar', 'GET /dosyalar/d1/sureler',
+      'GET /kisiler', 'GET /cari', 'GET /emanet', 'GET /zaman', 'GET /icra']));
 
     await _bas(tester, 'menu-dosyalar');
     expect(find.textContaining('Sunucudaki dosya'), findsWidgets);
@@ -125,6 +162,49 @@ void main() {
     expect(sunucu.istekler, contains('POST /sureler/s1/teyit'));
     expect(sunucu.istekler.where((i) => i == 'GET /dosyalar').length, 2);
     expect(find.byKey(const Key('tamamla-s1')), findsOneWidget);
+  });
+
+  testWidgets('Sunucudaki icra dosyası listelenir', (tester) async {
+    final (sunucu, _) = await _uygulama(tester);
+    await tester.enterText(find.byKey(const Key('giris-eposta')), 'ayse@yilmaz.av.tr');
+    await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
+    await _bas(tester, 'giris-yap');
+    await _bas(tester, 'menu-icra');
+    expect(find.textContaining('Sunucu Borçlu Ltd.'), findsWidgets);
+    expect(sunucu.istekler.where((i) => i == 'GET /icra').length, 1);
+  });
+
+  test('Sunucu JSON\'undan icra dosyası ve kapak hesabı', () {
+    final (i, faiz, oran) = SunucuSenkronu.icraJson({
+      'id': 'i1', 'dosyaId': 'd1', 'icraDairesi': 'X', 'esasNo': null, 'borclu': 'B', 'takipTuru': 'ilamsiz',
+      'asilKurus': 10000000, 'temerrut': '2026-01-01', 'takipTarihi': '2026-03-01', 'faizTuru': 'akdi', 'durum': 'yeniDurum',
+      'vekaletKurus': 0, 'takipOncesiMasrafKurus': 25000, 'takipSonrasiMasrafKurus': 0, 'islemisFaizElleKurus': null,
+      'tebligTarihi': null, 'akdiOran': 24.0,
+      'tahsilatlar': [
+        {'id': 't1', 'tarih': '2026-04-01', 'tutarKurus': 1000000, 'aciklama': 'Maaş haczi'},
+      ],
+    });
+    expect(faiz, FaizTuru.akdi);
+    expect(oran, 24.0);
+    expect(i.durum, IcraDurumu.takipAcildi);
+    expect(i.talep.takipOncesiMasraf.kurus, 25000);
+    final h = i.hesap(Tarih(2026, 4, 1), FaizTablosu.sabit(oran!));
+    expect(h.tahsilEdilen.kurus, 1000000);
+    expect(h.mahsuplar.single.masrafa.kurus, greaterThan(0));
+  });
+
+  test('Sunucu JSON\'undan zaman ve emanet', () {
+    final z = SunucuSenkronu.zamanJson({
+      'id': 'z1', 'kullanici': 'u2', 'dosyaId': 'd1', 'tarih': '2026-11-20', 'dakika': 61, 'aciklama': 'Dilekçe',
+      'saatlikKurus': 200000, 'faturalanabilir': true, 'durum': 'onaylandi', 'onaylayan': 'u1', 'faturaNo': null,
+    });
+    expect(z.faturaDakikasi(), 66);
+    expect(z.tutar().kurus, 220000);
+    final e = SunucuSenkronu.emanetJson({
+      'id': 'e1', 'muvekkilId': 'm1', 'dosyaId': 'd1', 'tur': 'ucretMahsubu', 'tutarKurus': 100, 'tarih': '2026-11-03',
+      'aciklama': 'x', 'mahsupOnayi': 'Sözleşme m.5',
+    });
+    expect(e.tur, EmanetHareketTuru.ucretMahsubu);
   });
 
   testWidgets('Birden çok kurumda hesap varsa kurum seçilir', (tester) async {

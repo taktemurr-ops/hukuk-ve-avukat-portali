@@ -104,14 +104,22 @@ class ZamanEkrani extends StatelessWidget {
                                   key: Key('zaman-onayla-${k.id}'),
                                   tooltip: 'Onayla',
                                   icon: const Icon(Icons.check_circle_outline, color: Renkler.yesil),
-                                  onPressed: () => _mesaj(context, depo.zamanOnayla(k.id)),
+                                  onPressed: () async {
+                                    final h = await depo.sunucudaVeyaYerelde(
+                                        sunucuda: (u) => u.zamanOnayla(k.id), yerelde: () => depo.zamanOnayla(k.id));
+                                    if (context.mounted) _mesaj(context, h);
+                                  },
                                 ),
                               if (k.durum == ZamanDurumu.taslak && k.kullanici == oturum.kullaniciId)
                                 IconButton(
                                   key: Key('zaman-sil-${k.id}'),
                                   tooltip: 'Sil',
                                   icon: const Icon(Icons.delete_outline),
-                                  onPressed: () => _mesaj(context, depo.zamanSil(k.id)),
+                                  onPressed: () async {
+                                    final h = await depo.sunucudaVeyaYerelde(
+                                        sunucuda: (u) => u.zamanSil(k.id), yerelde: () => depo.zamanSil(k.id));
+                                    if (context.mounted) _mesaj(context, h);
+                                  },
                                 ),
                             ]),
                           ),
@@ -230,15 +238,17 @@ class _KronometrePaneliState extends State<KronometrePaneli> {
     setState(() {});
   }
 
-  void _bitir() {
+  Future<void> _bitir() async {
     _zamanlayici?.cancel();
     _zamanlayici = null;
     final dakika = _kronometre.bitir(DateTime.now());
-    final hata = widget.depo.zamanEkle(
-      dosyaId: _dosyaId!,
-      dakika: dakika,
-      aciklama: _aciklama.text.trim().length < 5 ? 'Kronometre ile kaydedilen çalışma' : _aciklama.text,
+    final dosyaId = _dosyaId!;
+    final aciklama = _aciklama.text.trim().length < 5 ? 'Kronometre ile kaydedilen çalışma' : _aciklama.text;
+    final hata = await widget.depo.sunucudaVeyaYerelde(
+      sunucuda: (u) => u.zamanEkle(dosyaId: dosyaId, dakika: dakika, aciklama: aciklama),
+      yerelde: () => widget.depo.zamanEkle(dosyaId: dosyaId, dakika: dakika, aciklama: aciklama),
     );
+    if (!mounted) return;
     setState(() {
       _hata = hata;
       if (hata == null) _aciklama.clear();
@@ -377,15 +387,20 @@ class _ZamanDiyaloguState extends State<_ZamanDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('zaman-kaydet'),
-          onPressed: () {
+          onPressed: () async {
             final dk = dakikaCoz(_sure.text);
             final dosyaId = _dosyaId;
             if (dosyaId == null || dk == null) {
               setState(() => _hata = 'Dosya ve süre girin.');
               return;
             }
-            final hata = widget.depo.zamanEkle(
-                dosyaId: dosyaId, dakika: dk, aciklama: _aciklama.text, faturalanabilir: _faturalanabilir);
+            final aciklama = _aciklama.text;
+            final fat = _faturalanabilir;
+            final hata = await widget.depo.sunucudaVeyaYerelde(
+              sunucuda: (u) => u.zamanEkle(dosyaId: dosyaId, dakika: dk, aciklama: aciklama, faturalanabilir: fat),
+              yerelde: () => widget.depo.zamanEkle(dosyaId: dosyaId, dakika: dk, aciklama: aciklama, faturalanabilir: fat),
+            );
+            if (!mounted) return;
             if (hata == null) {
               Navigator.pop(context);
             } else {

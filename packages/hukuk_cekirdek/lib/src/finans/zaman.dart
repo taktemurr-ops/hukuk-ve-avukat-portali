@@ -132,6 +132,13 @@ class ZamanDefteri {
 
   List<ZamanKaydi> get kayitlar => List.unmodifiable(_kayitlar);
 
+  /// Sunucudan gelen kayıtlarla önbelleği değiştirir (kurallar sunucuda uygulanmıştır).
+  void yukle(Iterable<ZamanKaydi> kayitlar) {
+    _kayitlar
+      ..clear()
+      ..addAll(kayitlar);
+  }
+
   ZamanKaydi? kayit(String id) {
     for (final k in _kayitlar) {
       if (k.id == id) return k;

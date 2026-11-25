@@ -147,6 +147,13 @@ class EmanetHesabi {
 
   List<EmanetHareketi> get hareketler => List.unmodifiable(_hareketler);
 
+  /// Sunucudan gelen hareketlerle önbelleği değiştirir (bakiye kuralı sunucuda tetikleyiciyle zorlanır).
+  void yukle(Iterable<EmanetHareketi> hareketler) {
+    _hareketler
+      ..clear()
+      ..addAll(hareketler);
+  }
+
   Para bakiye(String muvekkilId, {String? dosyaId}) {
     var b = Para.sifir;
     for (final h in _hareketler.where((h) => h.muvekkilId == muvekkilId && (dosyaId == null || h.dosyaId == dosyaId))) {

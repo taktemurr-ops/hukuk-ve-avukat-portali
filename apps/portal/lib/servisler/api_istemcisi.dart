@@ -37,6 +37,9 @@ class ApiIstemcisi {
   Future<Object?> post(String yol, [Map<String, Object?> govde = const {}]) async =>
       _coz(await _http.post(_yol(yol), headers: _basliklar, body: jsonEncode(govde)).timeout(_zamanAsimi));
 
+  Future<Object?> delete(String yol) async =>
+      _coz(await _http.delete(_yol(yol), headers: _basliklar).timeout(_zamanAsimi));
+
   Object? _coz(http.Response y) {
     final metin = utf8.decode(y.bodyBytes);
     Object? j;

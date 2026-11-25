@@ -19,7 +19,16 @@ class FinansEkrani extends StatelessWidget {
     );
     if (sonuc == null) return;
     final (tur, tutar, aciklama) = sonuc;
-    depo.cariEkle(muvekkilId: muvekkil.id, tur: tur, tutar: Para.tl(tutar), aciklama: aciklama);
+    final hata = await depo.sunucudaVeyaYerelde(
+      sunucuda: (u) => u.cariEkle(muvekkilId: muvekkil.id, tur: tur, tutar: Para.tl(tutar), aciklama: aciklama),
+      yerelde: () {
+        depo.cariEkle(muvekkilId: muvekkil.id, tur: tur, tutar: Para.tl(tutar), aciklama: aciklama);
+        return null;
+      },
+    );
+    if (hata != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
+    }
   }
 
   Future<void> _emanetAktar(BuildContext context, Kisi muvekkil, String dosyaId, Para bakiye) async {
@@ -36,7 +45,7 @@ class FinansEkrani extends StatelessWidget {
       ),
     );
     if (onay != true) return;
-    final hata = depo.emanetEkle(EmanetHareketi(
+    final hareket = EmanetHareketi(
       id: depo.yeniId('e'),
       muvekkilId: muvekkil.id,
       dosyaId: dosyaId,
@@ -44,7 +53,8 @@ class FinansEkrani extends StatelessWidget {
       tutar: bakiye,
       tarih: Tarih.from(DateTime.now()),
       aciklama: 'Müvekkile aktarım',
-    ));
+    );
+    final hata = await depo.sunucudaVeyaYerelde(sunucuda: (u) => u.emanetEkle(hareket), yerelde: () => depo.emanetEkle(hareket));
     if (hata != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
     }

@@ -13,7 +13,7 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | ☐ | Türkiye'de sunucu sağlayıcısı seçimi | K |
 | ☐ | Ödeme kuruluşu seçimi ve üye işyeri başvurusu | K |
 | ☑ | Sunucu iskeleti: Serverpod yerine shelf + postgres, SQL göçleri (`backend/README.md`) | C |
-| ◐ | Sunucu uçları: kimlik, dosya, süre, kişi, cari, emanet, zaman, icra (kapak hesabı) hazır; SQL'ler şemaya karşı doğrulandı. Sözleşme, talep, uyum uçları ve Dart derlemesi bekliyor | C |
+| ◐ | Sunucu uçları: kimlik, dosya, süre, kişi, cari, emanet, zaman, icra (kapak hesabı, tahsilat, aşama) hazır; SQL'ler şemaya karşı doğrulandı. Uygulama sunucu modunda bu modülleri sunucudan okur ve yazar (toplu takip hariç). Sözleşme, talep, uyum uçları ve Dart derlemesi bekliyor | C |
 | ☐ | Flutter web prototipi: büyük tablo, editör, klavye ölçümü | C + K |
 | ☐ | Şirket kuruluşu ve ortaklık sözleşmesi; Av. K. m.11 kontrolü | K + A |
 

@@ -163,8 +163,18 @@ class _IcraDetayEkraniState extends State<IcraDetayEkrani> {
                   label: const Text('Durum'),
                   width: 300,
                   initialSelection: i.durum,
-                  onSelected: (d) {
-                    if (d != null) depo.icraDurumu(i.id, d);
+                  onSelected: (d) async {
+                    if (d == null) return;
+                    final hata = await depo.sunucudaVeyaYerelde(
+                      sunucuda: (u) => u.icraDurumu(i.id, d),
+                      yerelde: () {
+                        depo.icraDurumu(i.id, d);
+                        return null;
+                      },
+                    );
+                    if (hata != null && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
+                    }
                   },
                   dropdownMenuEntries: [for (final d in IcraDurumu.values) DropdownMenuEntry(value: d, label: d.ad)],
                 ),
@@ -287,12 +297,17 @@ class _TahsilatDiyaloguState extends State<_TahsilatDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('tahsilat-kaydet'),
-          onPressed: () {
+          onPressed: () async {
             final t = tutarCoz(_tutar.text);
             final g = tarihCoz(_tarih.text);
+            final aciklama = _aciklama.text.trim();
             final h = t == null || g == null
                 ? 'Tutar ve tarihi kontrol edin.'
-                : widget.depo.icraTahsilatEkle(widget.icraId, Para.tl(t), g, _aciklama.text.trim());
+                : await widget.depo.sunucudaVeyaYerelde(
+                    sunucuda: (u) => u.icraTahsilat(widget.icraId, Para.tl(t), g, aciklama),
+                    yerelde: () => widget.depo.icraTahsilatEkle(widget.icraId, Para.tl(t), g, aciklama),
+                  );
+            if (!mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {
@@ -415,7 +430,7 @@ class _IcraTakipFormuState extends State<IcraTakipFormu> {
               alignment: Alignment.centerRight,
               child: FilledButton(
                 key: const Key('icra-kaydet'),
-                onPressed: () {
+                onPressed: () async {
                   final temerrut = tarihCoz(_temerrut.text);
                   final dosyaId = _dosyaId;
                   if (dosyaId == null ||
@@ -432,17 +447,40 @@ class _IcraTakipFormuState extends State<IcraTakipFormu> {
                     return;
                   }
                   final vekalet = tutarCoz(_vekalet.text);
-                  final i = widget.depo.icraEkle(
-                    dosyaId: dosyaId,
-                    icraDairesi: _daire.text,
-                    borclu: _borclu.text,
-                    faizTuru: _faiz,
-                    vekaletUcreti: vekalet == null ? null : Para.tl(vekalet),
-                    talep: TakipTalebi(
-                        tur: _tur, asilAlacak: Para.tl(alacak), temerrutTarihi: temerrut, takipTarihi: bugun),
-                  );
+                  final talep =
+                      TakipTalebi(tur: _tur, asilAlacak: Para.tl(alacak), temerrutTarihi: temerrut, takipTarihi: bugun);
+                  final vekaletUcreti = vekalet == null ? null : Para.tl(vekalet);
+                  final uzak = widget.depo.uzak;
+                  String icraId;
+                  if (uzak != null) {
+                    try {
+                      icraId = await uzak.icraEkle(
+                        dosyaId: dosyaId,
+                        icraDairesi: _daire.text,
+                        borclu: _borclu.text,
+                        faizTuru: _faiz,
+                        vekaletUcreti: vekaletUcreti,
+                        talep: talep,
+                      );
+                    } on Exception catch (e) {
+                      if (mounted) setState(() => _hata = '$e');
+                      return;
+                    }
+                  } else {
+                    icraId = widget.depo
+                        .icraEkle(
+                          dosyaId: dosyaId,
+                          icraDairesi: _daire.text,
+                          borclu: _borclu.text,
+                          faizTuru: _faiz,
+                          vekaletUcreti: vekaletUcreti,
+                          talep: talep,
+                        )
+                        .id;
+                  }
+                  if (!mounted) return;
                   Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(builder: (_) => IcraDetayEkrani(depo: widget.depo, icraId: i.id)));
+                      MaterialPageRoute<void>(builder: (_) => IcraDetayEkrani(depo: widget.depo, icraId: icraId)));
                 },
                 child: const Text('Takibi kaydet'),
               ),
@@ -556,6 +594,11 @@ class _TopluTakipEkraniState extends State<TopluTakipEkrani> {
                           final m = _muvekkil;
                           if (m == null || _daire.text.trim().isEmpty) {
                             setState(() => _hata = 'Müvekkil ve icra dairesini seçin.');
+                            return;
+                          }
+                          if (widget.depo.uzak != null) {
+                            setState(() => _hata = 'Toplu takip sunucu bağlantısında henüz desteklenmiyor; '
+                                'takipleri tek tek açın.');
                             return;
                           }
                           final n = widget.depo.topluTakipAc(

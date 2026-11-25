@@ -130,14 +130,25 @@ class _KisiFormuEkraniState extends State<KisiFormuEkrani> {
     });
   }
 
-  void _kaydet() {
-    widget.depo.kisiEkle(
-      tur: _tur,
-      ad: _ad.text,
-      kimlikNo: _kimlikNo.text,
-      eposta: _eposta.text,
-      telefon: _telefon.text,
+  Future<void> _kaydet() async {
+    final hata = await widget.depo.sunucudaVeyaYerelde(
+      sunucuda: (u) => u.kisiEkle(tur: _tur, ad: _ad.text, kimlikNo: _kimlikNo.text, eposta: _eposta.text),
+      yerelde: () {
+        widget.depo.kisiEkle(
+          tur: _tur,
+          ad: _ad.text,
+          kimlikNo: _kimlikNo.text,
+          eposta: _eposta.text,
+          telefon: _telefon.text,
+        );
+        return null;
+      },
     );
+    if (!mounted) return;
+    if (hata != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
+      return;
+    }
     Navigator.of(context).pop();
   }
 

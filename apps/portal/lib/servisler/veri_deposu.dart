@@ -636,6 +636,48 @@ class BellekVeriDeposu extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sunucudan gelen kişi, finans, zaman ve icra verisini önbelleğe yazar (öncekilerin yerine).
+  void sunucuIsVerisiniYukle({
+    required List<Kisi> kisiler,
+    required List<CariHareket> cari,
+    required List<EmanetHareketi> emanetHareketleri,
+    required List<ZamanKaydi> zamanKayitlari,
+    required List<(IcraDosyasi, FaizTuru, double?)> icra,
+  }) {
+    _kisiler
+      ..clear()
+      ..addAll(kisiler);
+    _cari
+      ..clear()
+      ..addAll(cari);
+    emanet.yukle(emanetHareketleri);
+    zaman.yukle(zamanKayitlari);
+    _icra.clear();
+    _icraFaizTuru.clear();
+    _icraAkdiOran.clear();
+    for (final (i, faiz, oran) in icra) {
+      _icra.add(i);
+      _icraFaizTuru[i.id] = faiz;
+      if (oran != null) _icraAkdiOran[i.id] = oran;
+    }
+    notifyListeners();
+  }
+
+  /// Sunucu bağlıyken işlemi sunucuda, değilse yerelde yapar. Hata varsa kullanıcıya gösterilecek mesajı döner.
+  Future<String?> sunucudaVeyaYerelde({
+    required Future<void> Function(UzakIslemler uzak) sunucuda,
+    required String? Function() yerelde,
+  }) async {
+    final u = uzak;
+    if (u == null) return yerelde();
+    try {
+      await sunucuda(u);
+      return null;
+    } on Exception catch (e) {
+      return '$e';
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // İcra takipleri
   // ---------------------------------------------------------------------------
@@ -652,8 +694,13 @@ class BellekVeriDeposu extends ChangeNotifier {
     return null;
   }
 
-  FaizTablosu icraFaizTablosu(String icraId) =>
-      _icraFaizTuru[icraId] == FaizTuru.avans ? FaizTablosu.avans : FaizTablosu.yasal;
+  final Map<String, double> _icraAkdiOran = {};
+
+  FaizTablosu icraFaizTablosu(String icraId) => switch (_icraFaizTuru[icraId]) {
+        FaizTuru.avans => FaizTablosu.avans,
+        FaizTuru.akdi => FaizTablosu.sabit(_icraAkdiOran[icraId] ?? 0),
+        _ => FaizTablosu.yasal,
+      };
 
   FaizTuru icraFaizTuru(String icraId) => _icraFaizTuru[icraId] ?? FaizTuru.yasal;
 

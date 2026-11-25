@@ -21,16 +21,19 @@ class IsApi {
     ..get('/kisiler', _kisiler)
     ..post('/kisiler', _kisiEkle)
     ..get('/kisiler/<id>/cari', _cari)
+    ..get('/cari', _cariTumu)
     ..post('/cari', _cariEkle)
     ..get('/emanet', _emanet)
     ..post('/emanet', _emanetEkle)
     ..get('/zaman', _zaman)
     ..post('/zaman', _zamanEkle)
     ..post('/zaman/<id>/onayla', _zamanOnayla)
+    ..delete('/zaman/<id>', _zamanSil)
     ..get('/icra', _icraListe)
     ..post('/icra', _icraEkle)
     ..get('/icra/<id>', _icraAyrinti)
-    ..post('/icra/<id>/tahsilat', _icraTahsilat);
+    ..post('/icra/<id>/tahsilat', _icraTahsilat)
+    ..post('/icra/<id>/durum', _icraDurum);
 
   // ---------------------------------------------------------------------------
   // Kişiler
@@ -153,20 +156,52 @@ class IsApi {
     return jsonYanit({'id': id}, durum: 201);
   }
 
+  /// Emanet hareketleri (bakiye istemcide çekirdekteki EmanetHesabi ile hesaplanır; sunucuda da tetikleyici zorlar).
   Future<Response> _emanet(Request istek) async {
     final k = kimlik(istek);
     final m = istek.url.queryParameters['muvekkil'];
     final rs = await vt.kiraciIcin(
         k,
         (tx) => tx.execute(
-              Sql.named("SELECT muvekkil_id::text, dosya_id::text, sum(CASE WHEN tur = 'giris' THEN tutar_kurus "
-                  'ELSE -tutar_kurus END)::bigint, min(tarih) FILTER (WHERE tur = \'giris\') '
+              Sql.named('SELECT id::text, muvekkil_id::text, dosya_id::text, tur, tutar_kurus, tarih, aciklama, mahsup_onayi '
                   'FROM hukuk.emanet_hareket WHERE (CAST(@m AS uuid) IS NULL OR muvekkil_id = CAST(@m AS uuid)) '
-                  'GROUP BY muvekkil_id, dosya_id ORDER BY 3 DESC'),
+                  'ORDER BY tarih, id LIMIT 10000'),
               parameters: {'m': m},
             ));
     return jsonYanit([
-      for (final r in rs) {'muvekkilId': r[0], 'dosyaId': r[1], 'bakiyeKurus': r[2], 'ilkGiris': tarihMetni(r[3])},
+      for (final r in rs)
+        {
+          'id': r[0],
+          'muvekkilId': r[1],
+          'dosyaId': r[2],
+          'tur': r[3],
+          'tutarKurus': r[4],
+          'tarih': tarihMetni(r[5]),
+          'aciklama': r[6],
+          'mahsupOnayi': r[7],
+        },
+    ]);
+  }
+
+  /// Tüm cari hareketler (istemci önbelleği için; en yeni 10.000).
+  Future<Response> _cariTumu(Request istek) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute('SELECT id::text, muvekkil_id::text, dosya_id::text, tur, tutar_kurus, tarih, aciklama, belge_no '
+            'FROM hukuk.cari_hareket ORDER BY tarih DESC, zaman DESC LIMIT 10000'));
+    return jsonYanit([
+      for (final r in rs)
+        {
+          'id': r[0],
+          'muvekkilId': r[1],
+          'dosyaId': r[2],
+          'tur': r[3],
+          'tutarKurus': r[4],
+          'tarih': tarihMetni(r[5]),
+          'aciklama': r[6],
+          'belgeNo': r[7],
+        },
     ]);
   }
 
@@ -295,6 +330,22 @@ class IsApi {
     return jsonYanit({'durum': 'onaylandi'});
   }
 
+  /// Yalnızca kendi taslak kaydı silinebilir (onaylı kaydı silme veritabanında da engellenir).
+  Future<Response> _zamanSil(Request istek, String id) async {
+    final k = kimlik(istek);
+    final n = await vt.kiraciIcin(k, (tx) async {
+      final rs = await tx.execute(
+        Sql.named("DELETE FROM hukuk.zaman_kaydi WHERE id = CAST(@id AS uuid) AND kullanici_id = CAST(@u AS uuid) "
+            "AND durum = 'taslak' RETURNING dakika, aciklama"),
+        parameters: {'id': id, 'u': k.kullaniciId},
+      );
+      if (rs.isNotEmpty) await DosyaApi.denetim(tx, k, 'silme', 'zaman', id, '${rs.first[0]} dk · ${rs.first[1]}');
+      return rs.length;
+    });
+    if (n == 0) throw const ApiHatasi(404, 'Silinebilecek taslak kaydınız bulunamadı.', kod: 'bulunamadi');
+    return jsonYanit({'silindi': true});
+  }
+
   // ---------------------------------------------------------------------------
   // İcra
   // ---------------------------------------------------------------------------
@@ -359,13 +410,42 @@ class IsApi {
         'uyarilar': h.uyarilar,
       };
 
+  /// İcra dosyaları, takip talebi alanları ve tahsilatlarıyla (istemci kapak hesabını çekirdekle yerelde de gösterebilir).
   Future<Response> _icraListe(Request istek) async {
     final k = kimlik(istek);
-    final rs = await vt.kiraciIcin(k, (tx) => tx.execute('SELECT $_icraSutunlari FROM hukuk.icra_dosyasi ORDER BY takip_tarihi DESC'));
+    final (dosyalar, tahsilatlar) = await vt.kiraciIcin(k, (tx) async {
+      final d = await tx.execute('SELECT $_icraSutunlari FROM hukuk.icra_dosyasi ORDER BY takip_tarihi DESC');
+      final t = await tx.execute('SELECT id::text, icra_id::text, tarih, tutar_kurus, aciklama FROM hukuk.icra_tahsilat '
+          'ORDER BY tarih');
+      return (d, t);
+    });
+    final tahsilatMap = <String, List<Map<String, Object?>>>{};
+    for (final t in tahsilatlar) {
+      (tahsilatMap[t[1]! as String] ??= []).add(
+          {'id': t[0], 'tarih': tarihMetni(t[2]), 'tutarKurus': t[3], 'aciklama': t[4]});
+    }
     return jsonYanit([
-      for (final r in rs)
-        {'id': r[0], 'dosyaId': r[1], 'icraDairesi': r[2], 'esasNo': r[3], 'borclu': r[4], 'takipTuru': r[5],
-          'asilKurus': r[6], 'takipTarihi': tarihMetni(r[8]), 'durum': r[10]},
+      for (final r in dosyalar)
+        {
+          'id': r[0],
+          'dosyaId': r[1],
+          'icraDairesi': r[2],
+          'esasNo': r[3],
+          'borclu': r[4],
+          'takipTuru': r[5],
+          'asilKurus': r[6],
+          'temerrut': tarihMetni(r[7]),
+          'takipTarihi': tarihMetni(r[8]),
+          'faizTuru': r[9],
+          'durum': r[10],
+          'vekaletKurus': r[11],
+          'takipOncesiMasrafKurus': r[12],
+          'takipSonrasiMasrafKurus': r[13],
+          'islemisFaizElleKurus': r[14],
+          'tebligTarihi': r[15] == null ? null : tarihMetni(r[15]),
+          'akdiOran': r[16],
+          'tahsilatlar': tahsilatMap[r[0]] ?? const [],
+        },
     ]);
   }
 
@@ -467,5 +547,23 @@ class IsApi {
       return tId;
     });
     return jsonYanit({'id': yeni}, durum: 201);
+  }
+
+  Future<Response> _icraDurum(Request istek, String id) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final durum = enumAlani(j, 'durum', IcraDurumu.values);
+    final teblig = j['tebligTarihi'] == null ? null : tarihAlani(j, 'tebligTarihi');
+    final n = await vt.kiraciIcin(k, (tx) async {
+      final rs = await tx.execute(
+        Sql.named('UPDATE hukuk.icra_dosyasi SET durum = @d, teblig_tarihi = coalesce(CAST(@t AS date), teblig_tarihi) '
+            'WHERE id = CAST(@id AS uuid)'),
+        parameters: {'d': durum.name, 't': teblig?.isoBicim, 'id': id},
+      );
+      if (rs.affectedRows == 1) await DosyaApi.denetim(tx, k, 'degisiklik', 'icra', id, 'Durum: ${durum.ad}');
+      return rs.affectedRows;
+    });
+    if (n == 0) throw ApiHatasi.bulunamadi;
+    return jsonYanit({'durum': durum.name});
   }
 }
