@@ -4,6 +4,7 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
+import '../servisler/kurumsal_depo.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
 import 'cikar_catismasi_ekrani.dart';
@@ -12,6 +13,8 @@ import 'genel_bakis_ekrani.dart';
 import 'hesap_ekranlari.dart';
 import 'hesap_turleri_ekrani.dart';
 import 'muvekkiller_ekrani.dart';
+import 'sozlesmeler_ekrani.dart';
+import 'talepler_ekrani.dart';
 import 'finans_ekrani.dart';
 import 'hesaplamalar_ekrani.dart';
 import 'takvim_ekrani.dart';
@@ -48,13 +51,16 @@ class _Bolum {
 
 /// Uygulamanın ana iskeleti: lacivert yan menü, üst çubuk ve içerik.
 class AnaKabuk extends StatefulWidget {
-  const AnaKabuk({super.key, required this.oturum, required this.cikisYap, this.depo});
+  const AnaKabuk({super.key, required this.oturum, required this.cikisYap, this.depo, this.kurumsal});
 
   final Oturum oturum;
   final VoidCallback cikisYap;
 
   /// Verilmezse demo verisiyle bellek deposu oluşturulur.
   final BellekVeriDeposu? depo;
+
+  /// Kurumsal sözleşme ve talep verisi; verilmezse demo verisi.
+  final KurumsalDepo? kurumsal;
 
   @override
   State<AnaKabuk> createState() => _AnaKabukState();
@@ -66,10 +72,13 @@ class _AnaKabukState extends State<AnaKabuk> {
       widget.depo ?? BellekVeriDeposu.demo(kiraciId: widget.oturum.kiraciId, avukatId: widget.oturum.kullaniciId);
 
   late final HesapYonetimi _yonetim = HesapYonetimi(oturum: widget.oturum, depo: _depo);
+  late final KurumsalDepo _kurumsal =
+      widget.kurumsal ?? KurumsalDepo.demo(depo: _depo, kullaniciId: widget.oturum.kullaniciId);
 
   @override
   void dispose() {
     _yonetim.dispose();
+    if (widget.kurumsal == null) _kurumsal.dispose();
     super.dispose();
   }
 
@@ -126,20 +135,9 @@ class _AnaKabukState extends State<AnaKabuk> {
   Widget _sayfa() => switch (_secili) {
         _B.genelBakis => GenelBakisEkrani(
             depo: _depo, oturum: widget.oturum, dosyaAc: _dosyaAc, hizliIslem: _hizliIslem),
-        _B.talepler => const YakindaSayfasi(
-            baslik: 'Hukuk Talepleri',
-            faz: 'Faz 2',
-            ikon: Icons.description_outlined,
-            aciklama: 'İş birimlerinin sözleşme inceleme, görüş ve ihtar taleplerini SLA ve onay akışıyla yönetin.',
-          ),
+        _B.talepler => TaleplerEkrani(kurumsal: _kurumsal),
         _B.dosyalar => DosyalarEkrani(depo: _depo, oturum: widget.oturum),
-        _B.sozlesmeler => const YakindaSayfasi(
-            baslik: 'Sözleşmeler',
-            faz: 'Faz 2',
-            ikon: Icons.article_outlined,
-            aciklama: 'Yüklenen her sözleşme otomatik taranır; taraflar, süreler, riskli maddeler ve '
-                'yükümlülükler çıkarılır, yenileme tarihleri takvime düşer.',
-          ),
+        _B.sozlesmeler => SozlesmelerEkrani(kurumsal: _kurumsal),
         _B.tebligatlar => TebligatlarEkrani(depo: _depo, oturum: widget.oturum),
         _B.takvim => TakvimEkrani(depo: _depo, dosyaAc: _dosyaAc),
         _B.muvekkiller => MuvekkillerEkrani(depo: _depo),
