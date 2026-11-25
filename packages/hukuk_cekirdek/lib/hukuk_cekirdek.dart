@@ -16,6 +16,8 @@ export 'src/hesap/abonelik.dart';
 export 'src/hesap/hesap_turu.dart';
 export 'src/kimlik/dogrulayicilar.dart';
 export 'src/yetki/yetki_denetcisi.dart';
+export 'src/yetki/etik_duvar.dart';
+export 'src/bildirim/bildirim.dart';
 export 'src/taraf/isim_eslestirme.dart';
 export 'src/taraf/kisi.dart';
 export 'src/taraf/cikar_catismasi.dart';

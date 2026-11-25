@@ -7,6 +7,7 @@ import '../servisler/kimlik_servisi.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
 import 'formlar.dart';
+import 'etik_duvar_bolumu.dart';
 import 'muvekkil_portali_ekrani.dart';
 
 Aktor oturumAktoru(Oturum o) => Aktor(kullaniciId: o.kullaniciId, kiraciId: o.kiraciId, roller: o.roller);
@@ -296,6 +297,11 @@ class DosyaDetayEkrani extends StatelessWidget {
                 ),
               const Divider(height: 32),
               PortalYonetimBolumu(depo: depo, dosyaId: d.id),
+              if (oturum.lisans.modulAcik(Modul.etikDuvar) &&
+                  oturum.roller.any((r) => r == Rol.buroSahibi || r == Rol.yoneticiOrtak)) ...[
+                const Divider(height: 32),
+                EtikDuvarBolumu(depo: depo, dosya: d),
+              ],
             ],
           ),
         );

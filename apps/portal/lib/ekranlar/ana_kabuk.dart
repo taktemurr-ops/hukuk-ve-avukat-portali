@@ -3,10 +3,12 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
+import '../servisler/bildirim_servisi.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/kurumsal_depo.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
+import 'bildirim_paneli.dart';
 import 'cikar_catismasi_ekrani.dart';
 import 'dosyalar_ekrani.dart';
 import 'genel_bakis_ekrani.dart';
@@ -77,12 +79,38 @@ class _AnaKabukState extends State<AnaKabuk> {
       widget.depo ?? BellekVeriDeposu.demo(kiraciId: widget.oturum.kiraciId, avukatId: widget.oturum.kullaniciId);
 
   late final HesapYonetimi _yonetim = HesapYonetimi(oturum: widget.oturum, depo: _depo);
+  late final BildirimServisi _bildirimler = BildirimServisi(
+      depo: _depo,
+      oturum: widget.oturum,
+      kurumsal: widget.oturum.hesapTuru == HesapTuru.kurumsal ? _kurumsal : null);
+
+  void _bildirimAc(HedefliBildirim h) {
+    final id = h.bildirim.hedefId;
+    switch (h.hedef) {
+      case BildirimHedefi.dosya:
+        if (id != null) _dosyaAc(id);
+      case BildirimHedefi.tebligatKuyrugu:
+        _sec(_B.tebligatlar);
+      case BildirimHedefi.talep:
+        if (id != null) {
+          Navigator.of(context)
+              .push(MaterialPageRoute<void>(builder: (_) => TalepDetayEkrani(kurumsal: _kurumsal, talepId: id)));
+        }
+      case BildirimHedefi.sozlesme:
+        if (id != null) {
+          Navigator.of(context)
+              .push(MaterialPageRoute<void>(builder: (_) => SozlesmeDetayEkrani(kurumsal: _kurumsal, sozlesmeId: id)));
+        }
+    }
+  }
+
   late final KurumsalDepo _kurumsal =
       widget.kurumsal ?? KurumsalDepo.demo(depo: _depo, kullaniciId: widget.oturum.kullaniciId);
 
   @override
   void dispose() {
     _yonetim.dispose();
+    _bildirimler.dispose();
     if (widget.kurumsal == null) _kurumsal.dispose();
     super.dispose();
   }
@@ -194,7 +222,8 @@ class _AnaKabukState extends State<AnaKabuk> {
                   menuDugmesi: !genis,
                   cikisYap: widget.cikisYap,
                   dosyaAc: _dosyaAc,
-                  uyarilaraGit: () => _sec(_B.genelBakis),
+                  bildirimler: _bildirimler,
+                  bildirimAc: _bildirimAc,
                   muvekkillereGit: () => _sec(_B.muvekkiller),
                 ),
                 Expanded(child: _sayfa()),
@@ -281,7 +310,8 @@ class _UstCubuk extends StatelessWidget {
     required this.menuDugmesi,
     required this.cikisYap,
     required this.dosyaAc,
-    required this.uyarilaraGit,
+    required this.bildirimler,
+    required this.bildirimAc,
     required this.muvekkillereGit,
   });
 
@@ -290,7 +320,8 @@ class _UstCubuk extends StatelessWidget {
   final bool menuDugmesi;
   final VoidCallback cikisYap;
   final ValueChanged<String> dosyaAc;
-  final VoidCallback uyarilaraGit;
+  final BildirimServisi bildirimler;
+  final ValueChanged<HedefliBildirim> bildirimAc;
   final VoidCallback muvekkillereGit;
 
   @override
@@ -344,13 +375,16 @@ class _UstCubuk extends StatelessWidget {
             ),
             const SizedBox(height: 28, child: VerticalDivider(width: 24)),
             ListenableBuilder(
-              listenable: depo,
+              listenable: Listenable.merge([depo, bildirimler, if (bildirimler.kurumsal != null) bildirimler.kurumsal!]),
               builder: (context, _) {
-                final sayi = depo.uyarilar(Tarih.from(DateTime.now())).length;
+                final sayi = bildirimler.okunmamis();
                 return IconButton(
                   key: const Key('bildirimler'),
                   tooltip: 'Bildirimler',
-                  onPressed: uyarilaraGit,
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => BildirimPaneli(servis: bildirimler, ac: bildirimAc),
+                  ),
                   icon: Badge(
                     isLabelVisible: sayi > 0,
                     label: Text('$sayi'),

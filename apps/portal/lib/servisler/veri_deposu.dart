@@ -170,8 +170,51 @@ class BellekVeriDeposu extends ChangeNotifier {
 
   /// Tek kapı: yalnızca kullanıcının görebileceği dosyalar.
   List<Dosya> gorunurDosyalar(Aktor aktor) => const YetkiDenetcisi()
-      .gorunurOlanlar(aktor, _dosyalar, (d) => KorunanNesne(kiraciId: d.kiraciId, gizli: d.gizli, atananKullanicilar: d.tumEkip))
+      .gorunurOlanlar(
+          aktor,
+          _dosyalar,
+          (d) => KorunanNesne(
+              kiraciId: d.kiraciId, gizli: d.gizli, atananKullanicilar: d.tumEkip, etikDuvar: etikDuvar.engelliler(d.id)))
       .toList();
+
+  final EtikDuvarDefteri etikDuvar = EtikDuvarDefteri();
+
+  /// Hata varsa mesajı döner.
+  String? etikDuvarKur(String dosyaId, String kullanici, String gerekce) {
+    final d = dosya(dosyaId);
+    if (d == null) return 'Dosya bulunamadı.';
+    try {
+      etikDuvar.kur(
+        dosyaId: dosyaId,
+        kullanici: kullanici,
+        gerekce: gerekce,
+        kuran: aktifKullanici,
+        tarih: Tarih.from(DateTime.now()),
+        dosyaEkibi: d.tumEkip,
+      );
+      _kaydet(DenetimIslemi.degisiklik, 'etik_duvar', dosyaId, '${kullaniciAdi(kullanici)} engellendi: $gerekce');
+      notifyListeners();
+      return null;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    } on StateError catch (e) {
+      return e.message;
+    }
+  }
+
+  String? etikDuvarKaldir(String dosyaId, String kullanici, String gerekce) {
+    try {
+      etikDuvar.kaldir(
+          dosyaId: dosyaId, kullanici: kullanici, gerekce: gerekce, kaldiran: aktifKullanici, tarih: Tarih.from(DateTime.now()));
+      _kaydet(DenetimIslemi.degisiklik, 'etik_duvar', dosyaId, '${kullaniciAdi(kullanici)} engeli kaldırıldı: $gerekce');
+      notifyListeners();
+      return null;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    } on StateError catch (e) {
+      return e.message;
+    }
+  }
 
   Map<String, List<String>> get dosyaTaraflari {
     final sonuc = <String, List<String>>{};
