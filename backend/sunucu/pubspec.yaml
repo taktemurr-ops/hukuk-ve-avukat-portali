@@ -8,6 +8,8 @@ environment:
 
 dependencies:
   crypto: ^3.0.3
+  # SMTP ile e-posta gönderimi (Türkiye'deki e-posta sağlayıcısına).
+  mailer: ^6.1.2
   hukuk_cekirdek:
     path: ../../packages/hukuk_cekirdek
   pointycastle: ^3.9.1

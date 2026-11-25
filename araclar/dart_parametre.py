@@ -113,6 +113,15 @@ def argumanlar(kaynak, i):
                 j += len(tirnak)
                 tirnak = None
                 continue
+        elif kaynak.startswith('//', j):
+            # Satır yorumu: içindeki tırnak veya parantezler sayılmaz.
+            son = kaynak.find('\n', j)
+            j = len(kaynak) if son < 0 else son
+            continue
+        elif kaynak.startswith('/*', j):
+            son = kaynak.find('*/', j + 2)
+            j = len(kaynak) if son < 0 else son + 2
+            continue
         elif kaynak.startswith("'''", j) or kaynak.startswith('"""', j):
             tirnak = kaynak[j:j + 3]
             j += 3

@@ -12,9 +12,13 @@ import 'veritabani.dart';
 /// Ekip ve müvekkil daveti. Kod yalnızca oluşturma yanıtında döner (davet bağlantısına konur, e-postayla gider);
 /// sunucuda yalnızca SHA-256 özeti tutulur. Davet edilen kişi şifresini kendisi belirler.
 class DavetApi {
-  DavetApi(this.vt);
+  DavetApi(this.vt, {this.davetAdresi});
 
   final Veritabani vt;
+
+  /// Uygulamadaki davet sayfası (ör. https://app.hukukportali.com.tr/davet). Tanımlıysa davet e-postası kuyruğa
+  /// yazılır; bağlantıya kod ve e-posta eklenir.
+  final Uri? davetAdresi;
 
   Router get router => Router()
     ..get('/koltuklar', _koltuklar)
@@ -104,11 +108,35 @@ class DavetApi {
       );
       final yeni = rs.first[0]! as String;
       await DosyaApi.denetim(tx, k, 'olusturma', 'davet', yeni, '$eposta · ${roller.map((r) => r.ad).join(', ')}');
+      final adres = davetAdresi;
+      if (adres != null) {
+        final b = await tx.execute(
+          Sql.named('SELECT k.ad, u.ad_soyad FROM hukuk.kiraci k, hukuk.kullanici u WHERE u.id = CAST(@u AS uuid) '
+              'AND k.id = u.kiraci_id'),
+          parameters: {'u': k.kullaniciId},
+        );
+        final (kurum, davetEden) = (b.first[0]! as String, b.first[1]! as String);
+        final baglanti = adres.replace(queryParameters: {'kod': kod, 'eposta': eposta});
+        final muvekkilMi = roller.contains(Rol.muvekkil);
+        await tx.execute(
+          Sql.named('SELECT hukuk.eposta_ekle(CAST(@k AS uuid), @a, @ko, @m, @t)'),
+          parameters: {
+            'k': k.kiraciId,
+            'a': eposta,
+            'ko': muvekkilMi ? '$kurum müvekkil portalı daveti' : '$kurum sizi Hukuk ve Avukat Portalı\'na davet etti',
+            'm': 'Merhaba,\n\n$davetEden sizi $kurum ${muvekkilMi ? 'müvekkil portalına' : 'ekibine'} davet etti.\n\n'
+                'Hesabınızı açmak ve şifrenizi belirlemek için bağlantı (72 saat geçerli, bir kez kullanılır):\n$baglanti\n\n'
+                'Bu daveti beklemiyorsanız e-postayı dikkate almayın; hesap açılmaz.\n',
+            't': 'davet',
+          },
+        );
+      }
       return yeni;
     });
     return jsonYanit({
       'id': id,
       'kod': kod,
+      'epostaGonderilecek': davetAdresi != null,
       'gecerlilikSaat': 72,
       'bilgi': 'Kod yalnızca bir kez gösterilir; davet bağlantısıyla kişiye iletin.',
     }, durum: 201);

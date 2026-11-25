@@ -34,8 +34,28 @@ Future<void> main() async {
       stderr.writeln('Bilinmeyen ödeme sağlayıcısı: ${ortam['ODEME_SAGLAYICI']}');
       exit(2);
   }
+  // E-posta: SMTP tanımlıysa gönderilir; değilse geliştirmede günlüğe yazılır, canlıda başlatılmaz.
+  final EpostaGonderici eposta;
+  if ((ortam['SMTP_SUNUCU'] ?? '').isNotEmpty) {
+    eposta = SmtpGonderici(
+      sunucu: ortam['SMTP_SUNUCU']!,
+      port: int.parse(ortam['SMTP_PORT'] ?? '587'),
+      kullanici: ortam['SMTP_KULLANICI'] ?? '',
+      sifre: ortam['SMTP_SIFRE'] ?? '',
+      gonderenAdres: ortam['SMTP_GONDEREN'] ?? 'bildirim@hukukportali.com.tr',
+    );
+  } else if (ortam['ORTAM'] == 'canli') {
+    stderr.writeln('SMTP_SUNUCU tanımlı değil; canlı ortamda e-posta gönderimi zorunludur.');
+    exit(2);
+  } else {
+    eposta = GunlugeYazanGonderici();
+    stdout.writeln('UYARI: SMTP tanımlı değil; e-postalar sunucu günlüğüne yazılıyor (geliştirme).');
+  }
+  EpostaGorevi(vt, eposta, kaydet: (h) => stderr.writeln('E-POSTA HATASI: $h')).baslat();
+  final davetAdresi = ortam['DAVET_ADRESI'];
   final handler = uygulama(
     vt,
+    davetAdresi: davetAdresi == null || davetAdresi.isEmpty ? null : Uri.parse(davetAdresi),
     odemeSaglayici: odeme,
     depo: YerelNesneDeposu(belgeKlasoru),
     sifreleyici: AlanSifreleyici.base64(totpAnahtari),

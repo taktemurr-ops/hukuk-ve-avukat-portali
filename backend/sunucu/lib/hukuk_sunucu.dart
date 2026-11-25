@@ -24,6 +24,7 @@ export 'src/belge_api.dart';
 export 'src/buro_api.dart';
 export 'src/davet_api.dart';
 export 'src/dosya_api.dart';
+export 'src/eposta.dart';
 export 'src/hata.dart';
 export 'src/is_api.dart';
 export 'src/kimlik_api.dart';
@@ -60,6 +61,7 @@ Handler uygulama(
   required NesneDeposu depo,
   required AlanSifreleyici sifreleyici,
   OdemeSaglayici? odemeSaglayici,
+  Uri? davetAdresi,
   Set<String> izinliKokenler = const {},
   int belgeAzamiBoyut = 50 * 1024 * 1024,
   void Function(Object, StackTrace)? kaydet,
@@ -73,7 +75,7 @@ Handler uygulama(
       .add(UyumApi(vt).router.call)
       .add(BuroApi(vt).router.call)
       .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut).router.call)
-      .add(DavetApi(vt).router.call)
+      .add(DavetApi(vt, davetAdresi: davetAdresi).router.call)
       .add(PortalApi(vt, depo).router.call)
       .add(AbonelikApi(vt, odemeSaglayici).router.call);
   return const Pipeline()

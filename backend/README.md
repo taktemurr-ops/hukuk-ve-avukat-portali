@@ -100,6 +100,11 @@ Geliştirmede `ODEME_SAGLAYICI=sahte` (+ `ODEME_GIZLI`, `DIS_ADRES`) gerçek par
 iken reddedilir. Abonelik satırını uygulama rolü yazamaz; yalnızca imzası doğrulanmış bildirim dönemi uzatır.
 Askıdaki veya iptal edilmiş hesapta veriler salt okunurdur (değiştiren istekler 402 alır; abonelik ve çıkış hariç).
 
+E-postalar işlemle aynı veritabanı işleminde kuyruğa (`eposta_kuyrugu`) yazılır; arka plan görevi SMTP ile gönderir
+(`SMTP_SUNUCU`, `SMTP_PORT`, `SMTP_KULLANICI`, `SMTP_SIFRE`, `SMTP_GONDEREN`), hatada 5/30/120/480 dk sonra yeniden dener
+ve gönderimden sonra içeriği (davet bağlantısı gibi) siler. `DAVET_ADRESI` tanımlıysa davet e-postası gider. Canlıda SMTP
+zorunludur; geliştirmede e-postalar sunucu günlüğüne yazılır.
+
 İki adımlı doğrulama açık hesapta `/giris` önce `{"ikiAdimliGerekli": true}` döner; istemci aynı isteği `ikiAdimliKod`
 ile tekrarlar. TOTP sırları `TOTP_ANAHTARI` (32 bayt, base64; gizli kasada) ile AES-256-GCM şifrelenir, kullanıcı
 kimliği ek doğrulanmış veridir. Aynı kod ikinci kez kullanılamaz; hatalı kod hatalı giriş denemesi sayılır.

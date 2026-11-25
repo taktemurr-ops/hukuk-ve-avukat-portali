@@ -9,10 +9,13 @@ import 'kayit_sihirbazi.dart';
 
 /// Kullanıcı adı (e-posta) ve şifre ile giriş.
 class GirisEkrani extends StatefulWidget {
-  const GirisEkrani({super.key, required this.servis, required this.girisYapildi});
+  const GirisEkrani({super.key, required this.servis, required this.girisYapildi, this.davetBaglantisi});
 
   final KimlikServisi servis;
   final ValueChanged<Oturum> girisYapildi;
+
+  /// Davet e-postasındaki bağlantıyla açıldıysa (…/davet?kod=…&eposta=…) davet sayfası doğrudan açılır.
+  final Uri? davetBaglantisi;
 
   @override
   State<GirisEkrani> createState() => _GirisEkraniState();
@@ -25,6 +28,20 @@ class _GirisEkraniState extends State<GirisEkrani> {
   bool _sifreGizli = true;
   bool _bekliyor = false;
   String? _hata;
+
+  @override
+  void initState() {
+    super.initState();
+    final b = widget.davetBaglantisi;
+    final kod = b?.queryParameters['kod'];
+    if (b != null && kod != null && kod.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => DavetKabulEkrani(servis: widget.servis, kod: kod, eposta: b.queryParameters['eposta'])));
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -303,12 +320,13 @@ class _TanitimPaneli extends StatelessWidget {
 
 /// Davet bağlantısıyla gelen kişi: kod, e-posta, ad ve şifre belirleyerek hesabını açar.
 class DavetKabulEkrani extends StatefulWidget {
-  const DavetKabulEkrani({super.key, required this.servis, this.kod});
+  const DavetKabulEkrani({super.key, required this.servis, this.kod, this.eposta});
 
   final KimlikServisi servis;
 
-  /// Bağlantıdan gelen kod (varsa alan dolu gelir).
+  /// Bağlantıdan gelen kod ve e-posta (varsa alanlar dolu gelir).
   final String? kod;
+  final String? eposta;
 
   @override
   State<DavetKabulEkrani> createState() => _DavetKabulEkraniState();
@@ -316,7 +334,7 @@ class DavetKabulEkrani extends StatefulWidget {
 
 class _DavetKabulEkraniState extends State<DavetKabulEkrani> {
   late final _kod = TextEditingController(text: widget.kod ?? '');
-  final _eposta = TextEditingController();
+  late final _eposta = TextEditingController(text: widget.eposta ?? '');
   final _ad = TextEditingController();
   final _sifre = TextEditingController();
   final _sifre2 = TextEditingController();

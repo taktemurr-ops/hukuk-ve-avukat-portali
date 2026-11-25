@@ -73,6 +73,8 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
           ? GirisEkrani(
               servis: widget.kimlikServisi,
               girisYapildi: (o) => setState(() => _oturum = o),
+              // Web'de davet e-postasındaki bağlantı (…/davet?kod=…) doğrudan davet sayfasını açar.
+              davetBaglantisi: Uri.base.path.endsWith('/davet') ? Uri.base : null,
             )
           : oturum.muvekkilPortali
               ? (_sunucuOturumu
