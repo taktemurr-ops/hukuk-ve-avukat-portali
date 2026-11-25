@@ -107,7 +107,21 @@ class SunucuKimlikServisi implements KimlikServisi {
 
   @override
   Future<void> sifreSifirlamaIste(String eposta) async {
-    // Sunucu ucu e-posta altyapısıyla gelecek; kullanıcıya her durumda aynı yanıt verilir.
+    // Sunucu her durumda aynı yanıtı verir; ağ hatasında da kullanıcıya hesap bilgisi sızdırılmaz.
+    try {
+      await api.post('/acik/sifre-sifirlama', {'eposta': eposta.trim()});
+    } on SunucuHatasi catch (e) {
+      throw KimlikHatasi(e.mesaj);
+    }
+  }
+
+  @override
+  Future<void> sifreSifirla({required String kod, required String yeniSifre}) async {
+    try {
+      await api.post('/acik/sifre-sifirla', {'kod': kod.trim(), 'sifre': yeniSifre});
+    } on SunucuHatasi catch (e) {
+      throw KimlikHatasi(e.mesaj);
+    }
   }
 
   @override

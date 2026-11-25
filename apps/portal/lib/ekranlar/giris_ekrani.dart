@@ -9,13 +9,22 @@ import 'kayit_sihirbazi.dart';
 
 /// Kullanıcı adı (e-posta) ve şifre ile giriş.
 class GirisEkrani extends StatefulWidget {
-  const GirisEkrani({super.key, required this.servis, required this.girisYapildi, this.davetBaglantisi});
+  const GirisEkrani({
+    super.key,
+    required this.servis,
+    required this.girisYapildi,
+    this.davetBaglantisi,
+    this.sifirlamaBaglantisi,
+  });
 
   final KimlikServisi servis;
   final ValueChanged<Oturum> girisYapildi;
 
   /// Davet e-postasındaki bağlantıyla açıldıysa (…/davet?kod=…&eposta=…) davet sayfası doğrudan açılır.
   final Uri? davetBaglantisi;
+
+  /// Şifre sıfırlama e-postasındaki bağlantı (…/sifre-sifirla?kod=…).
+  final Uri? sifirlamaBaglantisi;
 
   @override
   State<GirisEkrani> createState() => _GirisEkraniState();
@@ -39,6 +48,14 @@ class _GirisEkraniState extends State<GirisEkrani> {
         if (!mounted) return;
         Navigator.of(context).push(MaterialPageRoute<void>(
             builder: (_) => DavetKabulEkrani(servis: widget.servis, kod: kod, eposta: b.queryParameters['eposta'])));
+      });
+    }
+    final sk = widget.sifirlamaBaglantisi?.queryParameters['kod'];
+    if (sk != null && sk.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context)
+            .push(MaterialPageRoute<void>(builder: (_) => SifreSifirlaEkrani(servis: widget.servis, kod: sk)));
       });
     }
   }
@@ -118,10 +135,22 @@ class _GirisEkraniState extends State<GirisEkrani> {
       ),
     );
     if (adres == null) return;
-    await widget.servis.sifreSifirlamaIste(adres);
+    try {
+      await widget.servis.sifreSifirlamaIste(adres);
+    } on KimlikHatasi catch (e) {
+      if (mounted) setState(() => _hata = e.mesaj);
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Bu adres kayıtlıysa sıfırlama bağlantısı gönderildi.')),
+      SnackBar(
+        content: const Text('Bu adres kayıtlıysa sıfırlama bağlantısı gönderildi (1 saat geçerli).'),
+        action: SnackBarAction(
+          label: 'Kodum var',
+          onPressed: () => Navigator.of(context)
+              .push(MaterialPageRoute<void>(builder: (_) => SifreSifirlaEkrani(servis: widget.servis))),
+        ),
+      ),
     );
   }
 
@@ -420,6 +449,105 @@ class _DavetKabulEkraniState extends State<DavetKabulEkrani> {
                 key: const Key('davet-kabul-gonder'),
                 onPressed: _gonderiliyor ? null : _gonder,
                 child: const Text('Hesabımı aç'),
+              ),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// E-postadaki bağlantı ya da kodla yeni şifre belirleme. Başarıda tüm oturumlar kapanır.
+class SifreSifirlaEkrani extends StatefulWidget {
+  const SifreSifirlaEkrani({super.key, required this.servis, this.kod});
+
+  final KimlikServisi servis;
+  final String? kod;
+
+  @override
+  State<SifreSifirlaEkrani> createState() => _SifreSifirlaEkraniState();
+}
+
+class _SifreSifirlaEkraniState extends State<SifreSifirlaEkrani> {
+  late final _kod = TextEditingController(text: widget.kod ?? '');
+  final _sifre = TextEditingController();
+  final _sifre2 = TextEditingController();
+  String? _hata;
+  bool _gonderiliyor = false;
+  bool _tamam = false;
+
+  @override
+  void dispose() {
+    for (final c in [_kod, _sifre, _sifre2]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _gonder() async {
+    final hata = _kod.text.trim().isEmpty
+        ? 'E-postadaki kodu girin.'
+        : Dogrulayicilar.sifre(_sifre.text) ?? (_sifre.text != _sifre2.text ? 'Şifreler aynı değil.' : null);
+    if (hata != null) {
+      setState(() => _hata = hata);
+      return;
+    }
+    setState(() {
+      _hata = null;
+      _gonderiliyor = true;
+    });
+    try {
+      await widget.servis.sifreSifirla(kod: _kod.text, yeniSifre: _sifre.text);
+      if (mounted) setState(() => _tamam = true);
+    } on KimlikHatasi catch (e) {
+      if (mounted) setState(() => _hata = e.mesaj);
+    } finally {
+      if (mounted) setState(() => _gonderiliyor = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Yeni şifre belirle')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: ListView(padding: const EdgeInsets.all(24), shrinkWrap: true, children: [
+            if (_tamam) ...[
+              const Text('Şifreniz değişti ve tüm cihazlardaki oturumlarınız kapatıldı. Yeni şifrenizle giriş yapabilirsiniz.',
+                  key: Key('sifirla-tamam')),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Girişe dön')),
+            ] else ...[
+              if (widget.kod == null) ...[
+                TextField(
+                    key: const Key('sifirla-kod'),
+                    controller: _kod,
+                    decoration: const InputDecoration(labelText: 'E-postadaki kod')),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                  key: const Key('sifirla-sifre'),
+                  controller: _sifre,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Yeni şifre', helperText: 'En az 10 karakter; harf ve rakam içermeli')),
+              const SizedBox(height: 12),
+              TextField(
+                  key: const Key('sifirla-sifre2'),
+                  controller: _sifre2,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Yeni şifre (tekrar)')),
+              if (_hata != null) ...[
+                const SizedBox(height: 12),
+                Text(_hata!, key: const Key('sifirla-hata'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ],
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const Key('sifirla-gonder'),
+                onPressed: _gonderiliyor ? null : _gonder,
+                child: const Text('Şifremi değiştir'),
               ),
             ],
           ]),

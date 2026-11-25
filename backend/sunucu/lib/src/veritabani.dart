@@ -90,6 +90,8 @@ class Veritabani {
           throw const ApiHatasi(403, 'Bu işlem için yetkiniz yok.', kod: 'yasak');
         case 'P0002': // no_data_found (ör. bulunmayan ihbar formu)
           throw ApiHatasi(404, e.message, kod: 'bulunamadi');
+        case '22023': // invalid_parameter_value (ör. geçersiz/süresi dolmuş sıfırlama bağlantısı)
+          throw ApiHatasi(400, e.message, kod: 'gecersiz_istek');
         case '22P02':
           throw const ApiHatasi(400, 'Geçersiz değer.', kod: 'gecersiz_istek');
         default:

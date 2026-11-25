@@ -63,7 +63,8 @@ bool _yazmaKilidiMuaf(String yol) => yol == 'cikis' || yol.startsWith('abonelik'
     yol == 'denetim/kayit'; // salt okunur hesapta da dışa aktarma kaydı düşülmeli
 
 class KimlikApi {
-  KimlikApi(this.vt, this.sifreleyici, {Random? rastgele, this.oturumSuresi = const Duration(hours: 8), DateTime Function()? saat})
+  KimlikApi(this.vt, this.sifreleyici,
+      {Random? rastgele, this.oturumSuresi = const Duration(hours: 8), DateTime Function()? saat, this.sifirlamaAdresi})
       : _rastgele = rastgele ?? Random.secure(),
         _saat = saat ?? DateTime.now;
 
@@ -76,12 +77,17 @@ class KimlikApi {
   final Random _rastgele;
   final Duration oturumSuresi;
 
+  /// Şifre sıfırlama sayfası (ör. https://app.../sifre-sifirla); bağlantıya `kod` eklenir. Yoksa e-postada yalnızca kod.
+  final Uri? sifirlamaAdresi;
+
   /// Kullanıcı yokken de aynı sürede yanıt vermek için sahte özet (kullanıcı varlığı sızmasın).
   static final _sahteOzet = SifreOzeti.olustur('sahte-sifre', tuz: Uint8List.fromList(List.filled(16, 7)));
 
   Router get router => Router()
     ..post('/giris', _giris)
     ..post('/kayit', _kayit)
+    ..post('/acik/sifre-sifirlama', _sifirlamaIste)
+    ..post('/acik/sifre-sifirla', _sifirla)
     ..post('/cikis', _cikis)
     ..get('/ben', _ben)
     ..get('/kullanicilar', _kullanicilar)
@@ -178,6 +184,41 @@ class KimlikApi {
           parameters: {'k': kurum, 't': tur, 'e': eposta, 'a': ad, 's': SifreOzeti.olustur(sifre)},
         ));
     return jsonYanit({'kiraciId': rs.first[0], 'kullaniciId': rs.first[1]}, durum: 201);
+  }
+
+  /// Adres kayıtlı olsun olmasın aynı yanıt (hesap varlığı sızmaz). Kod 128 bit, yalnızca özeti saklanır.
+  Future<Response> _sifirlamaIste(Request istek) async {
+    final eposta = zorunluMetin(await jsonGovde(istek), 'eposta').toLowerCase();
+    if (Dogrulayicilar.eposta(eposta) == null) {
+      final kod = List.generate(16, (_) => _rastgele.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+      final adres = sifirlamaAdresi;
+      final baglanti = adres == null
+          ? 'Uygulamada "Şifremi unuttum" bölümünde bu kodu girin: $kod'
+          : 'Yeni şifrenizi belirlemek için: ${adres.replace(queryParameters: {'kod': kod})}';
+      await vt.genel((tx) => tx.execute(
+            Sql.named('SELECT hukuk.sifre_sifirlama_iste(@e, @o, @k, @m)'),
+            parameters: {
+              'e': eposta,
+              'o': tokenOzeti(kod),
+              'k': 'Şifre sıfırlama · $_yayinci',
+              'm': 'Şifre sıfırlama isteği aldık.\n\n$baglanti\n\nBağlantı 1 saat geçerlidir ve bir kez kullanılabilir. '
+                  'Şifreniz değişince tüm cihazlardaki oturumlarınız kapanır.\n\n'
+                  'Bu isteği siz yapmadıysanız bu e-postayı dikkate almayın; şifreniz değişmez.',
+            },
+          ));
+    }
+    return jsonYanit({'durum': 'Adres kayıtlıysa şifre sıfırlama bağlantısı gönderildi.'}, durum: 202);
+  }
+
+  Future<Response> _sifirla(Request istek) async {
+    final j = await jsonGovde(istek);
+    final kod = zorunluMetin(j, 'kod').trim().toLowerCase();
+    final sifre = zorunluMetin(j, 'sifre');
+    final hata = Dogrulayicilar.sifre(sifre);
+    if (hata != null) throw ApiHatasi(400, hata, kod: 'zayif_sifre');
+    final rs = await vt.genel((tx) => tx.execute(Sql.named('SELECT hukuk.sifre_sifirla(@o, @s)'),
+        parameters: {'o': tokenOzeti(kod), 's': SifreOzeti.olustur(sifre)}));
+    return jsonYanit({'hesapSayisi': rs.first[0]});
   }
 
   Future<Response> _cikis(Request istek) async {

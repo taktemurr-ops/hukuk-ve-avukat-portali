@@ -136,6 +136,14 @@ class SahteSunucu {
           return _json({'hata': 'kural_ihlali', 'mesaj': 'Davet geçersiz, süresi dolmuş veya bu e-posta için değil'}, 409);
         }
         return _json({'kiraciId': 'k1', 'kullaniciId': 'u7'}, 201);
+      case 'POST /acik/sifre-sifirlama':
+        return _json({'durum': 'Adres kayıtlıysa şifre sıfırlama bağlantısı gönderildi.'}, 202);
+      case 'POST /acik/sifre-sifirla':
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        if (j['kod'] != 'k0d') {
+          return _json({'hata': 'gecersiz_istek', 'mesaj': 'Bağlantı geçersiz ya da süresi dolmuş.'}, 400);
+        }
+        return _json({'hesapSayisi': 1});
       case 'GET /abonelik':
         return _json({
           'durum': 'deneme', 'etkinDurum': 'deneme', 'etkinDurumAdi': 'Deneme', 'donem': 'aylik',
@@ -610,5 +618,18 @@ void main() {
     expect(olaylar.map((o) => o.sira), [7, 6]);
     expect(olaylar.first.islemAdi, 'Dışa aktarma');
     expect(olaylar.last.islemAdi, 'hesapAcma');
+  });
+
+  test('Şifre sıfırlama: istek her durumda sessiz, geçersiz kodda sunucunun iletisi', () async {
+    final sunucu = SahteSunucu();
+    final api = ApiIstemcisi(Uri.parse('https://api.ornek.test/'), istemci: MockClient(sunucu.yanit));
+    final servis = SunucuKimlikServisi(api);
+    await servis.sifreSifirlamaIste('ayse@yilmaz.av.tr');
+    expect(sunucu.istekler, contains('POST /acik/sifre-sifirlama'));
+    await expectLater(
+      servis.sifreSifirla(kod: 'yanlis', yeniSifre: 'Yeni-Sifre-2026'),
+      throwsA(isA<KimlikHatasi>().having((e) => e.mesaj, 'mesaj', contains('süresi dolmuş'))),
+    );
+    await servis.sifreSifirla(kod: 'k0d', yeniSifre: 'Yeni-Sifre-2026');
   });
 }

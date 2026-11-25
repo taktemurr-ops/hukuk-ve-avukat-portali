@@ -92,6 +92,9 @@ abstract class KimlikServisi {
   /// Güvenlik gereği e-posta kayıtlı olsun olmasın aynı yanıtı verir.
   Future<void> sifreSifirlamaIste(String eposta);
 
+  /// E-postadaki kodla yeni şifre belirler; geçersiz/süresi dolmuş kodda [KimlikHatasi].
+  Future<void> sifreSifirla({required String kod, required String yeniSifre});
+
   /// Kayıt olmadan, örnek verilerle salt deneme oturumu. Demo verisi kalıcı değildir.
   Future<Oturum> demoGiris(HesapTuru tur);
 
@@ -159,6 +162,10 @@ class BellekKimlikServisi implements KimlikServisi {
 
   @override
   Future<void> sifreSifirlamaIste(String eposta) async {}
+
+  @override
+  Future<void> sifreSifirla({required String kod, required String yeniSifre}) async =>
+      throw const KimlikHatasi('Demo modunda şifre sıfırlanamaz.');
 
   @override
   Future<void> davetKabul({required String kod, required String eposta, required String adSoyad, required String sifre}) async {
