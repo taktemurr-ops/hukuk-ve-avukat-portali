@@ -49,6 +49,10 @@ class KurumsalDepo extends ChangeNotifier {
         birim: 'Dış Ticaret', metin: ornekGizlilikSozlesmesi, kaydet: false)
       ..durum = SozlesmeDurumu.onayda;
 
+    final nda = k.sozlesmeler[2];
+    k.onaySurecleri[nda.id] = OnaySureci(sozlesmeId: nda.id, adimlar: k.onayPolitikasi.adimlar(nda), baslatan: 'hu2')
+      ..karar('hu2', OnayKarariTuru.onay, DateTime.now().subtract(const Duration(days: 1)));
+
     final eski = b.gunEkle(-6);
     final t1 = k.defter.olustur(
         baslik: 'Northwind gizlilik sözleşmesi incelemesi', aciklama: 'İngiliz hukuku seçilmiş, görüşünüzü rica ederiz.',
@@ -114,12 +118,68 @@ class KurumsalDepo extends ChangeNotifier {
   Tarih get bugunTarih => _bugun();
 
   static const hukukEkibi = {'hu2': 'Av. Selin Arslan', 'hu3': 'Hukuk Uzm. Can Öz'};
+  static const yoneticiler = {'fn1': 'Finans Md. Gül Ak', 'gm1': 'Genel Müdür Ali Er'};
 
   String kisiAdi(String id) {
     if (id.isEmpty) return '(atanmamış)';
     if (id == kullaniciId) return 'Siz';
-    return hukukEkibi[id] ?? depo.kullaniciAdi(id);
+    return hukukEkibi[id] ?? yoneticiler[id] ?? depo.kullaniciAdi(id);
   }
+
+  // ---------------------------------------------------------------------------
+  // Sözleşme onay zinciri
+  // ---------------------------------------------------------------------------
+
+  late final OnayPolitikasi onayPolitikasi = OnayPolitikasi(
+    hukukEkibi: hukukEkibi.keys.toSet(),
+    hukukDirektoru: {kullaniciId},
+    finans: const {'fn1'},
+    genelMudur: const {'gm1'},
+  );
+
+  final Map<String, OnaySureci> onaySurecleri = {};
+
+  OnaySureci? onaySureci(String sozlesmeId) => onaySurecleri[sozlesmeId];
+
+  /// Taslak veya müzakeredeki sözleşmeyi politikaya göre oluşan onay zincirine gönderir.
+  String? onayaGonder(Sozlesme s) {
+    if (s.durum != SozlesmeDurumu.taslak && s.durum != SozlesmeDurumu.muzakere) {
+      return 'Yalnızca taslak veya müzakeredeki sözleşme onaya gönderilir.';
+    }
+    final adimlar = onayPolitikasi.adimlar(s);
+    onaySurecleri[s.id] = OnaySureci(sozlesmeId: s.id, adimlar: adimlar, baslatan: kullaniciId);
+    s.durumDegistir(SozlesmeDurumu.onayda);
+    depo.okumaKaydet(DenetimIslemi.degisiklik, 'sozlesme', s.id, 'Onaya gönderildi: ${adimlar.map((a) => a.ad).join(' → ')}');
+    notifyListeners();
+    return null;
+  }
+
+  /// Onay tamamlanınca sözleşme imzaya geçer; ret veya revizyonda müzakereye döner.
+  String? onayKarari(Sozlesme s, OnayKarariTuru tur, {String not = ''}) {
+    final p = onaySurecleri[s.id];
+    if (p == null) return 'Onay süreci yok.';
+    try {
+      p.karar(kullaniciId, tur, DateTime.now(), not: not);
+    } on StateError catch (e) {
+      return e.message;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    }
+    switch (p.durum) {
+      case OnaySurecDurumu.onaylandi:
+        s.durumDegistir(SozlesmeDurumu.imzada);
+      case OnaySurecDurumu.reddedildi || OnaySurecDurumu.revizyon:
+        s.durumDegistir(SozlesmeDurumu.muzakere);
+      case OnaySurecDurumu.devam:
+        break;
+    }
+    depo.okumaKaydet(DenetimIslemi.kararKaydi, 'sozlesme', s.id, '${tur.ad}${not.isEmpty ? '' : ': $not'}');
+    notifyListeners();
+    return null;
+  }
+
+  List<Sozlesme> get onayimiBekleyenler =>
+      [for (final s in sozlesmeler) if (onaySurecleri[s.id]?.onaylayabilir(kullaniciId) ?? false) s];
 
   List<String> get ekip => [kullaniciId, ...hukukEkibi.keys];
 

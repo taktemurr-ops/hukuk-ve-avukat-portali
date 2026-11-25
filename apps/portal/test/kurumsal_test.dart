@@ -91,9 +91,35 @@ void main() {
     expect(yeni.tur, SozlesmeTuru.gizlilik);
     expect(yeni.durum, SozlesmeDurumu.taslak);
     expect(find.text('Distribütör gizlilik sözleşmesi'), findsWidgets);
-    await _bas(tester, 'sozlesme-durum-onayda');
+    expect(find.byKey(const Key('sozlesme-durum-onayda')), findsNothing);
+    await _bas(tester, 'sozlesme-onaya-gonder');
     expect(yeni.durum, SozlesmeDurumu.onayda);
-    expect(k.depo.denetim.olaylar.last.aciklama, 'Durum: Onayda');
+    expect(k.depo.denetim.olaylar.last.aciklama, startsWith('Onaya gönderildi: Hukuk incelemesi → Hukuk direktörü'));
+    expect(find.byKey(const Key('onay-bekleniyor')), findsOneWidget);
+  });
+
+  testWidgets('Onay zinciri: hukuk direktörü onayıyla sözleşme imzaya geçer', (tester) async {
+    final k = await _ac(tester, 'sozlesmeler');
+    expect(k.onayimiBekleyenler.map((s) => s.id), ['sz3']);
+    await _bas(tester, 'sozlesme-sz3');
+    expect(find.byKey(const Key('sozlesme-durum-imzada')), findsNothing);
+    expect(find.textContaining('Onaylandı · Av. Selin Arslan'), findsOneWidget);
+    await _bas(tester, 'onay-onayla');
+    final nda = k.sozlesme('sz3')!;
+    expect(nda.durum, SozlesmeDurumu.imzada);
+    expect(k.onaySureci('sz3')!.durum, OnaySurecDurumu.onaylandi);
+    expect(k.onayimiBekleyenler, isEmpty);
+  });
+
+  test('Onay zinciri: revizyon gerekçeyle müzakereye döndürür', () {
+    final k = _kurumsal();
+    final nda = k.sozlesme('sz3')!;
+    expect(k.onayKarari(nda, OnayKarariTuru.revizyon), isNotNull);
+    expect(k.onayKarari(nda, OnayKarariTuru.revizyon, not: 'Uygulanacak hukuk Türk hukuku olmalı'), isNull);
+    expect(nda.durum, SozlesmeDurumu.muzakere);
+    expect(k.onayaGonder(nda), isNull);
+    expect(nda.durum, SozlesmeDurumu.onayda);
+    expect(k.onaySureci('sz3')!.kararlar, isEmpty);
   });
 
   testWidgets('Yükümlülük eklenir ve tamamlanır', (tester) async {

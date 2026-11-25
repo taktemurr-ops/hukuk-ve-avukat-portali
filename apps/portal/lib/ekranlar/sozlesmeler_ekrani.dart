@@ -90,6 +90,7 @@ class _SozlesmelerEkraniState extends State<SozlesmelerEkrani> {
                 _Kpi('Yürürlükte', '${k.sozlesmeler.where((s) => s.durum == SozlesmeDurumu.yururlukte).length}'),
                 _Kpi('Onay / imza bekleyen',
                     '${k.sozlesmeler.where((s) => _Filtre.onay.uyar(s.durum)).length}'),
+                _Kpi('Onayınızı bekleyen', '${k.onayimiBekleyenler.length}', vurgu: k.onayimiBekleyenler.isNotEmpty),
                 _Kpi('60 gün içinde dikkat', '${uyarilar.length}', vurgu: uyarilar.isNotEmpty),
                 _Kpi('Yüksek riskli', '$yuksek', vurgu: yuksek > 0),
               ]),
@@ -455,7 +456,14 @@ class SozlesmeDetayEkrani extends StatelessWidget {
         final s = kurumsal.sozlesme(sozlesmeId);
         if (s == null) return const Scaffold(body: Center(child: Text('Sözleşme bulunamadı.')));
         final metin = kurumsal.metin(s.id);
-        final sonraki = SozlesmeDurumu.gecisler[s.durum]!;
+        // Onay ve imzaya geçiş yalnızca onay zinciriyle olur.
+        final sonraki = s.durum == SozlesmeDurumu.onayda
+            ? <SozlesmeDurumu>{}
+            : SozlesmeDurumu.gecisler[s.durum]!.where((h) => h != SozlesmeDurumu.onayda).toSet();
+        final onaySureci = kurumsal.onaySureci(s.id);
+        void mesaj(String? h) {
+          if (h != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+        }
         return DefaultTabController(
           length: 3,
           child: Scaffold(
@@ -479,9 +487,16 @@ class SozlesmeDetayEkrani extends StatelessWidget {
                     _Bilgi('İhbar son günü', s.ihbarSonGunu == null ? '—' : uzunTarih(s.ihbarSonGunu!),
                         anahtar: 'ihbar-son-gunu'),
                     _Bilgi('Bedel', s.bedel?.bicimli ?? '—'),
-                    if (sonraki.isNotEmpty) ...[
+                    if (sonraki.isNotEmpty || s.durum == SozlesmeDurumu.taslak || s.durum == SozlesmeDurumu.muzakere) ...[
                       const SizedBox(height: 12),
                       Wrap(spacing: 8, runSpacing: 8, children: [
+                        if (s.durum == SozlesmeDurumu.taslak || s.durum == SozlesmeDurumu.muzakere)
+                          FilledButton.icon(
+                            key: const Key('sozlesme-onaya-gonder'),
+                            onPressed: () => mesaj(kurumsal.onayaGonder(s)),
+                            icon: const Icon(Icons.send_outlined, size: 18),
+                            label: Text('Onaya gönder (${kurumsal.onayPolitikasi.adimlar(s).map((a) => a.ad).join(' → ')})'),
+                          ),
                         for (final h in sonraki)
                           OutlinedButton(
                             key: Key('sozlesme-durum-${h.name}'),
@@ -499,6 +514,10 @@ class SozlesmeDetayEkrani extends StatelessWidget {
                     ],
                   ]),
                 ),
+                if (onaySureci != null) ...[
+                  const SizedBox(height: 20),
+                  OnayZinciriPaneli(kurumsal: kurumsal, sozlesme: s, surec: onaySureci),
+                ],
                 const SizedBox(height: 20),
                 Panel(
                   baslik: 'Yükümlülükler',
@@ -629,6 +648,96 @@ class _YukumlulukDiyaloguState extends State<_YukumlulukDiyalogu> {
           child: const Text('Kaydet'),
         ),
       ],
+    );
+  }
+}
+
+class OnayZinciriPaneli extends StatelessWidget {
+  const OnayZinciriPaneli({super.key, required this.kurumsal, required this.sozlesme, required this.surec});
+
+  final KurumsalDepo kurumsal;
+  final Sozlesme sozlesme;
+  final OnaySureci surec;
+
+  Future<void> _gerekceli(BuildContext context, OnayKarariTuru tur) async {
+    final g = await MetinGirisDiyalogu.goster(
+      context,
+      MetinGirisDiyalogu(
+        baslik: tur == OnayKarariTuru.ret ? 'Sözleşmeyi reddet' : 'Revizyon iste',
+        etiket: 'Gerekçe',
+        alanAnahtari: const Key('onay-gerekce'),
+        onayAnahtari: const Key('onay-gerekce-kaydet'),
+      ),
+    );
+    if (g == null || !context.mounted) return;
+    final h = kurumsal.onayKarari(sozlesme, tur, not: g);
+    if (h != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final siradaki = surec.siradaki;
+    final kararlar = {for (final k in surec.kararlar) k.adimKodu: k};
+    return Panel(
+      baslik: 'Onay zinciri',
+      sag: DurumRozeti(surec.durum.ad, switch (surec.durum) {
+        OnaySurecDurumu.onaylandi => RozetTuru.onay,
+        OnaySurecDurumu.devam => RozetTuru.uyari,
+        _ => RozetTuru.kritik,
+      }),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        for (var i = 0; i < surec.adimlar.length; i++)
+          () {
+            final a = surec.adimlar[i];
+            final k = kararlar[a.kod];
+            final sirada = siradaki?.kod == a.kod;
+            return ListTile(
+              key: Key('onay-adim-${a.kod}'),
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(
+                radius: 14,
+                backgroundColor: k?.tur == OnayKarariTuru.onay
+                    ? Renkler.yesil
+                    : k != null
+                        ? Renkler.kritik
+                        : sirada
+                            ? Renkler.uyari
+                            : Renkler.kenar,
+                child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 12)),
+              ),
+              title: Text(a.ad),
+              subtitle: Text(k != null
+                  ? '${k.tur.ad} · ${kurumsal.kisiAdi(k.kullanici)} · ${tarihSaat(k.zaman)}${k.not.isEmpty ? '' : ' · ${k.not}'}'
+                  : '${a.neden} · onaycı: ${a.onaycilar.map(kurumsal.kisiAdi).join(', ')}'),
+            );
+          }(),
+        if (siradaki != null && surec.onaylayabilir(kurumsal.kullaniciId)) ...[
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            FilledButton.icon(
+              key: const Key('onay-onayla'),
+              onPressed: () {
+                final h = kurumsal.onayKarari(sozlesme, OnayKarariTuru.onay);
+                if (h != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+              },
+              icon: const Icon(Icons.check, size: 18),
+              label: Text('${siradaki.ad} olarak onayla'),
+            ),
+            OutlinedButton(
+              key: const Key('onay-revizyon'),
+              onPressed: () => _gerekceli(context, OnayKarariTuru.revizyon),
+              child: const Text('Revizyon iste'),
+            ),
+            OutlinedButton(
+              key: const Key('onay-reddet'),
+              onPressed: () => _gerekceli(context, OnayKarariTuru.ret),
+              child: const Text('Reddet'),
+            ),
+          ]),
+        ] else if (siradaki != null)
+          Text('Sıradaki onay: ${siradaki.ad} (${siradaki.onaycilar.map(kurumsal.kisiAdi).join(', ')})',
+              key: const Key('onay-bekleniyor'), style: Theme.of(context).textTheme.bodySmall),
+      ]),
     );
   }
 }
