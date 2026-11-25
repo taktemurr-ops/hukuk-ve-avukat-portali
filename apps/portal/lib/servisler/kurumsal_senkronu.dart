@@ -23,6 +23,10 @@ abstract class KurumsalUzak {
 
   Future<void> onayKarari(String sozlesmeId, OnayKarariTuru tur, {String not});
 
+  Future<void> yukumlulukEkle(String sozlesmeId, String aciklama, YukumlulukTarafi taraf, Tarih sonTarih);
+
+  Future<void> yukumlulukTamamla(String yukumlulukId);
+
   Future<void> talepOlustur({
     required String baslik,
     required String aciklama,
@@ -92,6 +96,17 @@ class KurumsalSenkronu implements KurumsalUzak {
       ihbarSuresiGun: j['ihbarSuresiGun'] as int?,
       bedel: bedel == null ? null : Para.kurus(bedel, birim: j['paraBirimi'] as String? ?? 'TRY'),
       tarama: tarama is Map<String, dynamic> ? TaramaSonucu.fromJson(tarama) : null,
+      yukumlulukler: [
+        for (final y in (j['yukumlulukler'] as List? ?? const []).cast<Map<String, dynamic>>())
+          Yukumluluk(
+            id: y['id'] as String,
+            aciklama: y['aciklama'] as String,
+            taraf: YukumlulukTarafi.values.firstWhere((t) => t.name == y['taraf'], orElse: () => YukumlulukTarafi.biz),
+            sonTarih: _t(y['sonTarih'])!,
+            sorumlu: y['sorumlu'] as String? ?? '',
+            tamamlandi: y['tamamlandi'] == true,
+          ),
+      ],
     );
   }
 
@@ -267,6 +282,19 @@ class KurumsalSenkronu implements KurumsalUzak {
   @override
   Future<void> onayKarari(String sozlesmeId, OnayKarariTuru tur, {String not = ''}) async {
     await api.post('/sozlesmeler/$sozlesmeId/onay', {'karar': tur.name, 'not': not});
+    await yenile();
+  }
+
+  @override
+  Future<void> yukumlulukEkle(String sozlesmeId, String aciklama, YukumlulukTarafi taraf, Tarih sonTarih) async {
+    await api.post('/sozlesmeler/$sozlesmeId/yukumlulukler',
+        {'aciklama': aciklama.trim(), 'taraf': taraf.name, 'sonTarih': sonTarih.isoBicim});
+    await yenile();
+  }
+
+  @override
+  Future<void> yukumlulukTamamla(String yukumlulukId) async {
+    await api.post('/yukumlulukler/$yukumlulukId/tamamla');
     await yenile();
   }
 

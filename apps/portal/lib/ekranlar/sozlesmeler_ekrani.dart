@@ -552,7 +552,15 @@ class SozlesmeDetayEkrani extends StatelessWidget {
                               contentPadding: EdgeInsets.zero,
                               controlAffinity: ListTileControlAffinity.leading,
                               value: y.tamamlandi,
-                              onChanged: y.tamamlandi ? null : (_) => kurumsal.yukumlulukTamamla(s, y),
+                              onChanged: y.tamamlandi
+                                  ? null
+                                  : (_) async => mesaj(await kurumsal.sunucudaVeyaYerelde(
+                                        sunucuda: (u) => u.yukumlulukTamamla(y.id),
+                                        yerelde: () {
+                                          kurumsal.yukumlulukTamamla(s, y);
+                                          return null;
+                                        },
+                                      )),
                               title: Text(y.aciklama),
                               subtitle: Text('${y.taraf == YukumlulukTarafi.biz ? 'Bizim' : 'Karşı tarafın'} yükümlülüğü · '
                                   'son gün ${uzunTarih(y.sonTarih)}'),
@@ -655,9 +663,21 @@ class _YukumlulukDiyaloguState extends State<_YukumlulukDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('yukumluluk-kaydet'),
-          onPressed: () {
+          onPressed: () async {
             if (_aciklama.text.trim().isEmpty) return;
-            widget.kurumsal.yukumlulukEkle(widget.sozlesme, _aciklama.text, _taraf, _tarih);
+            final aciklama = _aciklama.text;
+            final h = await widget.kurumsal.sunucudaVeyaYerelde(
+              sunucuda: (u) => u.yukumlulukEkle(widget.sozlesme.id, aciklama, _taraf, _tarih),
+              yerelde: () {
+                widget.kurumsal.yukumlulukEkle(widget.sozlesme, aciklama, _taraf, _tarih);
+                return null;
+              },
+            );
+            if (!mounted) return;
+            if (h != null) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+              return;
+            }
             Navigator.pop(context);
           },
           child: const Text('Kaydet'),

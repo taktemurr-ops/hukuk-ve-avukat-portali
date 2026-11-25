@@ -57,6 +57,7 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET/POST | `/sirketler` | Grup şirketleri (VKN doğrulanır; ekleme hukuk ekibine açık) |
 | GET/POST | `/sozlesmeler` | Sözleşmeler ve uyarıları / yeni sözleşme (SZ-yıl-sıra numarası sunucuda) |
 | POST | `/sozlesmeler/{id}/durum` | Durum geçişi; "onayda"ya geçiş yeni onay turu açar, imzaya yalnızca zincir tamamlanınca geçilir |
+| POST | `/sozlesmeler/{id}/yukumlulukler` · `/yukumlulukler/{id}/tamamla` | Sözleşme yükümlülüğü ekleme / tamamlama |
 | GET/POST | `/sozlesmeler/{id}/onay` | Onay zinciri (rollerden: hukuk, direktör, finans ≥1 M TL, genel müdür ≥5 M TL) / karar |
 | GET/POST | `/talepler` | Talepler ve geçmişi / yeni talep (SLA iş günüyle hesaplanır, en az yüklü ekip üyesine atanır) |
 | POST | `/talepler/{id}/durum` | Durum geçişi (bilgi beklemesi SLA'yı öteler, ret gerekçe ister) |

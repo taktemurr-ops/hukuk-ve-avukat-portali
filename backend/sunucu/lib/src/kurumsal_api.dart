@@ -33,6 +33,8 @@ class KurumsalApi {
     ..post('/sozlesmeler/<id>/durum', _sozlesmeDurum)
     ..get('/sozlesmeler/<id>/onay', _onayDurumu)
     ..post('/sozlesmeler/<id>/onay', _onayKarari)
+    ..post('/sozlesmeler/<id>/yukumlulukler', _yukumlulukEkle)
+    ..post('/yukumlulukler/<id>/tamamla', _yukumlulukTamamla)
     ..get('/talepler', _talepler)
     ..post('/talepler', _talepEkle)
     ..post('/talepler/<id>/durum', _talepDurum)
@@ -154,6 +156,17 @@ class KurumsalApi {
         'paraBirimi': s.bedel?.birim,
         'onayTuru': onayTuru,
         'tarama': s.tarama?.toJson(),
+        'yukumlulukler': [
+          for (final y in s.yukumlulukler)
+            {
+              'id': y.id,
+              'aciklama': y.aciklama,
+              'taraf': y.taraf.name,
+              'sonTarih': y.sonTarih.isoBicim,
+              'sorumlu': y.sorumlu.isEmpty ? null : y.sorumlu,
+              'tamamlandi': y.tamamlandi,
+            },
+        ],
         'uyarilar': [
           for (final u in s.uyarilar(bugun)) {'tur': u.tur.name, 'mesaj': u.mesaj},
         ],
@@ -161,9 +174,71 @@ class KurumsalApi {
 
   Future<Response> _sozlesmeler(Request istek) async {
     final k = kimlik(istek);
-    final rs = await vt.kiraciIcin(k, (tx) => tx.execute('SELECT $_sozlesmeSutunlari FROM hukuk.sozlesme ORDER BY no DESC'));
+    final (rs, yk) = await vt.kiraciIcin(k, (tx) async {
+      final s = await tx.execute('SELECT $_sozlesmeSutunlari FROM hukuk.sozlesme ORDER BY no DESC');
+      final y = await tx.execute('SELECT id::text, sozlesme_id::text, aciklama, taraf, son_tarih, sorumlu::text, '
+          'tamamlanma IS NOT NULL FROM hukuk.sozlesme_yukumluluk ORDER BY son_tarih');
+      return (s, y);
+    });
+    final yukumlulukler = <String, List<Yukumluluk>>{};
+    for (final y in yk) {
+      (yukumlulukler[y[1]! as String] ??= []).add(Yukumluluk(
+        id: y[0]! as String,
+        aciklama: y[2]! as String,
+        taraf: YukumlulukTarafi.values.byName(y[3]! as String),
+        sonTarih: tarihDegeri(y[4]),
+        sorumlu: (y[5] as String?) ?? '',
+        tamamlandi: y[6]! as bool,
+      ));
+    }
     final bugun = Tarih.from(DateTime.now());
-    return jsonYanit([for (final r in rs) _sozlesmeJson(_sozlesme(r), r[16]! as int, bugun)]);
+    return jsonYanit([
+      for (final r in rs)
+        _sozlesmeJson(_sozlesme(r)..yukumlulukler.addAll(yukumlulukler[r[0]] ?? const []), r[16]! as int, bugun),
+    ]);
+  }
+
+  Future<Response> _yukumlulukEkle(Request istek, String sozlesmeId) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final taraf = enumAlani(j, 'taraf', YukumlulukTarafi.values);
+    final sonTarih = tarihAlani(j, 'sonTarih');
+    final id = await vt.kiraciIcin(k, (tx) async {
+      await _hukukEkibiOlmali(tx, k);
+      final rs = await tx.execute(
+        Sql.named('INSERT INTO hukuk.sozlesme_yukumluluk (kiraci_id, sozlesme_id, aciklama, taraf, son_tarih, sorumlu) '
+            'VALUES (CAST(@k AS uuid), CAST(@s AS uuid), @a, @t, CAST(@st AS date), CAST(@so AS uuid)) RETURNING id::text'),
+        parameters: {
+          'k': k.kiraciId,
+          's': sozlesmeId,
+          'a': zorunluMetin(j, 'aciklama'),
+          't': taraf.name,
+          'st': sonTarih.isoBicim,
+          'so': (j['sorumlu'] as String?) ?? k.kullaniciId,
+        },
+      );
+      final yeni = rs.first[0]! as String;
+      await DosyaApi.denetim(tx, k, 'olusturma', 'yukumluluk', sozlesmeId, j['aciklama'] as String);
+      return yeni;
+    });
+    return jsonYanit({'id': id}, durum: 201);
+  }
+
+  Future<Response> _yukumlulukTamamla(Request istek, String id) async {
+    final k = kimlik(istek);
+    final n = await vt.kiraciIcin(k, (tx) async {
+      final rs = await tx.execute(
+        Sql.named('UPDATE hukuk.sozlesme_yukumluluk SET tamamlanma = now(), tamamlayan = CAST(@u AS uuid) '
+            'WHERE id = CAST(@id AS uuid) AND tamamlanma IS NULL RETURNING sozlesme_id::text, aciklama'),
+        parameters: {'u': k.kullaniciId, 'id': id},
+      );
+      if (rs.isNotEmpty) {
+        await DosyaApi.denetim(tx, k, 'degisiklik', 'yukumluluk', rs.first[0]! as String, 'Tamamlandı: ${rs.first[1]}');
+      }
+      return rs.length;
+    });
+    if (n == 0) throw const ApiHatasi(404, 'Açık yükümlülük bulunamadı.', kod: 'bulunamadi');
+    return jsonYanit({'tamamlandi': true});
   }
 
   Future<Response> _sozlesmeEkle(Request istek) async {
