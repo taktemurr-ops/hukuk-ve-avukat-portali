@@ -75,6 +75,8 @@ jobs:
     # Sunucu adresi verilmez; yalnızca tarayıcıdaki demo verisi kullanılır, gerçek müvekkil verisi yoktur.
     name: Web önizleme (demo)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: apps/portal
@@ -93,6 +95,17 @@ jobs:
           name: web-demo
           path: apps/portal/build/web
           retention-days: 14
+      - name: Demo derlemesini gh-pages dalına yaz (paylaşılabilir önizleme)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        working-directory: apps/portal/build/web
+        run: |
+          touch .nojekyll
+          git init -q -b gh-pages
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Web demo: ${GITHUB_SHA}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
 
   belge:
     name: Belge servisi (Python)
