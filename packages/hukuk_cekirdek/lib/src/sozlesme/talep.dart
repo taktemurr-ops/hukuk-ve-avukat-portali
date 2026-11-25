@@ -120,6 +120,7 @@ class HukukTalebi {
     required this.olusturma,
     required this.slaSonGun,
     this.sozlesmeId,
+    this.sirketId,
   });
 
   final String id;
@@ -132,6 +133,9 @@ class HukukTalebi {
   final String birim;
   final Tarih olusturma;
   String? sozlesmeId;
+
+  /// Talebin geldiği grup şirketi.
+  String? sirketId;
   String atanan = '';
   TalepDurumu durum = TalepDurumu.yeni;
   Tarih slaSonGun;
@@ -202,6 +206,7 @@ class TalepDefteri {
     required String birim,
     required Tarih bugun,
     String? sozlesmeId,
+    String? sirketId,
     bool otomatikAta = true,
   }) {
     if (baslik.trim().isEmpty) throw ArgumentError('Başlık zorunludur.');
@@ -218,6 +223,7 @@ class TalepDefteri {
       olusturma: bugun,
       slaSonGun: hesap.ekle(bugun, oncelik.slaIsGunu(tur)),
       sozlesmeId: sozlesmeId,
+      sirketId: sirketId,
     );
     t.gecmis.add(TalepOlayi(bugun, talepEden, 'Talep oluşturuldu'));
     if (otomatikAta) {

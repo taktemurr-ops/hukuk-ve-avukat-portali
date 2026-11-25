@@ -122,6 +122,35 @@ void main() {
     expect(k.onaySureci('sz3')!.kararlar, isEmpty);
   });
 
+  testWidgets('Grup şirketi seçimi sözleşme ve talepleri alt şirketleriyle süzer', (tester) async {
+    final k = await _ac(tester, 'sozlesmeler');
+    await _bas(tester, 'kurum-secici');
+    await _bas(tester, 'sirket-abcGida');
+    expect(k.aktifSirketId, 'abcGida');
+    expect(find.byKey(const Key('sozlesme-sz1')), findsOneWidget);
+    expect(find.byKey(const Key('sozlesme-sz2')), findsNothing);
+    expect(find.byKey(const Key('sozlesme-sz3')), findsNothing);
+    expect(find.text('ABC Gıda'), findsWidgets);
+
+    await _bas(tester, 'menu-talepler');
+    expect(find.byKey(const Key('talep-tlp1')), findsNothing);
+    expect(find.byKey(const Key('talep-tlp2')), findsOneWidget);
+    expect(find.byKey(const Key('talep-tlp4')), findsOneWidget);
+
+    await _bas(tester, 'menu-organizasyon');
+    await _bas(tester, 'sirket-yeni');
+    await tester.enterText(find.byKey(const Key('sirket-unvan')), 'ABC Enerji A.Ş.');
+    await tester.enterText(find.byKey(const Key('sirket-vkn')), '2222222220');
+    await _bas(tester, 'sirket-kaydet');
+    expect(find.text('Vergi kimlik numarası geçersiz.'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('sirket-vkn')), '4840847211');
+    await _bas(tester, 'sirket-kaydet');
+    expect(k.grup.tumu.map((s) => s.unvan), contains('ABC Enerji A.Ş.'));
+
+    k.sirketSec(null);
+    expect(k.gorunurSozlesmeler, hasLength(3));
+  });
+
   testWidgets('Yükümlülük eklenir ve tamamlanır', (tester) async {
     final k = await _ac(tester, 'sozlesmeler');
     await _bas(tester, 'sozlesme-sz2');

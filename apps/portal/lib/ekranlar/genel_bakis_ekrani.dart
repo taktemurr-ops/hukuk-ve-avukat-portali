@@ -123,7 +123,7 @@ class GenelBakisEkrani extends StatelessWidget {
           oturum.hesapTuru == HesapTuru.kurumsal
               ? _Kpi(
                   'Sözleşme Onayı',
-                  '${k?.sozlesmeler.where((s) => s.durum == SozlesmeDurumu.onayda || s.durum == SozlesmeDurumu.imzada).length ?? 0}',
+                  '${k?.gorunurSozlesmeler.where((s) => s.durum == SozlesmeDurumu.onayda || s.durum == SozlesmeDurumu.imzada).length ?? 0}',
                   Icons.description_outlined,
                   Renkler.yesilZemin,
                   Renkler.yesil)

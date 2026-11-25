@@ -42,6 +42,7 @@ export 'src/sozlesme/sozlesme_tarayici.dart';
 export 'src/sozlesme/talep.dart';
 export 'src/sozlesme/onay_zinciri.dart';
 export 'src/kurumsal/dis_avukat.dart';
+export 'src/kurumsal/grup.dart';
 export 'src/icra/icra.dart';
 export 'src/rapor/raporlar.dart';
 export 'src/uyum/saklama_imha.dart';

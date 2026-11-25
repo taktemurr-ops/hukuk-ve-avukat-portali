@@ -20,6 +20,7 @@ import 'hesaplamalar_ekrani.dart';
 import 'icra_ekrani.dart';
 import 'kvkk_ekrani.dart';
 import 'muvekkiller_ekrani.dart';
+import 'organizasyon_ekrani.dart';
 import 'raporlar_ekrani.dart';
 import 'sozlesmeler_ekrani.dart';
 import 'takvim_ekrani.dart';
@@ -36,6 +37,7 @@ enum _B {
   icra,
   sozlesmeler,
   disAvukatlar,
+  organizasyon,
   tebligatlar,
   takvim,
   muvekkiller,
@@ -125,6 +127,7 @@ class _AnaKabukState extends State<AnaKabuk> {
     _Bolum(_B.icra, 'İcra', Icons.gavel_outlined),
     _Bolum(_B.sozlesmeler, 'Sözleşmeler', Icons.article_outlined, yalnizca: {HesapTuru.kurumsal}),
     _Bolum(_B.disAvukatlar, 'Dış avukatlar', Icons.handshake_outlined, yalnizca: {HesapTuru.kurumsal}),
+    _Bolum(_B.organizasyon, 'Grup şirketleri', Icons.account_tree_outlined, yalnizca: {HesapTuru.kurumsal}),
     _Bolum(_B.tebligatlar, 'Tebligatlar', Icons.mail_outline),
     _Bolum(_B.takvim, 'Takvim', Icons.calendar_today_outlined),
     _Bolum(_B.muvekkiller, 'Müvekkiller', Icons.people_outline),
@@ -185,6 +188,7 @@ class _AnaKabukState extends State<AnaKabuk> {
         _B.icra => IcraEkrani(depo: _depo, oturum: widget.oturum),
         _B.sozlesmeler => SozlesmelerEkrani(kurumsal: _kurumsal),
         _B.disAvukatlar => DisAvukatlarEkrani(kurumsal: _kurumsal),
+        _B.organizasyon => OrganizasyonEkrani(kurumsal: _kurumsal),
         _B.tebligatlar => TebligatlarEkrani(depo: _depo, oturum: widget.oturum),
         _B.takvim => TakvimEkrani(depo: _depo, dosyaAc: _dosyaAc),
         _B.muvekkiller => MuvekkillerEkrani(depo: _depo),
@@ -350,22 +354,7 @@ class _UstCubuk extends StatelessWidget {
             Flexible(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 340),
-                child: OutlinedButton(
-                  key: const Key('kurum-secici'),
-                  style: OutlinedButton.styleFrom(foregroundColor: Renkler.metin),
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Grup şirketleri arasında geçiş Organizasyon modülüyle gelecek.')),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(oturum.kurumAdi,
-                            overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16)),
-                      ),
-                      const Icon(Icons.keyboard_arrow_down),
-                    ],
-                  ),
-                ),
+                child: _KurumSecici(oturum: oturum, kurumsal: bildirimler.kurumsal),
               ),
             ),
             const Spacer(),
@@ -632,6 +621,57 @@ class _AyarlarSayfasi extends StatelessWidget {
         const SizedBox(height: 20),
         const Panel(baslik: 'Paketler ve hesap türleri', dolgu: EdgeInsets.fromLTRB(4, 20, 4, 4), child: HesapTurleriIcerigi()),
       ],
+    );
+  }
+}
+
+/// Kurumsal hesapta grup şirketi seçimi (seçilen şirket alt şirketleriyle birlikte süzülür).
+class _KurumSecici extends StatelessWidget {
+  const _KurumSecici({required this.oturum, required this.kurumsal});
+
+  final Oturum oturum;
+  final KurumsalDepo? kurumsal;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = kurumsal;
+    Widget etiket(String metin) => Row(children: [
+          Expanded(child: Text(metin, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16))),
+          const Icon(Icons.keyboard_arrow_down),
+        ]);
+    if (k == null || k.grup.tumu.isEmpty) {
+      return OutlinedButton(
+        key: const Key('kurum-secici'),
+        style: OutlinedButton.styleFrom(foregroundColor: Renkler.metin),
+        onPressed: null,
+        child: etiket(oturum.kurumAdi),
+      );
+    }
+    return ListenableBuilder(
+      listenable: k,
+      builder: (context, _) => PopupMenuButton<String>(
+        key: const Key('kurum-secici'),
+        tooltip: 'Grup şirketi seç',
+        position: PopupMenuPosition.under,
+        onSelected: (id) => k.sirketSec(id == '*' ? null : id),
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: '*', child: Text('Tüm grup')),
+          for (final (sirket, derinlik) in k.grup.agacSirasi())
+            PopupMenuItem(
+              key: Key('sirket-${sirket.id}'),
+              value: sirket.id,
+              child: Padding(
+                padding: EdgeInsets.only(left: 16.0 * derinlik),
+                child: Text(sirket.gorunenAd),
+              ),
+            ),
+        ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(border: Border.all(color: Renkler.kenar), borderRadius: BorderRadius.circular(10)),
+          child: etiket(k.aktifSirket == null ? '${oturum.kurumAdi} · tüm grup' : k.aktifSirket!.gorunenAd),
+        ),
+      ),
     );
   }
 }

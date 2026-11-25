@@ -74,22 +74,22 @@ class _SozlesmelerEkraniState extends State<SozlesmelerEkrani> {
         builder: (context, _) {
           final uyarilar = k.uyarilar();
           final arama = _arama.trim().toLowerCase();
-          final liste = k.sozlesmeler
+          final liste = k.gorunurSozlesmeler
               .where((s) => _filtre.uyar(s.durum))
               .where((s) =>
                   arama.isEmpty ||
                   '${s.no} ${s.baslik} ${s.karsiTaraf} ${s.birim}'.toLowerCase().contains(arama))
               .toList();
-          final yuksek = k.sozlesmeler.where((s) => s.tarama?.genelSeviye == RiskSeviyesi.yuksek).length;
+          final yuksek = k.gorunurSozlesmeler.where((s) => s.tarama?.genelSeviye == RiskSeviyesi.yuksek).length;
           return ListView(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
             children: [
               Text('Sözleşmeler', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 16),
               Wrap(spacing: 16, runSpacing: 16, children: [
-                _Kpi('Yürürlükte', '${k.sozlesmeler.where((s) => s.durum == SozlesmeDurumu.yururlukte).length}'),
+                _Kpi('Yürürlükte', '${k.gorunurSozlesmeler.where((s) => s.durum == SozlesmeDurumu.yururlukte).length}'),
                 _Kpi('Onay / imza bekleyen',
-                    '${k.sozlesmeler.where((s) => _Filtre.onay.uyar(s.durum)).length}'),
+                    '${k.gorunurSozlesmeler.where((s) => _Filtre.onay.uyar(s.durum)).length}'),
                 _Kpi('Onayınızı bekleyen', '${k.onayimiBekleyenler.length}', vurgu: k.onayimiBekleyenler.isNotEmpty),
                 _Kpi('60 gün içinde dikkat', '${uyarilar.length}', vurgu: uyarilar.isNotEmpty),
                 _Kpi('Yüksek riskli', '$yuksek', vurgu: yuksek > 0),
@@ -204,7 +204,7 @@ class _SozlesmeSatiri extends StatelessWidget {
             flex: 5,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(s.baslik, style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text('${s.no} · ${s.karsiTaraf}', style: Theme.of(context).textTheme.bodySmall),
+              Text('${s.no} · ${k.sirketAdi(s.sirketId)} ↔ ${s.karsiTaraf}', style: Theme.of(context).textTheme.bodySmall),
             ]),
           ),
           Expanded(flex: 2, child: Text(s.tur.ad, style: Theme.of(context).textTheme.bodySmall)),
@@ -479,6 +479,7 @@ class SozlesmeDetayEkrani extends StatelessWidget {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     _Bilgi('Karşı taraf', s.karsiTaraf.isEmpty ? '—' : s.karsiTaraf),
                     _Bilgi('Tür', s.tur.ad),
+                    _Bilgi('Grup şirketi', kurumsal.sirketAdi(s.sirketId)),
                     _Bilgi('Birim', s.birim.isEmpty ? '—' : s.birim),
                     _Bilgi('Sorumlu', kurumsal.kisiAdi(s.sorumlu)),
                     _Bilgi('Başlangıç', s.baslangic == null ? '—' : uzunTarih(s.baslangic!)),

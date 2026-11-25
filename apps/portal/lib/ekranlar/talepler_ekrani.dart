@@ -56,7 +56,7 @@ class _TaleplerEkraniState extends State<TaleplerEkrani> {
       body: ListenableBuilder(
         listenable: k,
         builder: (context, _) {
-          final hepsi = k.defter.talepler;
+          final hepsi = k.gorunurTalepler;
           final acik = hepsi.where((t) => !t.durum.kapali).toList();
           final liste = switch (_gorunum) {
             _Gorunum.acik => acik.toList(),
@@ -135,7 +135,7 @@ class _TalepSatiri extends StatelessWidget {
             flex: 5,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(t.baslik, style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text('${t.no} · ${t.tur.ad} · ${t.birim}', style: kucuk),
+              Text('${t.no} · ${t.tur.ad} · ${k.sirketAdi(t.sirketId)} / ${t.birim}', style: kucuk),
             ]),
           ),
           Expanded(flex: 2, child: Text(k.kisiAdi(t.atanan), style: kucuk)),

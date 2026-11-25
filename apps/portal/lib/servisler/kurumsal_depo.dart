@@ -27,9 +27,15 @@ class KurumsalDepo extends ChangeNotifier {
   factory KurumsalDepo.demo({required BellekVeriDeposu depo, required String kullaniciId, Tarih Function()? bugun}) {
     final k = KurumsalDepo(depo: depo, kullaniciId: kullaniciId, bugun: bugun);
     final b = k.bugunTarih;
+    k.grup = GrupYapisi(const [
+      Sirket(id: 'abcHolding', unvan: 'ABC Holding A.Ş.', kisaAd: 'ABC Holding', vkn: '1111111114'),
+      Sirket(id: 'abcGida', unvan: 'ABC Gıda Sanayi ve Ticaret A.Ş.', kisaAd: 'ABC Gıda', vkn: '1234567890', anaSirketId: 'abcHolding'),
+      Sirket(id: 'abcLojistik', unvan: 'ABC Lojistik A.Ş.', kisaAd: 'ABC Lojistik', anaSirketId: 'abcGida'),
+      Sirket(id: 'abcDis', unvan: 'ABC Dış Ticaret A.Ş.', kisaAd: 'ABC Dış Ticaret', anaSirketId: 'abcHolding'),
+    ]);
     final hizmet = k.sozlesmeYukle(
         baslik: 'BT destek hizmet sözleşmesi', karsiTaraf: 'Delta Bilişim Hizmetleri Ltd. Şti.',
-        birim: 'Bilgi Teknolojileri', metin: ornekHizmetSozlesmesi, kaydet: false);
+        birim: 'Bilgi Teknolojileri', metin: ornekHizmetSozlesmesi, kaydet: false, sirketId: 'abcGida');
     hizmet
       ..baslangic = b.ayEkle(-11)
       ..bitis = b.ayEkle(3)
@@ -42,11 +48,11 @@ class KurumsalDepo extends ChangeNotifier {
           sorumlu: 'hu2'));
     final kira = k.sozlesmeYukle(
         baslik: 'Genel müdürlük işyeri kirası', karsiTaraf: 'Orman Gayrimenkul Yatırım A.Ş.',
-        birim: 'İdari İşler', metin: ornekKiraSozlesmesi, kaydet: false);
+        birim: 'İdari İşler', metin: ornekKiraSozlesmesi, kaydet: false, sirketId: 'abcHolding');
     kira.durum = SozlesmeDurumu.yururlukte;
     k.sozlesmeYukle(
         baslik: 'İhracat görüşmeleri gizlilik sözleşmesi', karsiTaraf: 'Northwind Trading Limited',
-        birim: 'Dış Ticaret', metin: ornekGizlilikSozlesmesi, kaydet: false)
+        birim: 'Dış Ticaret', metin: ornekGizlilikSozlesmesi, kaydet: false, sirketId: 'abcDis')
       ..durum = SozlesmeDurumu.onayda;
 
     final nda = k.sozlesmeler[2];
@@ -57,16 +63,16 @@ class KurumsalDepo extends ChangeNotifier {
     final t1 = k.defter.olustur(
         baslik: 'Northwind gizlilik sözleşmesi incelemesi', aciklama: 'İngiliz hukuku seçilmiş, görüşünüzü rica ederiz.',
         tur: TalepTuru.sozlesmeInceleme, oncelik: Oncelik.yuksek, talepEden: 'Dış Ticaret / Burak Y.', birim: 'Dış Ticaret',
-        bugun: eski);
+        bugun: eski, sirketId: 'abcDis');
     t1.sozlesmeId = k.sozlesmeler[2].id;
     k.defter.olustur(
         baslik: 'Bayi alacağı için ihtarname', aciklama: 'Ege bölge bayisinin 3 faturası vadesinde ödenmedi.',
         tur: TalepTuru.ihtarname, oncelik: Oncelik.normal, talepEden: 'Finans / Deniz K.', birim: 'Finans',
-        bugun: b.gunEkle(-1));
+        bugun: b.gunEkle(-1), sirketId: 'abcGida');
     k.defter.olustur(
         baslik: 'Müşteri veri silme başvurusu', aciklama: 'KVKK m.11 kapsamında başvuru; m.13 uyarınca en geç 30 gün içinde yanıtlanmalı.',
         tur: TalepTuru.kvkk, oncelik: Oncelik.acil, talepEden: 'Müşteri Hizmetleri / Selin A.', birim: 'Müşteri Hizmetleri',
-        bugun: b);
+        bugun: b, sirketId: 'abcGida');
     k.disAvukatlar.addAll(const [
       DisAvukat(
           id: 'da1',
@@ -100,7 +106,7 @@ class KurumsalDepo extends ChangeNotifier {
     k.defter.olustur(
         baslik: 'Yeni tedarikçi çerçeve sözleşmesi', aciklama: 'Ambalaj tedarikçisi için standart şablonla hazırlık.',
         tur: TalepTuru.sozlesmeHazirlama, oncelik: Oncelik.dusuk, talepEden: 'Satın Alma / Emre T.', birim: 'Satın Alma',
-        bugun: b, otomatikAta: false);
+        bugun: b, otomatikAta: false, sirketId: 'abcLojistik');
     return k;
   }
 
@@ -124,6 +130,56 @@ class KurumsalDepo extends ChangeNotifier {
     if (id.isEmpty) return '(atanmamış)';
     if (id == kullaniciId) return 'Siz';
     return hukukEkibi[id] ?? yoneticiler[id] ?? depo.kullaniciAdi(id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Grup şirketleri
+  // ---------------------------------------------------------------------------
+
+  GrupYapisi grup = GrupYapisi(const []);
+
+  /// Seçili şirket (alt şirketleriyle); null ise tüm grup.
+  String? aktifSirketId;
+
+  Sirket? get aktifSirket => aktifSirketId == null ? null : grup.sirket(aktifSirketId!);
+
+  bool kapsamda(String? sirketId) {
+    final a = aktifSirketId;
+    if (a == null) return true;
+    return sirketId != null && grup.kapsam(a).contains(sirketId);
+  }
+
+  List<Sozlesme> get gorunurSozlesmeler => [for (final s in sozlesmeler) if (kapsamda(s.sirketId)) s];
+
+  List<HukukTalebi> get gorunurTalepler => [for (final t in defter.talepler) if (kapsamda(t.sirketId)) t];
+
+  String sirketAdi(String? id) => id == null ? '—' : grup.sirket(id)?.gorunenAd ?? id;
+
+  void sirketSec(String? id) {
+    aktifSirketId = id;
+    notifyListeners();
+  }
+
+  /// Hata varsa mesajı döner.
+  String? sirketEkle({required String unvan, String? vkn, String? anaSirketId, String? kisaAd}) {
+    if (unvan.trim().length < 3) return 'Unvan zorunludur.';
+    final v = vkn?.trim();
+    if (v != null && v.isNotEmpty && !Dogrulayicilar.vknGecerli(v)) return 'Vergi kimlik numarası geçersiz.';
+    try {
+      final id = 'sirket${grup.tumu.length + 1}';
+      grup = grup.ekle(Sirket(
+        id: id,
+        unvan: unvan.trim(),
+        vkn: v == null || v.isEmpty ? null : v,
+        anaSirketId: anaSirketId,
+        kisaAd: kisaAd == null || kisaAd.trim().isEmpty ? null : kisaAd.trim(),
+      ));
+      depo.okumaKaydet(DenetimIslemi.olusturma, 'sirket', id, unvan.trim());
+      notifyListeners();
+      return null;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -202,6 +258,7 @@ class KurumsalDepo extends ChangeNotifier {
     String birim = '',
     SozlesmeTuru? tur,
     bool kaydet = true,
+    String? sirketId,
   }) {
     if (baslik.trim().isEmpty) throw ArgumentError('Sözleşme başlığı zorunludur.');
     _sozlesmeSira++;
@@ -213,6 +270,7 @@ class KurumsalDepo extends ChangeNotifier {
       karsiTaraf: karsiTaraf.trim(),
       sorumlu: kullaniciId,
       birim: birim.trim(),
+      sirketId: sirketId ?? aktifSirketId,
     );
     if (metin.trim().isNotEmpty) {
       s.taramayiUygula(tara(metin));
@@ -252,7 +310,7 @@ class KurumsalDepo extends ChangeNotifier {
   /// Tüm sözleşmelerin uyarıları, tarihe göre.
   List<(Sozlesme, SozlesmeUyarisi)> uyarilar({int ufukGun = 60}) {
     final l = [
-      for (final s in sozlesmeler)
+      for (final s in gorunurSozlesmeler)
         for (final u in s.uyarilar(bugunTarih, ufukGun: ufukGun)) (s, u),
     ]..sort((a, b) => a.$2.tarih.compareTo(b.$2.tarih));
     return l;
@@ -266,6 +324,7 @@ class KurumsalDepo extends ChangeNotifier {
     required String birim,
     String? talepEden,
     String? sozlesmeId,
+    String? sirketId,
   }) {
     final t = defter.olustur(
       baslik: baslik,
@@ -276,6 +335,7 @@ class KurumsalDepo extends ChangeNotifier {
       birim: birim,
       bugun: bugunTarih,
       sozlesmeId: sozlesmeId,
+      sirketId: sirketId ?? aktifSirketId,
     );
     depo.okumaKaydet(DenetimIslemi.olusturma, 'talep', t.id, '${t.no} · ${t.baslik}');
     notifyListeners();

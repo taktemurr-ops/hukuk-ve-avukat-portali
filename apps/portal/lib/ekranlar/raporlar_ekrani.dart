@@ -39,7 +39,7 @@ class RaporlarEkrani extends StatelessWidget {
           dosyalar: dosyalar,
           sureler: sureler,
           gorevler: gorevler,
-          talepler: k?.defter.talepler ?? const [],
+          talepler: k?.gorunurTalepler ?? const [],
           bugun: bugun,
         );
         final dagilim = Raporlar.sureDagilimi(sureler, bugun);
@@ -244,7 +244,7 @@ class _TalepPaneli extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = Raporlar.talepPerformansi(k.defter.talepler, k.bugunTarih, k.hesap);
+    final p = Raporlar.talepPerformansi(k.gorunurTalepler, k.bugunTarih, k.hesap);
     final metin = Theme.of(context).textTheme;
     Widget kutu(String etiket, String deger, {bool vurgu = false}) => SizedBox(
           width: 170,
@@ -281,7 +281,7 @@ class _SozlesmePaneli extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final o = Raporlar.sozlesmeOzeti(k.sozlesmeler, k.bugunTarih);
+    final o = Raporlar.sozlesmeOzeti(k.gorunurSozlesmeler, k.bugunTarih);
     return Panel(
       baslik: 'Sözleşmeler',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

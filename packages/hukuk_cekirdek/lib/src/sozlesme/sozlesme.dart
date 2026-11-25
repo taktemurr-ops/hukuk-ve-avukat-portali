@@ -92,6 +92,7 @@ class Sozlesme {
     this.bedel,
     this.belgeId,
     this.tarama,
+    this.sirketId,
     List<Yukumluluk>? yukumlulukler,
   }) : yukumlulukler = yukumlulukler ?? [];
 
@@ -111,6 +112,9 @@ class Sozlesme {
   Para? bedel;
   String? belgeId;
   TaramaSonucu? tarama;
+
+  /// Grup içinde sözleşmenin tarafı olan şirket.
+  String? sirketId;
   final List<Yukumluluk> yukumlulukler;
 
   /// Yenilemeyi durdurmak veya feshi bildirmek için son gün (bitişten ihbar süresi kadar önce).
