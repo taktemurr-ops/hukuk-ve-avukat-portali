@@ -26,7 +26,9 @@ KimlikBaglami kimlik(Request istek) {
 /// Açık yollar (giriş, sağlık) dışında her istek oturum ister.
 Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris', 'kayit', 'saglik'}}) =>
     (ic) => (istek) async {
-          if (acikYollar.contains(istek.url.path)) return ic(istek);
+          // `acik/` altındaki yollar (ör. ihbar formu) oturum gerektirmez; bu uçlar yalnızca SECURITY DEFINER
+          // fonksiyonlarıyla sınırlı işlem yapar.
+          if (acikYollar.contains(istek.url.path) || istek.url.path.startsWith('acik/')) return ic(istek);
           final baslik = istek.headers['authorization'] ?? '';
           if (!baslik.startsWith('Bearer ')) throw ApiHatasi.yetkisiz;
           final ozet = tokenOzeti(baslik.substring(7).trim());

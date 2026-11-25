@@ -8,6 +8,7 @@ import 'src/hata.dart';
 import 'src/is_api.dart';
 import 'src/kimlik_api.dart';
 import 'src/kurumsal_api.dart';
+import 'src/uyum_api.dart';
 import 'src/veritabani.dart';
 
 export 'src/dosya_api.dart';
@@ -16,6 +17,7 @@ export 'src/is_api.dart';
 export 'src/kimlik_api.dart';
 export 'src/kurumsal_api.dart';
 export 'src/sifre.dart';
+export 'src/uyum_api.dart';
 export 'src/veritabani.dart';
 
 /// Yalnızca izin verilen web kökenlerine CORS izni (ör. https://app.hukukportali.com.tr).
@@ -41,7 +43,8 @@ Handler uygulama(Veritabani vt, {Set<String> izinliKokenler = const {}, void Fun
       .add(KimlikApi(vt).router.call)
       .add(DosyaApi(vt).router.call)
       .add(IsApi(vt).router.call)
-      .add(KurumsalApi(vt).router.call);
+      .add(KurumsalApi(vt).router.call)
+      .add(UyumApi(vt).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))
