@@ -132,6 +132,21 @@ class BildirimServisi extends ChangeNotifier {
           BildirimHedefi.talep,
         ));
       }
+      for (final s in k.onayimiBekleyenler) {
+        final adim = k.onaySureci(s.id)!.siradaki!;
+        sonuc.add(HedefliBildirim(
+          Bildirim(
+            id: 'onay:${s.id}:${adim.kod}',
+            tur: BildirimTuru.sozlesme,
+            oncelik: BildirimOnceligi.uyari,
+            baslik: 'Onayınızı bekliyor: ${s.baslik}',
+            aciklama: '${s.no} · ${adim.ad}',
+            zaman: simdi,
+            hedefId: s.id,
+          ),
+          BildirimHedefi.sozlesme,
+        ));
+      }
       for (final (s, u) in k.uyarilar(ufukGun: 30)) {
         final kritik = u.tur == SozlesmeUyariTuru.ihbarKacti || u.tur == SozlesmeUyariTuru.yukumlulukGecikti;
         sonuc.add(HedefliBildirim(
