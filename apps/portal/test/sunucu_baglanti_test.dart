@@ -149,6 +149,28 @@ class SahteSunucu {
             ],
           },
         ]);
+      case 'GET /ihbarlar':
+        return _json([
+          {
+            'id': 'ih1', 'zaman': '2026-11-20T09:00:00.000Z', 'kanal': 'web', 'kategori': 'rusvetYolsuzluk',
+            'aciklama': 'Satın almada hediye alındığı iddiası', 'anonim': true, 'iletisim': null, 'ilgiliKisiler': ['u9'],
+            'sirketId': null,
+            'sorusturma': {
+              'id': 'so1', 'sorumlu': 'u1', 'ekip': ['u2'], 'durum': 'sorusturma', 'sonuc': null, 'sonucOzeti': null,
+              'acilis': '2026-11-21T09:00:00.000Z', 'ilkGeriBildirim': null,
+              'notlar': [
+                {'kullanici': 'u1', 'metin': 'Belgeler istendi', 'zaman': '2026-11-22T10:00:00.000Z'},
+              ],
+            },
+          },
+        ]);
+      case 'GET /veri-ihlalleri':
+        return _json([
+          {
+            'id': 'vi1', 'ogrenilme': '2026-11-24T08:00:00.000Z', 'aciklama': 'Yanlış alıcıya e-posta gitti',
+            'etkilenenKisiSayisi': 3, 'kurulaBildirim': null, 'ilgililereBildirim': null,
+          },
+        ]);
       case 'POST /sozlesmeler/sz1/onay':
         return _json({'tur': 1, 'durum': 'devam'});
       case 'POST /cikis':
@@ -255,7 +277,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('giris-eposta')), 'ayse@yilmaz.av.tr');
     await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
     await _bas(tester, 'giris-yap');
-    expect(sunucu.istekler, containsAll(['GET /sirketler', 'GET /sozlesmeler', 'GET /talepler', 'GET /sozlesmeler/sz1/onay']));
+    expect(sunucu.istekler, containsAll(['GET /sirketler', 'GET /sozlesmeler', 'GET /talepler', 'GET /sozlesmeler/sz1/onay',
+      'GET /ihbarlar', 'GET /veri-ihlalleri']));
     await _bas(tester, 'menu-sozlesmeler');
     expect(find.textContaining('Sunucudaki bakım sözleşmesi'), findsWidgets);
     // Demo verisi kullanılmaz.
@@ -296,6 +319,29 @@ void main() {
     });
     expect(t.beklemeBaslangici, Tarih(2026, 11, 25));
     expect(t.gecmis.single.aciklama, contains('imzalı'));
+  });
+
+  test('Sunucu JSON\'undan ihbar, soruşturma ve veri ihlali', () {
+    final (i, s) = KurumsalSenkronu.ihbarJson({
+      'id': 'ih1', 'zaman': '2026-11-20T09:00:00.000Z', 'kanal': 'telefon', 'kategori': 'tacizMobbing',
+      'aciklama': 'x', 'anonim': false, 'iletisim': 'a@b.com', 'ilgiliKisiler': ['u9'],
+      'sorusturma': {
+        'id': 'so1', 'sorumlu': 'u1', 'ekip': ['u2'], 'durum': 'raporlama', 'acilis': '2026-11-21T09:00:00.000Z',
+        'ilkGeriBildirim': '2026-11-22T09:00:00.000Z', 'notlar': [],
+      },
+    });
+    expect(i.takipKodu, isEmpty);
+    expect(i.kanal, IhbarKanali.telefon);
+    expect(s!.erisebilir('u2'), isTrue);
+    expect(s.erisebilir('u9'), isFalse);
+    expect(s.durum, SorusturmaDurumu.raporlama);
+    expect(s.geriBildirimGecikti(DateTime.utc(2026, 12, 30)), isFalse);
+    expect(() => s.ekipEkle('u9', ekleyen: 'u1'), throwsStateError);
+    final v = KurumsalSenkronu.ihlalJson({
+      'id': 'vi1', 'ogrenilme': '2026-11-24T08:00:00.000Z', 'aciklama': 'x', 'etkilenenKisiSayisi': 3,
+    });
+    expect(v.kurulSonZaman.toUtc(), DateTime.utc(2026, 11, 27, 8));
+    expect(v.gecikti(DateTime.utc(2026, 11, 27, 9)), isTrue);
   });
 
   testWidgets('Birden çok kurumda hesap varsa kurum seçilir', (tester) async {

@@ -378,6 +378,23 @@ class KurumsalDepo extends ChangeNotifier {
     notifyListeners();
   }
 
+  void sunucuUyumVerisiniYukle({
+    required List<Ihbar> ihbarlar,
+    required List<Sorusturma> sorusturmalar,
+    required List<VeriIhlali> ihlaller,
+  }) {
+    this.ihbarlar
+      ..clear()
+      ..addAll(ihbarlar);
+    this.sorusturmalar
+      ..clear()
+      ..addAll(sorusturmalar);
+    veriIhlalleri
+      ..clear()
+      ..addAll(ihlaller);
+    notifyListeners();
+  }
+
   /// Sunucu bağlıyken işlemi sunucuda, değilse yerelde yapar. Hata varsa kullanıcıya gösterilecek mesajı döner.
   Future<String?> sunucudaVeyaYerelde({
     required Future<void> Function(KurumsalUzak uzak) sunucuda,

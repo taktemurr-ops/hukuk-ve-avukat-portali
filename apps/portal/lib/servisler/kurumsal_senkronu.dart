@@ -36,6 +36,19 @@ abstract class KurumsalUzak {
   Future<void> talepDurumu(String talepId, TalepDurumu hedef, {String not});
 
   Future<void> talepAta(String talepId, String kisi);
+
+  /// İhbarı kaydeder; ihbarcıya iletilecek takip kodunu döner (sunucuda yalnızca özeti tutulur).
+  Future<String> ihbarKaydet({required IhbarKanali kanal, required IhbarKategorisi kategori, required String aciklama, String? iletisim});
+
+  Future<void> sorusturmaAc(String ihbarId, String sorumlu);
+
+  /// [islem]: sorusturmayaAl, raporlamayaGec, reddet, kapat, geriBildirim, not.
+  Future<void> sorusturmaIslemi(String sorusturmaId, String islem, {String metin, SorusturmaSonucu? sonuc});
+
+  Future<void> ihlalKaydet(String aciklama, DateTime ogrenilme, {int? etkilenen});
+
+  /// [hedef]: kurul veya ilgililer.
+  Future<void> ihlalBildirim(String ihlalId, String hedef);
 }
 
 class KurumsalSenkronu implements KurumsalUzak {
@@ -136,6 +149,55 @@ class KurumsalSenkronu implements KurumsalUzak {
     return surec;
   }
 
+  static DateTime? _z(Object? v) => v is String ? DateTime.parse(v).toLocal() : null;
+
+  /// Sunucudan gelen ihbar (soruşturmasıyla birlikte). Takip kodu sunucuda tutulmadığından boştur.
+  static (Ihbar, Sorusturma?) ihbarJson(Map<String, dynamic> j) {
+    final ihbar = Ihbar(
+      id: j['id'] as String,
+      takipKodu: '',
+      zaman: _z(j['zaman'])!,
+      kanal: IhbarKanali.values.firstWhere((x) => x.name == j['kanal'], orElse: () => IhbarKanali.web),
+      kategori: IhbarKategorisi.values.firstWhere((x) => x.name == j['kategori'], orElse: () => IhbarKategorisi.diger),
+      aciklama: j['aciklama'] as String,
+      anonim: j['anonim'] != false,
+      ihbarciIletisim: j['iletisim'] as String?,
+      ilgiliKisiler: {for (final x in (j['ilgiliKisiler'] as List? ?? const [])) '$x'},
+      sirketId: j['sirketId'] as String?,
+    );
+    final sj = j['sorusturma'];
+    if (sj is! Map<String, dynamic>) return (ihbar, null);
+    final s = Sorusturma(id: sj['id'] as String, ihbar: ihbar, sorumlu: sj['sorumlu'] as String, acilis: _z(sj['acilis'])!)
+      ..durum = SorusturmaDurumu.values.firstWhere((d) => d.name == sj['durum'], orElse: () => SorusturmaDurumu.onInceleme)
+      ..sonuc = SorusturmaSonucu.values.where((x) => x.name == sj['sonuc']).firstOrNull
+      ..sonucOzeti = sj['sonucOzeti'] as String?
+      ..ilkGeriBildirim = _z(sj['ilkGeriBildirim']);
+    s.ekip.addAll([for (final x in (sj['ekip'] as List? ?? const [])) '$x']);
+    for (final n in (sj['notlar'] as List? ?? const []).cast<Map<String, dynamic>>()) {
+      s.notlar.add(SorusturmaNotu(_z(n['zaman'])!, n['kullanici'] as String, n['metin'] as String));
+    }
+    return (ihbar, s);
+  }
+
+  static VeriIhlali ihlalJson(Map<String, dynamic> j) => VeriIhlali(
+        id: j['id'] as String,
+        ogrenilme: _z(j['ogrenilme'])!,
+        aciklama: j['aciklama'] as String,
+        etkilenenKisiSayisi: j['etkilenenKisiSayisi'] as int?,
+      )
+        ..kurulaBildirim = _z(j['kurulaBildirim'])
+        ..ilgililereBildirim = _z(j['ilgililereBildirim']);
+
+  Future<void> _uyumYenile() async {
+    final ihbarlar = [for (final j in _liste(await api.get('/ihbarlar'))) ihbarJson(j)];
+    final ihlaller = [for (final j in _liste(await api.get('/veri-ihlalleri'))) ihlalJson(j)];
+    kurumsal.sunucuUyumVerisiniYukle(
+      ihbarlar: [for (final (i, _) in ihbarlar) i],
+      sorusturmalar: [for (final (_, s) in ihbarlar) if (s != null) s],
+      ihlaller: ihlaller,
+    );
+  }
+
   @override
   Future<void> yenile() async {
     final sirketler = _liste(await api.get('/sirketler'));
@@ -158,6 +220,7 @@ class KurumsalSenkronu implements KurumsalUzak {
           if (u['aktif'] != false && (u['roller'] as List? ?? const []).any(_hukukRolleri.contains)) u['id'] as String,
       ],
     );
+    await _uyumYenile();
   }
 
   @override
@@ -239,5 +302,62 @@ class KurumsalSenkronu implements KurumsalUzak {
   Future<void> talepAta(String talepId, String kisi) async {
     await api.post('/talepler/$talepId/ata', {'kullaniciId': kisi});
     await yenile();
+  }
+
+  @override
+  Future<String> ihbarKaydet({
+    required IhbarKanali kanal,
+    required IhbarKategorisi kategori,
+    required String aciklama,
+    String? iletisim,
+  }) async {
+    final y = await api.post('/ihbarlar', {
+      'kanal': kanal.name,
+      'kategori': kategori.name,
+      'aciklama': aciklama.trim(),
+      if (iletisim != null && iletisim.trim().isNotEmpty) 'iletisim': iletisim.trim(),
+      if (kurumsal.aktifSirketId != null) 'sirketId': kurumsal.aktifSirketId,
+    }) as Map<String, dynamic>;
+    await _uyumYenile();
+    return y['takipKodu'] as String;
+  }
+
+  @override
+  Future<void> sorusturmaAc(String ihbarId, String sorumlu) async {
+    await api.post('/ihbarlar/$ihbarId/sorusturma', {'sorumlu': sorumlu});
+    await _uyumYenile();
+  }
+
+  @override
+  Future<void> sorusturmaIslemi(String sorusturmaId, String islem, {String metin = '', SorusturmaSonucu? sonuc}) async {
+    switch (islem) {
+      case 'geriBildirim':
+        await api.post('/sorusturmalar/$sorusturmaId/geri-bildirim');
+      case 'not':
+        await api.post('/sorusturmalar/$sorusturmaId/not', {'metin': metin});
+      default:
+        await api.post('/sorusturmalar/$sorusturmaId/durum', {
+          'islem': islem,
+          'gerekce': metin,
+          if (sonuc != null) 'sonuc': sonuc.name,
+        });
+    }
+    await _uyumYenile();
+  }
+
+  @override
+  Future<void> ihlalKaydet(String aciklama, DateTime ogrenilme, {int? etkilenen}) async {
+    await api.post('/veri-ihlalleri', {
+      'aciklama': aciklama.trim(),
+      'ogrenilme': ogrenilme.toUtc().toIso8601String(),
+      if (etkilenen != null) 'etkilenenKisiSayisi': etkilenen,
+    });
+    await _uyumYenile();
+  }
+
+  @override
+  Future<void> ihlalBildirim(String ihlalId, String hedef) async {
+    await api.post('/veri-ihlalleri/$ihlalId/bildirim', {'hedef': hedef});
+    await _uyumYenile();
   }
 }

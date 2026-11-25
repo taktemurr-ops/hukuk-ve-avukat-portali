@@ -61,6 +61,13 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET/POST | `/talepler` | Talepler ve geçmişi / yeni talep (SLA iş günüyle hesaplanır, en az yüklü ekip üyesine atanır) |
 | POST | `/talepler/{id}/durum` | Durum geçişi (bilgi beklemesi SLA'yı öteler, ret gerekçe ister) |
 | POST | `/talepler/{id}/ata` | Hukuk ekibinden birine atama |
+| POST | `/acik/ihbar/{kiraciId}` | **Oturumsuz** ihbar formu (yalnızca kurumsal hesaplar; kurum başına saatte 30); takip kodu bir kez döner |
+| POST | `/acik/ihbar-durumu` | Takip koduyla durum (yalnızca aşama ve geri bildirim bilgisi; içerik yok) |
+| GET/POST | `/ihbarlar` | Görülebilen ihbarlar, soruşturma ve notlarıyla / çalışan adına ihbar kaydı |
+| POST | `/ihbarlar/{id}/sorusturma` | Soruşturma açma (hukuk direktörü / uyum sorumlusu; ihbar edilen kişi sorumlu olamaz) |
+| POST | `/sorusturmalar/{id}/ekip` · `/not` · `/geri-bildirim` · `/durum` | Ekip, not, ihbarcıya geri bildirim, aşama (soruşturmaya al, raporla, reddet, kapat) |
+| GET/POST | `/veri-ihlalleri` | Kişisel veri ihlalleri (72 saat sayacıyla) / yeni kayıt |
+| POST | `/veri-ihlalleri/{id}/bildirim` | Kurul'a veya ilgililere bildirim zamanı (bir kez yazılır) |
 
 Tutarlar istemciyle sunucu arasında kuruş cinsinden tam sayı olarak taşınır. Sunucudaki tüm SQL metinleri CI'da
 şemaya karşı `PREPARE` edilir (`araclar/sql_denetim.py`).

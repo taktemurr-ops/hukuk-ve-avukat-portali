@@ -126,7 +126,17 @@ class SorusturmaDetayEkrani extends StatelessWidget {
   final String sorusturmaId;
 
   void _m(BuildContext c, String? h) {
-    if (h != null) ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(h)));
+    if (h != null && c.mounted) ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(h)));
+  }
+
+  /// Sunucu bağlıyken işlem sunucuda, değilse yerelde (çekirdek kuralıyla) yapılır.
+  Future<void> _islem(BuildContext c, Sorusturma s, String aciklama, String islem, void Function() yerel,
+      {String metin = '', SorusturmaSonucu? sonuc}) async {
+    final h = await k.sunucudaVeyaYerelde(
+      sunucuda: (u) => u.sorusturmaIslemi(s.id, islem, metin: metin, sonuc: sonuc),
+      yerelde: () => k.uyumIslemi(aciklama, s.id, yerel),
+    );
+    if (c.mounted) _m(c, h);
   }
 
   Future<String?> _metin(BuildContext c, String baslik, String etiket, String anahtar) => MetinGirisDiyalogu.goster(
@@ -153,7 +163,7 @@ class SorusturmaDetayEkrani extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(s.ihbar.aciklama),
                 const SizedBox(height: 8),
-                Text('Takip kodu: ${s.ihbar.takipKodu} · ${s.ihbar.kanal.ad} · ${tarihSaat(s.ihbar.zaman)}',
+                Text('${s.ihbar.takipKodu.isEmpty ? '' : 'Takip kodu: ${s.ihbar.takipKodu} · '}${s.ihbar.kanal.ad} · ${tarihSaat(s.ihbar.zaman)}',
                     style: Theme.of(context).textTheme.bodySmall),
                 Text('İhbarcıya ilk geri bildirim: ${s.ilkGeriBildirim == null ? 'en geç ${tarihSaat(s.geriBildirimSonu)}' : tarihSaat(s.ilkGeriBildirim!)}'
                     ' · sonuç hedefi ${tarihSaat(s.sonucSonu)}',
@@ -164,13 +174,14 @@ class SorusturmaDetayEkrani extends StatelessWidget {
                   if (s.ilkGeriBildirim == null && s.durum.acik)
                     OutlinedButton(
                       key: const Key('sor-geri-bildirim'),
-                      onPressed: () => _m(context, k.uyumIslemi('İhbarcıya geri bildirim', s.id, () => s.geriBildirimVer(u, DateTime.now()))),
+                      onPressed: () =>
+                          _islem(context, s, 'İhbarcıya geri bildirim', 'geriBildirim', () => s.geriBildirimVer(u, DateTime.now())),
                       child: const Text('Geri bildirim verildi'),
                     ),
                   if (s.durum == SorusturmaDurumu.onInceleme) ...[
                     FilledButton(
                       key: const Key('sor-sorusturmaya-al'),
-                      onPressed: () => _m(context, k.uyumIslemi('Soruşturmaya alındı', s.id, () => s.sorusturmayaAl(u))),
+                      onPressed: () => _islem(context, s, 'Soruşturmaya alındı', 'sorusturmayaAl', () => s.sorusturmayaAl(u)),
                       child: const Text('Soruşturmaya al'),
                     ),
                     OutlinedButton(
@@ -178,7 +189,7 @@ class SorusturmaDetayEkrani extends StatelessWidget {
                       onPressed: () async {
                         final g = await _metin(context, 'Ön incelemede reddet', 'Gerekçe', 'sor-ret');
                         if (g != null && context.mounted) {
-                          _m(context, k.uyumIslemi('Reddedildi', s.id, () => s.reddet(u, g)));
+                          await _islem(context, s, 'Reddedildi', 'reddet', () => s.reddet(u, g), metin: g);
                         }
                       },
                       child: const Text('Reddet'),
@@ -187,7 +198,7 @@ class SorusturmaDetayEkrani extends StatelessWidget {
                   if (s.durum == SorusturmaDurumu.sorusturma)
                     FilledButton(
                       key: const Key('sor-raporla'),
-                      onPressed: () => _m(context, k.uyumIslemi('Raporlamaya geçildi', s.id, () => s.raporlamayaGec(u))),
+                      onPressed: () => _islem(context, s, 'Raporlamaya geçildi', 'raporlamayaGec', () => s.raporlamayaGec(u)),
                       child: const Text('Raporlamaya geç'),
                     ),
                   if (s.durum == SorusturmaDurumu.raporlama)
@@ -197,7 +208,8 @@ class SorusturmaDetayEkrani extends StatelessWidget {
                         onPressed: () async {
                           final g = await _metin(context, 'Sonuç: ${sonuc.ad}', 'Sonuç özeti ve alınacak önlemler', 'sor-ozet');
                           if (g != null && context.mounted) {
-                            _m(context, k.uyumIslemi('Kapatıldı: ${sonuc.ad}', s.id, () => s.kapat(u, sonuc, g)));
+                            await _islem(context, s, 'Kapatıldı: ${sonuc.ad}', 'kapat', () => s.kapat(u, sonuc, g),
+                                metin: g, sonuc: sonuc);
                           }
                         },
                         child: Text(sonuc.ad),
@@ -218,7 +230,7 @@ class SorusturmaDetayEkrani extends StatelessWidget {
                       onPressed: () async {
                         final g = await _metin(context, 'Not ekle', 'Not', 'sor-not');
                         if (g != null && context.mounted) {
-                          _m(context, k.uyumIslemi('Not eklendi', s.id, () => s.notEkle(u, g, DateTime.now())));
+                          await _islem(context, s, 'Not eklendi', 'not', () => s.notEkle(u, g, DateTime.now()), metin: g);
                         }
                       },
                       icon: const Icon(Icons.add),
@@ -268,7 +280,16 @@ class _IhlalSekmesi extends StatelessWidget {
                 onayAnahtari: Key('ihlal-kaydet'),
               ),
             );
-            if (g != null && g.trim().isNotEmpty) k.ihlalKaydet(g, DateTime.now());
+            if (g == null || g.trim().isEmpty) return;
+            final ogrenilme = DateTime.now();
+            final h = await k.sunucudaVeyaYerelde(
+              sunucuda: (u) => u.ihlalKaydet(g, ogrenilme),
+              yerelde: () {
+                k.ihlalKaydet(g, ogrenilme);
+                return null;
+              },
+            );
+            if (h != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
           },
           icon: const Icon(Icons.report_gmailerrorred_outlined),
           label: const Text('Veri ihlali kaydet'),
@@ -296,7 +317,15 @@ class _IhlalSekmesi extends StatelessWidget {
                     DurumRozeti(_sureMetni(v.kalan(simdi)), v.gecikti(simdi) ? RozetTuru.kritik : RozetTuru.uyari),
                     FilledButton(
                       key: Key('ihlal-bildir-${v.id}'),
-                      onPressed: () => k.uyumIslemi('Kurul\'a bildirildi', v.id, () => v.kurulaBildirildi(DateTime.now())),
+                      onPressed: () async {
+                        final h = await k.sunucudaVeyaYerelde(
+                          sunucuda: (u) => u.ihlalBildirim(v.id, 'kurul'),
+                          yerelde: () => k.uyumIslemi('Kurul\'a bildirildi', v.id, () => v.kurulaBildirildi(DateTime.now())),
+                        );
+                        if (h != null && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+                        }
+                      },
                       child: const Text('Bildirildi'),
                     ),
                   ]),
@@ -320,7 +349,8 @@ class _IhbarDiyaloguState extends State<_IhbarDiyalogu> {
   IhbarKanali _kanal = IhbarKanali.web;
   bool _anonim = true;
   String? _hata;
-  Ihbar? _kaydedilen;
+  /// Kaydedilen ihbarın takip kodu (yalnızca bir kez gösterilir).
+  String? _kaydedilen;
 
   @override
   void dispose() {
@@ -337,7 +367,7 @@ class _IhbarDiyaloguState extends State<_IhbarDiyalogu> {
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('İhbarcıya iletilecek takip kodu:'),
           const SizedBox(height: 8),
-          SelectableText(kayit.takipKodu,
+          SelectableText(kayit,
               key: const Key('ihbar-takip-kodu'), style: const TextStyle(fontSize: 22, letterSpacing: 2, fontFamily: 'monospace')),
           const SizedBox(height: 8),
           const Text('Kod kaybolursa yeniden üretilemez; ihbarcı bu kodla durumu izler ve ek bilgi verir.'),
@@ -389,12 +419,21 @@ class _IhbarDiyaloguState extends State<_IhbarDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('ihbar-kaydet'),
-          onPressed: () {
+          onPressed: () async {
+            if (_aciklama.text.trim().length < 20) {
+              setState(() => _hata = 'İhbarı en az 20 karakterle açıklayın.');
+              return;
+            }
+            final uzak = widget.k.uzak;
             try {
-              final i = widget.k.ihbarKaydet(kanal: _kanal, kategori: _kategori, aciklama: _aciklama.text, anonim: _anonim);
-              setState(() => _kaydedilen = i);
+              final kod = uzak != null
+                  ? await uzak.ihbarKaydet(kanal: _kanal, kategori: _kategori, aciklama: _aciklama.text)
+                  : widget.k.ihbarKaydet(kanal: _kanal, kategori: _kategori, aciklama: _aciklama.text, anonim: _anonim).takipKodu;
+              if (mounted) setState(() => _kaydedilen = kod);
             } on ArgumentError catch (e) {
-              setState(() => _hata = '${e.message}');
+              if (mounted) setState(() => _hata = '${e.message}');
+            } on Exception catch (e) {
+              if (mounted) setState(() => _hata = '$e');
             }
           },
           child: const Text('Kaydet'),
@@ -439,9 +478,15 @@ class _SorumluDiyaloguState extends State<_SorumluDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('sorusturma-kaydet'),
-          onPressed: () {
+          onPressed: () async {
             final s = _sorumlu;
-            final h = s == null ? 'Sorumlu seçin.' : k.sorusturmaAc(widget.ihbar, s);
+            final h = s == null
+                ? 'Sorumlu seçin.'
+                : await k.sunucudaVeyaYerelde(
+                    sunucuda: (u) => u.sorusturmaAc(widget.ihbar.id, s),
+                    yerelde: () => k.sorusturmaAc(widget.ihbar, s),
+                  );
+            if (!mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {
