@@ -12,13 +12,18 @@ veritabanı seviyesinde de garanti eder:
 | Denetim zinciri | Her kayıt öncekinin SHA-256 özetini taşır; `hukuk.denetim_dogrula(kiraci)` zincir bozulduysa ilk bozuk sırayı döner (veritabanı yöneticisinin müdahalesi de görünür) |
 | Veri yalnızca Türkiye'de | `kiraci.veri_bolgesi` yalnızca `TR` olabilir |
 | Şifre | Yalnızca Argon2id özeti kabul edilir |
+| Emanet | Müvekkil parası (müvekkil + dosya bazında) eksiye düşemez; mahsup yazılı onay ister |
+| Zaman kaydı | Günlük 24 saat sınırı, kendi kaydını onaylayamama, faturalanmış kaydın değiştirilememesi |
+| Sözleşme onayı | Aynı turda bir kişi yalnızca bir adımı onaylayabilir; ret/revizyon gerekçe ister |
+| İhbar ve soruşturma | İhbarı kaydeden sonradan göremez; içerik yalnızca soruşturma ekibine açılır; ihbar edilen kişi soruşturmada yer alamaz |
+| Davet | Kodun yalnızca özeti saklanır; 72 saat geçerlidir |
 
 Uygulama sunucusu veritabanına `hukuk_uygulama` rolüyle bağlanır (tablo sahibi değildir, RLS'ten muaf değildir).
 Yeni müşteri kaydında uygulama önce yeni kiracı kimliğini üretir, `app.kiraci_id`'yi ona ayarlar, sonra ekler.
 
 ## Testler
 
-Gerçek PostgreSQL'e karşı çalışır (10 test):
+Gerçek PostgreSQL'e karşı çalışır (16 test):
 
 ```bash
 pip install "psycopg[binary]" pytest
