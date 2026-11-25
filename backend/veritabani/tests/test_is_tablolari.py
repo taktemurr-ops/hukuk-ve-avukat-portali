@@ -17,12 +17,12 @@ def test_emanet_eksiye_dusmez_ve_mahsup_onay_ister(uygulama, veri, yonetici):
     ekle = ("INSERT INTO hukuk.emanet_hareket (kiraci_id, muvekkil_id, dosya_id, tur, tutar_kurus, tarih, aciklama, mahsup_onayi) "
             "VALUES (%s, %s, %s, %s, %s, current_date, 'x', %s)")
     u.c.execute(ekle, (veri["k1"], m, veri["d"]["acik"], "giris", 25_000_000, None))
-    u.c.execute(ekle, (veri["k1"], m, veri["d"]["acik"], "muvekkileOdeme", 20_000_000, None))
+    u.c.execute(ekle, (veri["k1"], m, veri["d"]["acik"], "muvekkileAktarim", 20_000_000, None))
     with pytest.raises(psycopg.errors.CheckViolation, match="bakiyesi yetersiz"):
-        u.c.execute(ekle, (veri["k1"], m, veri["d"]["acik"], "muvekkileOdeme", 5_000_001, None))
+        u.c.execute(ekle, (veri["k1"], m, veri["d"]["acik"], "muvekkileAktarim", 5_000_001, None))
     with pytest.raises(psycopg.errors.CheckViolation):
-        u.c.execute(ekle, (veri["k1"], m, veri["d"]["acik"], "mahsup", 1_000, None))
-    u.c.execute(ekle, (veri["k1"], m, veri["d"]["acik"], "mahsup", 5_000_000, "Müvekkil e-posta onayı 25.11.2026"))
+        u.c.execute(ekle, (veri["k1"], m, veri["d"]["acik"], "ucretMahsubu", 1_000, None))
+    u.c.execute(ekle, (veri["k1"], m, veri["d"]["acik"], "ucretMahsubu", 5_000_000, "Müvekkil e-posta onayı 25.11.2026"))
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         u.c.execute("UPDATE hukuk.emanet_hareket SET tutar_kurus = 1")
 
@@ -122,3 +122,15 @@ def test_davet_ve_abonelik(uygulama, veri):
     with pytest.raises(psycopg.errors.CheckViolation):
         u.c.execute("INSERT INTO hukuk.abonelik (kiraci_id, durum, donem, donem_basi, donem_sonu) "
                     "VALUES (%s, 'aktif', 'aylik', '2026-12-01', '2026-12-01')", (veri["k1"],))
+
+
+def test_icra_akdi_faiz_oran_ister_ve_masraf_eksi_olamaz(uygulama, veri):
+    u = uygulama.oturum(veri["k1"], veri["mert"])
+    ekle = ("INSERT INTO hukuk.icra_dosyasi (kiraci_id, dosya_id, icra_dairesi, borclu, takip_turu, asil_kurus, temerrut, "
+            "takip_tarihi, faiz_turu, akdi_oran, takip_oncesi_masraf_kurus) "
+            "VALUES (%s, %s, 'İstanbul 5. İcra', 'Borçlu A.Ş.', 'ilamsiz', 100000, '2026-01-01', '2026-02-01', %s, %s, %s)")
+    with pytest.raises(psycopg.errors.CheckViolation):
+        u.c.execute(ekle, (veri["k1"], veri["d"]["acik"], "akdi", None, 0))
+    with pytest.raises(psycopg.errors.CheckViolation):
+        u.c.execute(ekle, (veri["k1"], veri["d"]["acik"], "yasal", None, -1))
+    u.c.execute(ekle, (veri["k1"], veri["d"]["acik"], "akdi", 24.5, 150_000))

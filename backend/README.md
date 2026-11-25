@@ -43,5 +43,17 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | POST | `/sureler/{id}/teyit` | Teyit (hesaplayan kendisi teyit edemez) |
 | POST | `/sureler/{id}/tamamla` | Kanıtla tamamlama |
 | GET | `/denetim/dogrula` | Denetim zinciri sağlam mı |
+| GET/POST | `/kisiler` | Kişiler / yeni kişi (TCKN/VKN ve e-posta doğrulanır) |
+| GET | `/kisiler/{id}/cari` | Müvekkil carisi: avans bakiyesi, masraf, ücret alacağı ve hareketler |
+| POST | `/cari` | Cari hareket (avans, masraf, iade, ücret tahakkuku/tahsilatı) |
+| GET/POST | `/emanet` | Müvekkil parası bakiyeleri / hareket (bakiye eksiye düşemez; ücret mahsubu onay ister) |
+| GET/POST | `/zaman` | Zaman kayıtları (varsayılan son 30 gün) / yeni kayıt (ücret istemciden alınmaz) |
+| POST | `/zaman/{id}/onayla` | Onay (kendi kaydını onaylayamaz — veritabanında zorlanır) |
+| GET/POST | `/icra` | İcra dosyaları / yeni takip (akdi faizde oran zorunlu) |
+| GET | `/icra/{id}?tarih=` | Kapak hesabı: faiz, masraf, harçlar, tahsilat mahsupları (masraf → faiz → anapara) |
+| POST | `/icra/{id}/tahsilat` | Tahsilat ekleme |
+
+Tutarlar istemciyle sunucu arasında kuruş cinsinden tam sayı olarak taşınır. Sunucudaki tüm SQL metinleri CI'da
+şemaya karşı `PREPARE` edilir (`araclar/sql_denetim.py`).
 
 Sunucu henüz derlenmedi (geliştirme ortamında Dart yok); ilk derleme ve `dart test` CI'da veya yerelde yapılacak.

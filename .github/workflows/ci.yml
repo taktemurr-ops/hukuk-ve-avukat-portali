@@ -100,7 +100,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install "psycopg[binary]" pytest
+      - run: pip install "psycopg[binary]" pytest tree-sitter-language-pack
       - run: python -m pytest -q
         env:
           PG_DSN: host=localhost port=5432 user=postgres password=test
+      - name: Sunucudaki SQL metinlerini şemaya karşı PREPARE et
+        run: python ../../araclar/sql_denetim.py "host=localhost port=5432 user=postgres password=test"

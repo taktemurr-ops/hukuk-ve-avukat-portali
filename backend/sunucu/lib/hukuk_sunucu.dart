@@ -5,11 +5,13 @@ import 'package:shelf/shelf.dart';
 
 import 'src/dosya_api.dart';
 import 'src/hata.dart';
+import 'src/is_api.dart';
 import 'src/kimlik_api.dart';
 import 'src/veritabani.dart';
 
 export 'src/dosya_api.dart';
 export 'src/hata.dart';
+export 'src/is_api.dart';
 export 'src/kimlik_api.dart';
 export 'src/sifre.dart';
 export 'src/veritabani.dart';
@@ -35,7 +37,8 @@ Handler uygulama(Veritabani vt, {Set<String> izinliKokenler = const {}, void Fun
   final cascade = Cascade()
       .add((Request r) => r.url.path == 'saglik' ? jsonYanit({'durum': 'ok'}) : Response.notFound(null))
       .add(KimlikApi(vt).router.call)
-      .add(DosyaApi(vt).router.call);
+      .add(DosyaApi(vt).router.call)
+      .add(IsApi(vt).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))
