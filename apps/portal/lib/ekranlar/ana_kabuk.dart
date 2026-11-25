@@ -16,6 +16,7 @@ import 'hesaplamalar_ekrani.dart';
 import 'takvim_ekrani.dart';
 import 'tebligatlar_ekrani.dart';
 import 'vekaletler_ekrani.dart';
+import 'yonetim_ekranlari.dart';
 
 enum _B {
   genelBakis,
@@ -89,6 +90,13 @@ class _AnaKabukState extends State<AnaKabuk> {
                 : b,
       ];
 
+  @override
+  void initState() {
+    super.initState();
+    _depo.aktifKullanici = widget.oturum.kullaniciId;
+    _depo.okumaKaydet(DenetimIslemi.girisBasarili, 'oturum', widget.oturum.kullaniciId, widget.oturum.eposta);
+  }
+
   void _sec(_B b) => setState(() => _secili = b);
 
   void _dosyaAc(String dosyaId) {
@@ -136,7 +144,7 @@ class _AnaKabukState extends State<AnaKabuk> {
             ikon: Icons.bar_chart_rounded,
             aciklama: 'Açık dosya, kritik süre, tahsilat, iş yükü ve çevrim süresi göstergeleri.',
           ),
-        _B.ayarlar => const _AyarlarSayfasi(),
+        _B.ayarlar => _AyarlarSayfasi(depo: _depo),
       };
 
   @override
@@ -472,20 +480,50 @@ class _AramaBasligi extends StatelessWidget {
 }
 
 class _AyarlarSayfasi extends StatelessWidget {
-  const _AyarlarSayfasi();
+  const _AyarlarSayfasi({required this.depo});
+
+  final BellekVeriDeposu depo;
 
   @override
   Widget build(BuildContext context) {
+    void ac(Widget sayfa) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => sayfa));
     return ListView(
       padding: const EdgeInsets.all(24),
-      children: const [
+      children: [
         Panel(
+          baslik: 'Veri ve güvenlik',
+          child: Column(
+            children: [
+              ListTile(
+                key: const Key('ayar-aktarim'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.upload_file_outlined),
+                title: const Text('Veri aktarımı'),
+                subtitle: const Text('Excel/CSV\'den müvekkil ve taraf listesi aktarın (önizlemeli, mükerrer kontrollü).'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ac(VeriAktarimEkrani(depo: depo)),
+              ),
+              const Divider(),
+              ListTile(
+                key: const Key('ayar-denetim'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.policy_outlined),
+                title: const Text('Denetim kaydı'),
+                subtitle: const Text('Kim, neyi, ne zaman yaptı; değiştirilemez kayıt zinciri.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ac(DenetimKaydiEkrani(depo: depo)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Panel(
           baslik: 'Veri konumu',
           child: Text('Tüm verileriniz yalnızca Türkiye\'deki sunucularda tutulur ve işlenir; '
               'yedekler, kayıtlar ve yapay zekâ işlemleri dahil.'),
         ),
-        SizedBox(height: 20),
-        Panel(baslik: 'Paketler ve hesap türleri', dolgu: EdgeInsets.fromLTRB(4, 20, 4, 4), child: HesapTurleriIcerigi()),
+        const SizedBox(height: 20),
+        const Panel(baslik: 'Paketler ve hesap türleri', dolgu: EdgeInsets.fromLTRB(4, 20, 4, 4), child: HesapTurleriIcerigi()),
       ],
     );
   }

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hukuk ve Avukat Portalı</title>
+<meta name="description" content="Avukatlık büroları, hukuk büroları ve şirket hukuk birimleri için hukuk yönetim platformu. Süre, tebligat, dosya, finans ve belge tek yerde; veriler yalnızca Türkiye'de.">
+<style>
+/* VOICE: sakin, güven veren, hukuk bürosunun ciddiyetinde; az renk, çok hava
+   IDEA: büronun masası — lacivert cilt kapağı, krem kâğıt, altın varak logo
+   PICTURE: ürünün Genel Bakış ekranı, canlı HTML olarak (süre kuyruğu, rozetler)
+   COLOUR/TYPE: kurucunun tasarım sistemi — lacivert #0F1E33, yeşil #0E5A4E, altın #C9A45C, krem #F7F5F0; Source Serif 4 + Inter (gömülü)
+   LAYOUT: lacivert açılış bandı + ürün görseli, krem içerik bantları, lacivert kapanış */
+@font-face{font-family:Inter;src:url(fonts/Inter-400.ttf) format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:Inter;src:url(fonts/Inter-600.ttf) format("truetype");font-weight:600;font-display:swap}
+@font-face{font-family:Inter;src:url(fonts/Inter-700.ttf) format("truetype");font-weight:700;font-display:swap}
+@font-face{font-family:Serif4;src:url(fonts/SourceSerif4-700.ttf) format("truetype");font-weight:700;font-display:swap}
+:root{color-scheme:light dark;
+--lac:#0F1E33;--lac2:#1A2C47;--yesil:light-dark(#0E5A4E,#3FB49C);--yesilz:light-dark(#DDF1EC,#123c34);--altin:#C9A45C;
+--bg:light-dark(#F7F5F0,#0B1524);--kart:light-dark(#fff,#12213A);--ink:light-dark(#14213D,#E9EEF5);--ink2:light-dark(#5B6475,#A7B3C4);
+--kenar:light-dark(#E6E2D9,#24344F);--kritik:light-dark(#B42318,#F49B92);--kritikz:light-dark(#F8D9D6,#4a1c19);
+--uyari:light-dark(#A15C07,#F2C46B);--uyariz:light-dark(#FCEBCB,#43300d);--bilgi:light-dark(#1F4E79,#9CC3EB);--bilgiz:light-dark(#E3ECF7,#16304d)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:Serif4,Georgia,"Times New Roman",serif;line-height:1.08;text-wrap:balance;margin:0}
+h1{font-size:clamp(36px,5.2vw,58px)}h2{font-size:clamp(30px,3.6vw,44px)}h3{font-size:21px}
+p{margin:0}
+a{color:inherit}
+.ic{max-width:1240px;margin:0 auto}
+.band{padding:clamp(44px,6vw,88px) max(5vw,16px)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:10px;font:600 16px Inter,sans-serif;text-decoration:none;border:1px solid transparent;cursor:pointer}
+.btn.ana{background:var(--yesil);color:#fff}.btn.ana:hover{filter:brightness(1.08)}
+.btn.cizgi{border-color:rgba(255,255,255,.35);color:#fff;background:transparent}
+.btn:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--altin);outline-offset:2px}
+/* üst */
+header{position:sticky;top:0;z-index:5;background:var(--lac);color:#fff;border-bottom:1px solid rgba(255,255,255,.08)}
+header .ic{display:flex;align-items:center;gap:20px;padding:14px max(5vw,16px);flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff}
+.logo b{font:700 17px/1.1 Serif4,Georgia,serif}
+.logo i{width:1px;height:30px;background:rgba(255,255,255,.35)}
+nav{display:flex;gap:22px;flex-wrap:wrap;margin-left:auto;align-items:center}
+nav a{text-decoration:none;color:#E3E8EF;font-weight:600;font-size:15px}
+nav a:hover{color:#fff}
+/* açılış */
+.acilis{background:var(--lac);color:#fff;padding-bottom:0}
+.acilis .ic{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);align-items:end}
+.acilis .metin{padding-bottom:clamp(44px,6vw,88px)}
+.acilis p.alt{font-size:19px;color:#C9D1DE;margin:20px 0 28px;max-width:34em}
+.acilis .dugmeler{display:flex;gap:12px;flex-wrap:wrap}
+.acilis small{display:block;margin-top:18px;color:#9FB0C8}
+.ekran{background:#F7F5F0;color:#14213D;border-radius:14px 14px 0 0;box-shadow:0 -10px 50px rgba(0,0,0,.35);overflow:hidden;font-size:13px}
+.ekran .ust{display:flex;gap:12px;align-items:center;background:#fff;border-bottom:1px solid #E6E2D9;padding:10px 16px}
+.ekran .sec{border:1px solid #E6E2D9;border-radius:8px;padding:5px 10px;font-weight:600}
+.ekran .av{margin-left:auto;width:28px;height:28px;border-radius:50%;background:#0E5A4E;color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px}
+.ekran .ic2{padding:16px;display:grid;gap:12px}
+.ekran h4{font:700 24px/1 Serif4,Georgia,serif;margin:0}
+.kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#fff;border:1px solid #E6E2D9;border-radius:12px}
+.kpi div{padding:10px 12px;border-left:1px solid #E6E2D9}.kpi div:first-child{border:0}
+.kpi span{color:#5B6475;font-size:12px}.kpi b{display:block;font:700 24px/1.1 Serif4,Georgia,serif}
+.kpi .s b{color:#A15C07}
+.kuyruk{background:#fff;border:1px solid #E6E2D9;border-radius:12px;padding:12px}
+.kuyruk h5{font:700 16px Serif4,Georgia,serif;margin:0 0 8px}
+.satir{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,3fr) minmax(0,2fr) auto;gap:8px;align-items:center;padding:8px 4px;border-top:1px solid #EFECE5}
+.satir em{font-style:normal;color:#5B6475;font-size:12px;display:block}
+.r{display:inline-block;border-radius:7px;padding:3px 9px;font-weight:600;font-size:12px;white-space:nowrap}
+.r.k{background:#F8D9D6;color:#B42318}.r.u{background:#FCEBCB;color:#A15C07}.r.o{background:#DDF1EC;color:#0E5A4E}.r.d{background:#E3ECF7;color:#1F4E79}
+.ornek{color:#5B6475;font-size:11px;padding:0 4px 8px}
+/* akış */
+.akis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin-top:36px;counter-reset:a}
+.akis li{list-style:none;position:relative;padding:22px 18px 0 0}
+.akis li::before{content:"";position:absolute;top:8px;left:0;right:0;height:2px;background:var(--kenar)}
+.akis li::after{content:"";position:absolute;top:2px;left:0;width:14px;height:14px;border-radius:50%;background:var(--yesil)}
+.akis b{display:block;font-size:17px;margin-bottom:6px}
+.akis p{color:var(--ink2);font-size:15px}
+.akis li:last-child::after{background:var(--altin)}
+/* özellikler */
+.izgara{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--kenar);border:1px solid var(--kenar);border-radius:14px;overflow:hidden;margin-top:32px}
+.izgara article{background:var(--kart);padding:24px}
+.izgara h3{font-size:19px;margin-bottom:8px}
+.izgara p{color:var(--ink2);font-size:15px}
+.baslik{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:end}
+.baslik p{color:var(--ink2);font-size:18px}
+/* hesap türleri */
+.turler{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:32px}
+.tur{background:var(--kart);border:1px solid var(--kenar);border-radius:14px;padding:26px;display:flex;flex-direction:column;gap:14px}
+.tur.vurgu{border:2px solid var(--yesil)}
+.tur .fiyat{font:700 28px/1.1 Serif4,Georgia,serif}
+.tur .fiyat small{font:400 14px Inter,sans-serif;color:var(--ink2)}
+.tur ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.tur li{padding-left:22px;position:relative;font-size:15px}
+.tur li::before{content:"";position:absolute;left:2px;top:.55em;width:10px;height:6px;border:solid var(--yesil);border-width:0 0 2px 2px;transform:rotate(-45deg)}
+.not{color:var(--ink2);font-size:14px;margin-top:16px}
+/* güvenlik */
+.guven{background:var(--lac);color:#fff}
+.guven .ic{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,6fr);gap:48px;align-items:start}
+.guven p{color:#C9D1DE}
+.liste{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 32px}
+.liste b{display:block;color:#fff;margin-bottom:4px}
+.liste div{border-top:2px solid var(--altin);padding-top:12px}
+/* sss */
+details{border-top:1px solid var(--kenar);padding:18px 0}
+details:last-child{border-bottom:1px solid var(--kenar)}
+summary{cursor:pointer;font-weight:600;font-size:18px;list-style:none;display:flex;justify-content:space-between;gap:16px}
+summary::after{content:"+";color:var(--yesil);font-size:24px;line-height:1}
+details[open] summary::after{content:"–"}
+details p{color:var(--ink2);margin-top:10px;max-width:70ch}
+/* form */
+.demo .ic{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:48px}
+form{background:var(--kart);border:1px solid var(--kenar);border-radius:14px;padding:26px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+label{display:grid;gap:6px;font-weight:600;font-size:14px}
+label.tam,.tam{grid-column:1/-1}
+input,select{font:16px Inter,sans-serif;min-height:46px;padding:10px 12px;border:1px solid var(--kenar);border-radius:10px;background:var(--bg);color:var(--ink)}
+.onay{display:flex;gap:10px;align-items:flex-start;font-weight:400;font-size:14px}
+.onay input{min-height:auto;margin-top:4px}
+#tesekkur{display:none;grid-column:1/-1;background:var(--yesilz);color:var(--yesil);border-radius:10px;padding:14px;font-weight:600}
+footer{background:var(--lac);color:#9FB0C8;font-size:14px}
+footer .ic{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+@media(max-width:1000px){.acilis .ic,.guven .ic,.demo .ic,.baslik{grid-template-columns:minmax(0,1fr)}.izgara{grid-template-columns:repeat(2,minmax(0,1fr))}.turler{grid-template-columns:minmax(0,1fr)}.akis{grid-template-columns:minmax(0,1fr);gap:8px}.akis li::before{display:none}.akis li{padding:0 0 0 28px}.akis li::after{top:6px}}
+@media(max-width:600px){nav{display:none}.izgara{grid-template-columns:minmax(0,1fr)}.liste{grid-template-columns:minmax(0,1fr)}form{grid-template-columns:minmax(0,1fr)}.kpi{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi div:nth-child(3){border-left:0}.satir{grid-template-columns:minmax(0,1fr) auto}.satir .gizle{display:none}.acilis .metin{padding-bottom:28px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="ic">
+    <a class="logo" href="#ust" aria-label="Hukuk ve Avukat Portalı ana sayfa">
+      <svg width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><rect width="9" height="34" rx="2" fill="#C9A45C"/><rect x="25" width="9" height="34" rx="2" fill="#C9A45C"/><path d="M9 21 25 10v7L9 28z" fill="#C9A45C"/></svg>
+      <i></i><b>Hukuk ve Avukat<br>Portalı</b>
+    </a>
+    <nav aria-label="Ana menü">
+      <a href="#ozellikler">Özellikler</a><a href="#kimler">Kimler için</a><a href="#fiyatlar">Paketler</a><a href="#guvenlik">Güvenlik</a><a href="#sss">SSS</a>
+      <a class="btn ana" href="#demo">Demo talep et</a>
+    </nav>
+  </div>
+</header>
+
+<section class="band acilis" id="ust">
+  <div class="ic">
+    <div class="metin">
+      <h1>Hiçbir süreyi kaçırmayın. Her işi kanıtla kapatın.</h1>
+      <p class="alt">Avukatlık büroları, hukuk büroları ve şirket hukuk birimleri için dosya, tebligat, süre, finans ve belge yönetimi tek yerde. Tüm verileriniz yalnızca Türkiye'de.</p>
+      <div class="dugmeler">
+        <a class="btn ana" href="#demo">14 gün ücretsiz deneyin</a>
+        <a class="btn cizgi" href="#ozellikler">Nasıl çalışır?</a>
+      </div>
+      <small>Kredi kartı gerekmez · Deneme sonunda verileriniz sizde kalır</small>
+    </div>
+    <div class="ekran" role="img" aria-label="Ürünün Genel Bakış ekranı: göstergeler ve kritik işler kuyruğu">
+      <div class="ust"><span class="sec">Yılmaz Hukuk Bürosu ▾</span><span class="av">AY</span></div>
+      <div class="ic2">
+        <h4>Genel Bakış</h4>
+        <div class="kpi">
+          <div><span>Açık dosya</span><b>128</b></div>
+          <div class="s"><span>Dolacak süre</span><b>7</b></div>
+          <div><span>Eşleşmeyen tebligat</span><b>3</b></div>
+          <div><span>Teyit bekleyen</span><b>2</b></div>
+        </div>
+        <div class="kuyruk">
+          <h5>Kritik işler</h5>
+          <div class="satir"><div><b>İstinaf başvurusu</b><em>ABC Gıda – Tedarik alacağı</em></div><span class="gizle">Ece Kaya</span><span class="gizle">yarın</span><span class="r k">Son gün yarın</span></div>
+          <div class="satir"><div><b>Cevap dilekçesi</b><em>Kara – İşe iade</em></div><span class="gizle">Atanmamış</span><span class="gizle">4 Ara</span><span class="r u">Teyit bekliyor</span></div>
+          <div class="satir"><div><b>Bilirkişi raporuna itiraz</b><em>Delta İnşaat – Alacak</em></div><span class="gizle">Mert Şahin</span><span class="gizle">5 Ara</span><span class="r d">Yaklaşıyor</span></div>
+          <div class="satir"><div><b>Duruşma hazırlığı</b><em>İstanbul 12. İş Mahkemesi</em></div><span class="gizle">Ece Kaya</span><span class="gizle">30 Kas</span><span class="r o">Teyitli</span></div>
+        </div>
+        <p class="ornek">Örnek ekran; isimler ve dosyalar temsilîdir.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="ozellikler">
+  <div class="ic">
+    <div class="baslik">
+      <h2>Tebligattan kanıta: kritik süre hiç sahipsiz kalmaz</h2>
+      <p>Evrak geldiği anda süre hesaplanır, bir hukukçu teyit eder, asıl ve yedek sorumlu atanır. Teyit edilmeyen ya da sahipsiz kalan iş yöneticinin ekranına düşer.</p>
+    </div>
+    <ol class="akis">
+      <li><b>Tebligat gelir</b><p>UETS, KEP, UYAP veya fiziki. Ulaşma ve tebliğ tarihi ayrı tutulur; aynı evrak iki kez kaydedilmez.</p></li>
+      <li><b>Dosyayla eşleşir</b><p>Esas no ve mahkeme tutarsa otomatik; emin olunamazsa ekip kuyruğuna düşer.</p></li>
+      <li><b>Süre hesaplanır</b><p>Tatil, hafta sonu, adli tatil ve elektronik tebliğin 5. günü; her adımın gerekçesiyle.</p></li>
+      <li><b>Başka bir hukukçu teyit eder</b><p>Hesabı yapan kendi süresini onaylayamaz. Gecikirse yöneticiye eskale edilir.</p></li>
+      <li><b>Kanıtla kapanır</b><p>UYAP gönderim no, makbuz veya belgeyle. Eski hesaplar silinmez, denetim kaydına yazılır.</p></li>
+    </ol>
+
+    <div class="izgara">
+      <article><h3>Dosya ve takvim</h3><p>Dava, icra, arabuluculuk ve danışmanlık dosyaları; duruşma çakışması uyarısı, adliye bazlı plan.</p></article>
+      <article><h3>Çıkar çatışması</h3><p>Kimlik no, benzer isim ve ilişkili şirket taraması. Gizli dosyanın adı bile gösterilmez; gerekçeli karar ve yönetici onayı.</p></article>
+      <article><h3>Vekâlet kontrolü</h3><p>Feragat, sulh, tahsilat öncesi özel yetki kontrolü; azil, istifa ve yetki belgesi takibi.</p></article>
+      <article><h3>Hesaplamalar</h3><p>Dönemsel yasal ve ticari faiz, dava harcı, güncel avukatlık ücret tarifesi, serbest meslek makbuzu.</p></article>
+      <article><h3>Finans ve emanet</h3><p>Masraf avansı, vekâlet ücreti alacağı ve müvekkil parası ayrı izlenir; emanet hiçbir zaman eksiye düşmez.</p></article>
+      <article><h3>Belge ve şablon</h3><p>Sürümlü belgeler, SHA-256 bütünlük özeti; dosya bilgileriyle dolan dilekçe ve sözleşme şablonları.</p></article>
+      <article><h3>Veri aktarımı</h3><p>Excel/CSV müvekkil listelerinizi önizleyerek, mükerrer ve hatalı kayıtları ayıklayarak içe alın.</p></article>
+      <article><h3>Sözleşme yönetimi</h3><p>Kurumsal pakette: yüklenen sözleşme otomatik taranır, riskli maddeler ve yükümlülükler çıkarılır.<br><small>Yol haritasında</small></p></article>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="kimler" style="padding-top:0">
+  <div class="ic" id="fiyatlar">
+    <div class="baslik">
+      <h2>Size uygun hesap türünü seçin</h2>
+      <p>Kayıt olurken seçtiğiniz tür; açılan modülleri, hazır rolleri ve fiyatı belirler. Büyüdükçe verileriniz korunarak yükseltirsiniz.</p>
+    </div>
+    <div class="turler">
+      <div class="tur">
+        <h3>Avukatlık Bürosu</h3><p style="color:var(--ink2)">Tek başına çalışan avukat</p>
+        <div class="fiyat">1.000 TL'den <small>/ ay</small></div>
+        <ul><li>Dosya, icra, süre ve takvim</li><li>Tebligat kuyruğu ve süre teyidi</li><li>Hesaplama araçları</li><li>Finans, emanet ve makbuz</li><li>Belge ve şablonlar</li></ul>
+        <a class="btn ana" href="#demo">Denemeyi başlat</a>
+      </div>
+      <div class="tur vurgu">
+        <h3>Hukuk Bürosu</h3><p style="color:var(--ink2)">Birden çok avukatlı büro ve ortaklıklar</p>
+        <div class="fiyat">1.500 TL'den <small>/ avukat / ay</small></div>
+        <ul><li>Avukatlık Bürosu'ndaki her şey</li><li>Ekip, görev akışı ve yedek sorumlu</li><li>Etik duvar ve gizli dosya</li><li>Zaman kaydı ve gelir paylaşımı</li><li>Toplu icra işlemleri</li></ul>
+        <a class="btn ana" href="#demo">Denemeyi başlat</a>
+      </div>
+      <div class="tur">
+        <h3>Kurumsal</h3><p style="color:var(--ink2)">Şirket hukuk müşavirliği ve hukuk birimleri</p>
+        <div class="fiyat">Teklif <small>usulü</small></div>
+        <ul><li>Sözleşme yönetimi ve otomatik tarama</li><li>İş birimlerinden hukuki talepler</li><li>Dış avukat ve bütçe yönetimi</li><li>Risk ve karşılık raporları</li><li>Talep eden çalışanlar ücretsiz</li></ul>
+        <a class="btn ana" href="#demo">Görüşme planla</a>
+      </div>
+    </div>
+    <p class="not">Fiyatlar KDV hariç başlangıç fiyatlarıdır ve lansmanda kesinleşecektir. Tüm paketlerde 14 gün ücretsiz deneme.</p>
+  </div>
+</section>
+
+<section class="band guven" id="guvenlik">
+  <div class="ic">
+    <div>
+      <h2>Meslek sırrınız Türkiye'den çıkmaz</h2>
+      <p style="margin-top:16px;font-size:18px">Sunucular, yedekler, hata kayıtları ve yapay zekâ işlemleri dahil tüm veriler yalnızca Türkiye'deki veri merkezlerinde tutulur ve işlenir.</p>
+    </div>
+    <div class="liste">
+      <div><b>Tek kapıdan yetki</b>Gizli dosya; arama, rapor, Excel, bildirim ve yapay zekâ dahil hiçbir kanaldan sızmaz.</div>
+      <div><b>Değiştirilemez denetim kaydı</b>Kim neyi ne zaman gördü, indirdi, değiştirdi; kayıtlar birbirine zincirlidir.</div>
+      <div><b>İki adımlı doğrulama</b>Doğrulayıcı uygulamayla giriş, 5 hatalı denemede kilit, ayrılan kullanıcının anında erişim kaybı.</div>
+      <div><b>KVKK uyumu</b>Veri işleme sözleşmesi, saklama ve imha politikası; bu site çerez kullanmaz, fontlar bile kendi sunucumuzdan.</div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="sss">
+  <div class="ic" style="max-width:860px">
+    <h2 style="margin-bottom:24px">Sık sorulan sorular</h2>
+    <details><summary>UYAP ile çalışıyor mu?</summary><p>İlk sürümde UYAP ve DavaTek çıktılarınızı içe aktarabilir, gelen evrakı dosyalarınızla eşleştirebilirsiniz. Kendi oturumunuzla çalışan UYAP yardımcı uygulaması yol haritamızdadır.</p></details>
+    <details><summary>Mevcut verilerimi taşıyabilir miyim?</summary><p>Evet. Excel/CSV müvekkil listelerinizi önizleyerek aktarırsınız; hatalı ve mükerrer kayıtlar ayıklanır, okunan ve aktarılan kayıt sayıları size raporlanır.</p></details>
+    <details><summary>Süre hesapları kime ait?</summary><p>Süre kuralları, tatil günleri ve tarifeler ekibimizdeki avukat tarafından onaylanan, kaynağı ve yürürlük tarihi kayıtlı referans verilerdir. Her hesap ayrıca bürodaki bir hukukçunun teyidinden geçer.</p></details>
+    <details><summary>Telefondan kullanabilir miyim?</summary><p>Evet. Web, iOS, Android ve masaüstünde aynı uygulama çalışır. Satın alma ve paket değişikliği web üzerinden yapılır.</p></details>
+    <details><summary>Ayrılırsam verilerim ne olur?</summary><p>Aboneliğinizi iptal ettiğinizde dönem sonuna kadar kullanmaya devam edersiniz; tüm verilerinizi belgeler ve sürümleriyle birlikte standart biçimde indirebilirsiniz.</p></details>
+    <details><summary>Avukatlık reklam yasağına uygun mu?</summary><p>Müvekkil portalı yalnızca davetle çalışır; kamuya açık müvekkil adı, başarı oranı veya avukat sıralaması gibi özellikler bulunmaz.</p></details>
+  </div>
+</section>
+
+<section class="band demo" id="demo" style="padding-top:0">
+  <div class="ic">
+    <div>
+      <h2>Demo talep edin</h2>
+      <p style="color:var(--ink2);font-size:18px;margin-top:16px">Size uygun hesap türünde örnek verilerle hazırlanmış bir deneme ortamı açalım. Dilerseniz 30 dakikalık bir tanıtım görüşmesi de planlayalım.</p>
+    </div>
+    <form id="form" novalidate>
+      <label>Ad soyad<input name="ad" autocomplete="name" required></label>
+      <label>Büro / şirket<input name="kurum" autocomplete="organization" required></label>
+      <label>E-posta<input name="eposta" type="email" autocomplete="email" required></label>
+      <label>Telefon<input name="tel" type="tel" autocomplete="tel"></label>
+      <label class="tam">Hesap türü<select name="tur"><option>Avukatlık Bürosu</option><option selected>Hukuk Bürosu</option><option>Kurumsal</option></select></label>
+      <label class="onay tam"><input type="checkbox" name="kvkk" required> KVKK aydınlatma metnini okudum; iletişim bilgilerimin demo talebim için işlenmesini kabul ediyorum.</label>
+      <button class="btn ana tam" type="submit">Talep gönder</button>
+      <p id="tesekkur" role="status"></p>
+    </form>
+  </div>
+</section>
+
+<footer class="band" style="padding-block:28px">
+  <div class="ic">
+    <span>© 2026 Hukuk ve Avukat Portalı · Tüm veriler Türkiye'de</span>
+    <span>Bu site çerez kullanmaz.</span>
+  </div>
+</footer>
+
+<script>
+{
+  const form = document.getElementById('form');
+  const mesaj = document.getElementById('tesekkur');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const eksik = [...form.querySelectorAll('[required]')].filter((el) => el.type === 'checkbox' ? !el.checked : !el.value.trim());
+    const eposta = form.elements.eposta.value.trim();
+    mesaj.style.display = 'block';
+    if (eksik.length || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(eposta)) {
+      mesaj.style.background = 'var(--kritikz)';
+      mesaj.style.color = 'var(--kritik)';
+      mesaj.textContent = 'Lütfen zorunlu alanları doldurun, geçerli bir e-posta girin ve KVKK onayını verin.';
+      (eksik[0] || form.elements.eposta).focus();
+      return;
+    }
+    mesaj.style.background = '';
+    mesaj.style.color = '';
+    mesaj.textContent = 'Teşekkürler ' + form.elements.ad.value.trim() + '. Bu önizlemede talep gönderilmez; canlı sitede ekibimiz bir iş günü içinde dönüş yapacak.';
+    form.reset();
+  });
+}
+</script>
+</body>
+</html>

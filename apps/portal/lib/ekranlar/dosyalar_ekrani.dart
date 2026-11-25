@@ -5,6 +5,7 @@ import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/veri_deposu.dart';
+import 'formlar.dart';
 
 Aktor oturumAktoru(Oturum o) => Aktor(kullaniciId: o.kullaniciId, kiraciId: o.kiraciId, roller: o.roller);
 
@@ -17,7 +18,16 @@ class DosyalarEkrani extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('yeni-dosya'),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<bool>(builder: (_) => DosyaFormu(depo: depo, oturum: oturum)),
+        ),
+        icon: const Icon(Icons.create_new_folder_outlined),
+        label: const Text('Yeni dosya'),
+      ),
+      body: ListenableBuilder(
       listenable: depo,
       builder: (context, _) {
         final bugun = Tarih.from(DateTime.now());
@@ -42,6 +52,7 @@ class DosyalarEkrani extends StatelessWidget {
           ],
         );
       },
+    ),
     );
   }
 
@@ -198,6 +209,40 @@ class DosyaDetayEkrani extends StatelessWidget {
                     '${g.kapanisKaniti != null ? ' · kanıt: ${g.kapanisKaniti}' : ''}',
                   ),
                   controlAffinity: ListTileControlAffinity.leading,
+                ),
+              const Divider(height: 32),
+              Row(
+                children: [
+                  Expanded(child: Text('Duruşmalar ve etkinlikler', style: metin.titleMedium)),
+                  OutlinedButton.icon(
+                    key: const Key('durusma-ekle'),
+                    onPressed: () async {
+                      final r = await showDialog<(DateTime, String, String)>(
+                        context: context,
+                        builder: (_) => const DurusmaDiyalogu(),
+                      );
+                      if (r == null || !context.mounted) return;
+                      final (zaman, yer, tur) = r;
+                      final cakismalar =
+                          depo.durusmaEkle(dosyaId: d.id, baslangic: zaman, yer: yer, katilan: oturum.kullaniciId, tur: tur);
+                      _mesaj(
+                        context,
+                        cakismalar.isEmpty
+                            ? '$tur eklendi.'
+                            : 'Eklendi, ancak çakışma var: ${cakismalar.first.neden}. Mazeret dilekçesi veya tevkil gerekebilir.',
+                      );
+                    },
+                    icon: const Icon(Icons.event_outlined),
+                    label: const Text('Ekle'),
+                  ),
+                ],
+              ),
+              for (final du in depo.durusmalar.where((x) => x.dosyaId == d.id).toList()
+                ..sort((a, b) => a.baslangic.compareTo(b.baslangic)))
+                ListTile(
+                  leading: const Icon(Icons.gavel),
+                  title: Text('${du.tur} · ${tarihSaat(du.baslangic)}'),
+                  subtitle: Text('${du.yer} · ${depo.kullaniciAdi(du.katilan)}'),
                 ),
               const Divider(height: 32),
               Row(

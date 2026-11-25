@@ -83,6 +83,9 @@ abstract class KimlikServisi {
 
   /// Güvenlik gereği e-posta kayıtlı olsun olmasın aynı yanıtı verir.
   Future<void> sifreSifirlamaIste(String eposta);
+
+  /// Kayıt olmadan, örnek verilerle salt deneme oturumu. Demo verisi kalıcı değildir.
+  Future<Oturum> demoGiris(HesapTuru tur);
 }
 
 /// Yalnızca geliştirme ve demo için bellekte çalışan kimlik servisi.
@@ -142,6 +145,24 @@ class BellekKimlikServisi implements KimlikServisi {
 
   @override
   Future<void> sifreSifirlamaIste(String eposta) async {}
+
+  @override
+  Future<Oturum> demoGiris(HesapTuru tur) async {
+    _sayac++;
+    return _oturum = Oturum(
+      kullaniciId: 'demo$_sayac',
+      kiraciId: 'demo-kiraci$_sayac',
+      adSoyad: 'Demo Kullanıcı',
+      eposta: 'demo@hukukportali.com.tr',
+      kurumAdi: switch (tur) {
+        HesapTuru.avukatlikBurosu => 'Demo Avukatlık Bürosu',
+        HesapTuru.hukukBurosu => 'Demo Hukuk Bürosu',
+        HesapTuru.kurumsal => 'Demo Holding A.Ş.',
+      },
+      hesapTuru: tur,
+      roller: {_kurucuRol(tur)},
+    );
+  }
 
   static Rol _kurucuRol(HesapTuru tur) => switch (tur) {
         HesapTuru.avukatlikBurosu => Rol.buroSahibi,

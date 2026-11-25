@@ -124,12 +124,15 @@ class BellekVeriDeposu extends ChangeNotifier {
       telefon: (telefon?.trim().isEmpty ?? true) ? null : telefon!.trim(),
     );
     _kisiler.add(yeni);
+    _kaydet(DenetimIslemi.olusturma, 'kisi', yeni.id, yeni.ad);
     notifyListeners();
     return yeni;
   }
 
   void kararKaydet(KayitliKarar karar) {
     _kararlar.add(karar);
+    _kaydet(DenetimIslemi.kararKaydi, 'is_kabul', karar.adaylar.map((a) => a.ad).join(', '),
+        '${karar.karar.tur.name}: ${karar.karar.gerekce}');
     notifyListeners();
   }
 
@@ -216,6 +219,7 @@ class BellekVeriDeposu extends ChangeNotifier {
             eslesmeDurumu: oneriler.isEmpty ? EslesmeDurumu.eslesmedi : EslesmeDurumu.onerildi,
           );
     _tebligatlar.add(kayit);
+    _kaydet(DenetimIslemi.olusturma, 'tebligat', kayit.id, '${kayit.konu} · ${kayit.gonderen}');
     notifyListeners();
     return (tebligat: kayit, mukerrer: false);
   }
@@ -227,6 +231,7 @@ class BellekVeriDeposu extends ChangeNotifier {
     final i = _tebligatlar.indexWhere((t) => t.id == tebligatId);
     if (i < 0) return;
     _tebligatlar[i] = _tebligatlar[i].dosyayaBagla(dosyaId);
+    _kaydet(DenetimIslemi.degisiklik, 'tebligat', tebligatId, 'Dosyaya bağlandı: $dosyaId');
     notifyListeners();
   }
 
@@ -254,6 +259,7 @@ class BellekVeriDeposu extends ChangeNotifier {
       tetikleyenTebligatId: tebligatId,
     );
     _sureler.add(kayit);
+    _kaydet(DenetimIslemi.olusturma, 'sure', kayit.id, '${kayit.aciklama} · son gün ${kayit.sonGun.turkceBicim}');
     _gorevler.add(Gorev(
       id: yeniId('g'),
       baslik: kural.ad,
@@ -272,6 +278,8 @@ class BellekVeriDeposu extends ChangeNotifier {
     final i = _sureler.indexWhere((s) => s.id == yeni.id);
     if (i >= 0) {
       _sureler[i] = yeni;
+      _kaydet(yeni.durum == SureDurumu.teyitli ? DenetimIslemi.sureTeyit : DenetimIslemi.degisiklik, 'sure', yeni.id,
+          '${yeni.durum.ad}${yeni.tamamlanmaKaniti != null ? ' · kanıt: ${yeni.tamamlanmaKaniti}' : ''}');
       notifyListeners();
     }
   }
@@ -280,6 +288,7 @@ class BellekVeriDeposu extends ChangeNotifier {
     final i = _gorevler.indexWhere((g) => g.id == yeni.id);
     if (i >= 0) {
       _gorevler[i] = yeni;
+      _kaydet(DenetimIslemi.degisiklik, 'gorev', yeni.id, '${yeni.baslik} · ${yeni.durum.name}');
       notifyListeners();
     }
   }
@@ -436,6 +445,7 @@ class BellekVeriDeposu extends ChangeNotifier {
       tarih: Tarih.from(DateTime.now()),
       aciklama: aciklama,
     ));
+    _kaydet(DenetimIslemi.olusturma, 'cari', muvekkilId, '${tur.ad} · ${tutar.bicimli}');
     notifyListeners();
   }
 
@@ -443,6 +453,7 @@ class BellekVeriDeposu extends ChangeNotifier {
   String? emanetEkle(EmanetHareketi h) {
     try {
       emanet.ekle(h);
+      _kaydet(DenetimIslemi.olusturma, 'emanet', h.id, '${h.tur.ad} · ${h.tutar.bicimli}');
       notifyListeners();
       return null;
     } on StateError catch (e) {
@@ -487,6 +498,7 @@ class BellekVeriDeposu extends ChangeNotifier {
       ),
     );
     _belgeler.add(b);
+    _kaydet(DenetimIslemi.olusturma, 'belge', b.id, '${b.ad} · SHA-256 ${b.orijinal.ozet.substring(0, 12)}');
     _belgeMetinleri[b.id] = metin;
     notifyListeners();
     return b;
@@ -571,5 +583,149 @@ class BellekVeriDeposu extends ChangeNotifier {
       yukleyen: av1,
       tur: BelgeTuru.karar,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Denetim kaydı ve yeni kayıt işlemleri
+  // ---------------------------------------------------------------------------
+
+  final DenetimKaydi denetim = DenetimKaydi();
+
+  /// İşlemleri yapan kullanıcı; oturum açılınca ayarlanır.
+  String aktifKullanici = 'sistem';
+
+  void _kaydet(DenetimIslemi islem, String nesneTuru, String nesneId, String aciklama) {
+    denetim.ekle(
+      kiraciId: kiraciId,
+      kullaniciId: aktifKullanici,
+      islem: islem,
+      nesneTuru: nesneTuru,
+      nesneId: nesneId,
+      aciklama: aciklama,
+    );
+  }
+
+  /// Görüntüleme ve indirme gibi okuma işlemlerini kaydeder.
+  void okumaKaydet(DenetimIslemi islem, String nesneTuru, String nesneId, [String aciklama = '']) =>
+      _kaydet(islem, nesneTuru, nesneId, aciklama);
+
+  Map<String, String> get kullanicilar => Map.unmodifiable(_kullaniciAdlari);
+
+  Dosya dosyaAc({
+    required DosyaTuru tur,
+    required String baslik,
+    required String sorumlu,
+    String? yedekSorumlu,
+    String? muvekkilId,
+    String? karsiTarafId,
+    String? mahkeme,
+    String? esasNo,
+    bool gizli = false,
+    GorevSablonu? sablon,
+  }) {
+    final id = yeniId('d');
+    final d = Dosya(
+      id: id,
+      kiraciId: kiraciId,
+      icNo: _dosyaSerisi.sonraki(),
+      tur: tur,
+      baslik: baslik.trim(),
+      sorumlu: sorumlu,
+      yedekSorumlu: yedekSorumlu,
+      mahkeme: (mahkeme?.trim().isEmpty ?? true) ? null : mahkeme!.trim(),
+      esasNo: (esasNo?.trim().isEmpty ?? true) ? null : esasNo!.trim(),
+      gizli: gizli,
+      acilisTarihi: Tarih.from(DateTime.now()),
+    );
+    _dosyalar.add(d);
+    if (muvekkilId != null) {
+      _dosyaKayitlari.add(DosyaTarafKaydi(
+          dosyaId: id, dosyaAdi: d.baslik, kisiId: muvekkilId, sifat: TarafSifati.muvekkil, gizli: gizli));
+    }
+    if (karsiTarafId != null) {
+      _dosyaKayitlari.add(DosyaTarafKaydi(
+          dosyaId: id, dosyaAdi: d.baslik, kisiId: karsiTarafId, sifat: TarafSifati.karsiTaraf, gizli: gizli));
+    }
+    if (sablon != null) {
+      _gorevler.addAll(sablon.uygula(
+        dosyaId: id,
+        baslangic: d.acilisTarihi,
+        roller: {'sorumlu': sorumlu, if (yedekSorumlu != null) 'yedek': yedekSorumlu, 'stajyer': yedekSorumlu ?? sorumlu},
+        idUret: () => yeniId('g'),
+      ));
+    }
+    _kaydet(DenetimIslemi.olusturma, 'dosya', id, '${d.icNo} · ${d.baslik}');
+    notifyListeners();
+    return d;
+  }
+
+  /// Duruşmayı ekler ve eklenen duruşmanın dahil olduğu çakışmaları döner.
+  List<Cakisma> durusmaEkle({
+    required String dosyaId,
+    required DateTime baslangic,
+    required String yer,
+    required String katilan,
+    String tur = 'Duruşma',
+  }) {
+    final du = Durusma(id: yeniId('du'), dosyaId: dosyaId, baslangic: baslangic, yer: yer.trim(), katilan: katilan, tur: tur);
+    _durusmalar.add(du);
+    _kaydet(DenetimIslemi.olusturma, 'durusma', du.id, '$tur · $yer');
+    notifyListeners();
+    return cakismalar.where((c) => c.a.id == du.id || c.b.id == du.id).toList();
+  }
+
+  Vekaletname vekaletnameEkle({
+    required String muvekkilId,
+    required Set<String> avukatlar,
+    required Tarih duzenlemeTarihi,
+    String? noter,
+    String? yevmiyeNo,
+    bool genel = true,
+    Set<String> dosyalar = const {},
+    Set<OzelYetki> ozelYetkiler = const {},
+    String? asilEvrakYeri,
+  }) {
+    final v = Vekaletname(
+      id: yeniId('v'),
+      kiraciId: kiraciId,
+      muvekkilId: muvekkilId,
+      avukatlar: avukatlar,
+      duzenlemeTarihi: duzenlemeTarihi,
+      noter: noter,
+      yevmiyeNo: yevmiyeNo,
+      genel: genel,
+      dosyalar: dosyalar,
+      ozelYetkiler: ozelYetkiler,
+      asilEvrakYeri: asilEvrakYeri,
+    );
+    _vekaletnameler.add(v);
+    _kaydet(DenetimIslemi.olusturma, 'vekaletname', v.id, '${kisi(muvekkilId)?.ad ?? muvekkilId} · ${ozelYetkiler.length} özel yetki');
+    notifyListeners();
+    return v;
+  }
+
+  /// Önizlemede "aktarılacak" durumundaki satırları kişi olarak ekler.
+  int kisileriAktar(AktarimOnizlemesi onizleme) {
+    var n = 0;
+    for (final s in onizleme.satirlar.where((s) => s.durum == SatirDurumu.aktarilacak)) {
+      _sayac++;
+      final k = Kisi(
+        id: 'akt$_sayac',
+        kiraciId: kiraciId,
+        tur: s.tur,
+        ad: s.deger(KisiAlani.ad),
+        kimlikNo: s.deger(KisiAlani.kimlikNo).isEmpty ? null : s.deger(KisiAlani.kimlikNo).replaceAll(' ', ''),
+        eposta: s.deger(KisiAlani.eposta).isEmpty ? null : s.deger(KisiAlani.eposta),
+        telefon: s.deger(KisiAlani.telefon).isEmpty ? null : s.deger(KisiAlani.telefon),
+        adres: s.deger(KisiAlani.adres).isEmpty ? null : s.deger(KisiAlani.adres),
+      );
+      _kisiler.add(k);
+      n++;
+    }
+    _kaydet(DenetimIslemi.aktarim, 'kisi', '-',
+        'Okunan ${onizleme.satirlar.length}, aktarılan $n, mükerrer ${onizleme.sayi(SatirDurumu.mukerrer)}, '
+        'hatalı ${onizleme.sayi(SatirDurumu.hatali)}');
+    notifyListeners();
+    return n;
   }
 }

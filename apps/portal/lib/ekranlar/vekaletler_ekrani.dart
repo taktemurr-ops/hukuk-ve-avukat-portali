@@ -3,6 +3,7 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/veri_deposu.dart';
+import 'formlar.dart';
 
 /// Vekâletnameler ve işlem öncesi yetki kontrolü.
 class VekaletlerEkrani extends StatefulWidget {
@@ -38,7 +39,16 @@ class _VekaletlerEkraniState extends State<VekaletlerEkrani> {
   Widget build(BuildContext context) {
     final metin = Theme.of(context).textTheme;
     final renkler = Theme.of(context).colorScheme;
-    return ListView(
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('vekalet-yeni'),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<bool>(builder: (_) => VekaletnameFormu(depo: widget.depo, oturum: widget.oturum)),
+        ),
+        icon: const Icon(Icons.add),
+        label: const Text('Yeni vekâletname'),
+      ),
+      body: ListenableBuilder(listenable: widget.depo, builder: (context, _) => ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text('İşlem öncesi yetki kontrolü', style: metin.titleMedium),
@@ -61,7 +71,9 @@ class _VekaletlerEkraniState extends State<VekaletlerEkrani> {
         ),
         const SizedBox(height: 16),
         for (final v in widget.depo.vekaletnameler) _vekaletKarti(v, metin, renkler),
+        const SizedBox(height: 72),
       ],
+    )),
     );
   }
 

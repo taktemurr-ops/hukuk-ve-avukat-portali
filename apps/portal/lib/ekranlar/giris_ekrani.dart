@@ -69,6 +69,35 @@ class _GirisEkraniState extends State<GirisEkrani> {
     );
   }
 
+  Future<void> _demo() async {
+    final tur = await showModalBottomSheet<HesapTuru>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('Demo hesabı', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('Örnek verilerle deneyin. Girdiğiniz bilgiler kaydedilmez.'),
+            ),
+            for (final t in HesapTuru.values)
+              ListTile(
+                key: Key('demo-${t.name}'),
+                leading: const Icon(Icons.play_circle_outline),
+                title: Text(t.ad),
+                subtitle: Text(t.aciklama),
+                onTap: () => Navigator.pop(context, t),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (tur == null) return;
+    final oturum = await widget.servis.demoGiris(tur);
+    if (!mounted) return;
+    widget.girisYapildi(oturum);
+  }
+
   void _kayitOl() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => KayitSihirbazi(servis: widget.servis)),
@@ -164,6 +193,13 @@ class _GirisEkraniState extends State<GirisEkrani> {
                     key: const Key('kayit-ol'),
                     onPressed: _kayitOl,
                     child: const Text('Hesap oluştur'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    key: const Key('demo-giris'),
+                    onPressed: _demo,
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: const Text('Kayıt olmadan demo hesabıyla dene'),
                   ),
                 ],
               ),
