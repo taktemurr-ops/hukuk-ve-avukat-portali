@@ -150,6 +150,58 @@ void main() {
     expect(csvCoz([0xC5, 0x9E]), 'Ş');
   });
 
+  testWidgets('Görev şablonu oluşturulur ve dosya açma formunda seçilebilir', (tester) async {
+    final depo = await _ac(tester, 'ayarlar');
+    await _bas(tester, 'ayar-sablonlar');
+    await _bas(tester, 'sablon-yeni');
+    await tester.enterText(find.byKey(const Key('sablon-ad')), 'Kira tahliye');
+    await tester.enterText(find.byKey(const Key('adim-baslik-0')), 'İhtarname gönder');
+    await _bas(tester, 'adim-ekle');
+    await tester.enterText(find.byKey(const Key('adim-baslik-1')), 'Tahliye davası aç');
+    await tester.enterText(find.byKey(const Key('adim-gun-1')), 'otuz');
+    await _bas(tester, 'sablon-kaydet');
+    expect(find.textContaining('gün 0–3650'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('adim-gun-1')), '30');
+    await _bas(tester, 'sablon-kaydet');
+    expect(depo.gorevSablonlari.map((s) => s.$2.ad), contains('Kira tahliye'));
+    expect(depo.gorevSablonlari.last.$2.adimlar.last.gunSonra, 30);
+  });
+
+  testWidgets('UYAP dosya listesi önizlenir, mükerrer atlanır, geçerli satırlar dosya olarak açılır', (tester) async {
+    final depo = await _ac(tester, 'ayarlar');
+    final once = depo.tumDosyalar.length;
+    final mevcut = depo.tumDosyalar.firstWhere((d) => d.mahkeme != null && d.esasNo != null);
+    await _bas(tester, 'ayar-dosya-aktarim');
+    await tester.enterText(
+      find.byKey(const Key('dosya-aktarim-metin')),
+      'Birim Adı;Dosya No;Davacı;Davalı\n'
+      'İstanbul 3. İş Mahkemesi;2026/210;Zeynep Aydın;Mavi Lojistik A.Ş.\n'
+      '${mevcut.mahkeme};${mevcut.esasNo!.split(' ').first};X;Y\n'
+      ';2026/5;A;B\n',
+    );
+    await _bas(tester, 'dosya-aktarim-onizle');
+    expect(find.text('Açılacak 1'), findsOneWidget);
+    expect(find.text('Mükerrer 1'), findsOneWidget);
+    expect(find.text('Hatalı 1'), findsOneWidget);
+    await _bas(tester, 'dosya-aktarim-aktar');
+    expect(depo.tumDosyalar.length, once + 1);
+    final yeni = depo.tumDosyalar.firstWhere((d) => d.esasNo == '2026/210 E.');
+    expect(yeni.baslik, 'Zeynep Aydın - Mavi Lojistik A.Ş.');
+  });
+
+  testWidgets('Belgelerde arama: Türkçe karaktersiz yazılan sözcük bulunur, ekrandan dosyaya gidilir', (tester) async {
+    final depo = await _ac(tester, 'dosyalar');
+    final d = depo.tumDosyalar.first;
+    depo.belgeOlustur(dosyaId: d.id, ad: 'Hesap notu', metin: 'Davacının kıdem tazminatı 245.000 TL.', yukleyen: 'av1');
+    await _bas(tester, 'belge-ara');
+    await tester.enterText(find.byKey(const Key('belge-ara-metin')), 'kidem tazminati');
+    await _bas(tester, 'belge-ara-dugme');
+    expect(find.textContaining('Hesap notu'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('belge-ara-metin')), 'ihtiyati haciz');
+    await _bas(tester, 'belge-ara-dugme');
+    expect(find.text('0 belge'), findsOneWidget);
+  });
+
   testWidgets('Denetim kaydı ekranı zincirin sağlam olduğunu gösterir', (tester) async {
     await _ac(tester, 'ayarlar');
     await _bas(tester, 'ayar-denetim');

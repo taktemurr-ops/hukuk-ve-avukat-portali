@@ -6,6 +6,7 @@ import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import 'belge_servisi.dart';
 import 'dosya_api.dart';
 import 'hata.dart';
 import 'kimlik_api.dart';
@@ -49,7 +50,10 @@ String? icerikTuruKontrol(String uzanti, List<int> b) {
 /// Belge yükleme, sürüm ve indirme. İçerik nesne deposunda, kayıt ve SHA-256 özeti veritabanında tutulur;
 /// belgeye erişim dosyanın görünürlüğüne bağlıdır (RLS) ve her indirme denetim kaydına yazılır.
 class BelgeApi {
-  BelgeApi(this.vt, this.depo, {this.azamiBoyut = 50 * 1024 * 1024, this.tarayici});
+  BelgeApi(this.vt, this.depo, {this.azamiBoyut = 50 * 1024 * 1024, this.tarayici, this.belgeServisi});
+
+  /// Word üretimi ve metin çıkarma için iç ağdaki belge servisi (yoksa bu özellikler kapalı).
+  final BelgeServisi? belgeServisi;
 
   final Veritabani vt;
   final NesneDeposu depo;
@@ -61,6 +65,8 @@ class BelgeApi {
   Router get router => Router()
     ..get('/dosyalar/<id>/belgeler', _liste)
     ..post('/dosyalar/<id>/belgeler', _yukle)
+    ..post('/dosyalar/<id>/belgeler/word', _wordOlustur)
+    ..get('/belgeler/ara', _ara)
     ..post('/belgeler/<id>/surumler', _yeniSurum)
     ..get('/belgeler/<id>/surumler/<no>/icerik', _indir);
 
@@ -143,6 +149,69 @@ class BelgeApi {
     final belgeAdi = Uri.decodeComponent(istek.headers['x-belge-adi'] ?? '').trim();
     final icerik = await _govde(istek);
     final (_, ozet) = await _kontrol(dosyaAdi, icerik);
+    final sonuc = await _kaydet(k, dosyaId, dosyaAdi, belgeAdi, tur, icerik, ozet);
+    return jsonYanit({'id': sonuc, 'no': 1, 'sha256': ozet}, durum: 201);
+  }
+
+  /// Belgelerin içinde Türkçe tam metin arama (kök eşleşmesi: "tazminat" → "tazminatı"). Yalnızca görülebilen
+  /// dosyaların belgeleri (veritabanı kuralı). Aranan sözcükler denetime yazılmaz (kişisel veri içerebilir).
+  Future<Response> _ara(Request istek) async {
+    final k = kimlik(istek);
+    final q = (istek.url.queryParameters['q'] ?? '').trim();
+    if (q.length < 2) throw const ApiHatasi(400, 'En az 2 karakter yazın.', kod: 'gecersiz_istek');
+    if (q.length > 200) throw const ApiHatasi(400, 'Arama çok uzun.', kod: 'gecersiz_istek');
+    final rs = await vt.kiraciIcin(k, (tx) async {
+      final r = await tx.execute(
+        Sql.named("SELECT b.id::text, b.ad, b.dosya_id::text, d.ic_no, d.baslik, m.ocr, "
+            "ts_headline('turkish', left(m.metin, 200000), websearch_to_tsquery('turkish', @q), "
+            "'StartSel=«,StopSel=»,MaxFragments=2,MaxWords=18,MinWords=6,FragmentDelimiter= … ') "
+            "FROM hukuk.belge_metni m JOIN hukuk.belge b ON b.id = m.belge_id "
+            "LEFT JOIN hukuk.dosya d ON d.id = b.dosya_id "
+            "WHERE m.arama @@ websearch_to_tsquery('turkish', @q) "
+            "ORDER BY ts_rank(m.arama, websearch_to_tsquery('turkish', @q)) DESC LIMIT 50"),
+        parameters: {'q': q},
+      );
+      await DosyaApi.denetim(tx, k, 'goruntuleme', 'belge_arama', '-', '${r.length} sonuç');
+      return r;
+    });
+    final durum = await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute("SELECT count(*) FILTER (WHERE m.belge_id IS NULL), count(*) FILTER (WHERE m.durum = 'hata') "
+            'FROM hukuk.belge b LEFT JOIN hukuk.belge_metni m ON m.belge_id = b.id'));
+    return jsonYanit({
+      'sonuclar': [
+        for (final r in rs)
+          {'belgeId': r[0], 'ad': r[1], 'dosyaId': r[2], 'dosyaNo': r[3], 'dosyaBaslik': r[4], 'ocr': r[5], 'ozet': r[6]},
+      ],
+      'bekleyen': durum.first[0],
+      'okunamayan': durum.first[1],
+    });
+  }
+
+  /// Şablondan üretilen metni Word belgesine çevirip dosyaya ilk sürüm olarak kaydeder. Eksik alan varsa reddedilir.
+  Future<Response> _wordOlustur(Request istek, String dosyaId) async {
+    final k = kimlik(istek);
+    final servis = belgeServisi;
+    if (servis == null) {
+      throw const ApiHatasi(503, 'Word üretimi bu kurulumda açık değil.', kod: 'hizmet_yok');
+    }
+    final j = await jsonGovde(istek);
+    final ad = zorunluMetin(j, 'ad');
+    final metin = zorunluMetin(j, 'metin');
+    if (ad.length > 150 || metin.length > 500000) throw const ApiHatasi(400, 'Belge çok uzun.', kod: 'gecersiz_istek');
+    if (metin.contains('[EKSİK:')) {
+      throw const ApiHatasi(400, 'Eksik alanlar doldurulmadan belge kaydedilemez.', kod: 'eksik_alan');
+    }
+    final tur = BelgeTuru.values.where((t) => t.name == j['tur']).firstOrNull ?? BelgeTuru.diger;
+    final (docx, _) = await servis.docx(ad, metin);
+    final dosyaAdi = '${ad.replaceAll(RegExp(r'[/\\:*?"<>|]'), '-')}.docx';
+    final (_, ozet) = await _kontrol(dosyaAdi, docx);
+    final id = await _kaydet(k, dosyaId, dosyaAdi, ad, tur, docx, ozet);
+    return jsonYanit({'id': id, 'no': 1, 'sha256': ozet, 'dosyaAdi': dosyaAdi}, durum: 201);
+  }
+
+  Future<String> _kaydet(KimlikBaglami k, String dosyaId, String dosyaAdi, String belgeAdi, BelgeTuru tur, List<int> icerik,
+      String ozet) async {
     final sonuc = await vt.kiraciIcin(k, (tx) async {
       final rs = await tx.execute(
         Sql.named('INSERT INTO hukuk.belge (kiraci_id, dosya_id, ad, tur) VALUES (CAST(@k AS uuid), CAST(@d AS uuid), @a, @t) '
@@ -162,7 +231,7 @@ class BelgeApi {
       await DosyaApi.denetim(tx, k, 'olusturma', 'belge', belgeId, '$dosyaAdi · sha256 $ozet');
       return belgeId;
     });
-    return jsonYanit({'id': sonuc, 'no': 1, 'sha256': ozet}, durum: 201);
+    return sonuc;
   }
 
   Future<Response> _yeniSurum(Request istek, String belgeId) async {

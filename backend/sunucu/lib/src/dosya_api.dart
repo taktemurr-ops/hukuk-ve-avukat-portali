@@ -24,6 +24,7 @@ class DosyaApi {
   Router get router => Router()
     ..get('/dosyalar', _liste)
     ..post('/dosyalar', _olustur)
+    ..post('/dosyalar/toplu', _topluAktar)
     ..get('/dosyalar/<id>', _ayrinti)
     ..get('/dosyalar/<id>/sureler', _sureler)
     ..post('/dosyalar/<id>/sureler', _sureHesapla)
@@ -41,6 +42,47 @@ class DosyaApi {
         parameters: {'k': k.kiraciId, 'i': islem, 't': nesneTuru, 'n': nesneId, 'a': aciklama},
       );
 
+  /// "2026/123", "2026/123 E" ve "2026/123 E." aynı kayda çevrilir ("2026/123 E."); boşsa null.
+  static String? esasNoBicimle(String? v) {
+    final t = v?.trim() ?? '';
+    if (t.isEmpty) return null;
+    final m = RegExp(r'^(\d{4})\s*/\s*(\d{1,7})\s*(E|D|Tal|Talimat)?\.?$', caseSensitive: false).firstMatch(t);
+    if (m == null) throw const ApiHatasi(400, 'Esas numarası "2026/123 E." biçiminde olmalıdır.', kod: 'gecersiz_istek');
+    final ek = (m[3] ?? 'E').toUpperCase() == 'D' ? 'D.' : (m[3] ?? 'E').toUpperCase() == 'E' ? 'E.' : 'Tal.';
+    return '${m[1]}/${m[2]} $ek';
+  }
+
+  /// Şablon adımlarından görevler: sorumlu/yedek dosyadan, stajyer kiracının ilk aktif stajyeri (yoksa sorumlu).
+  static Future<int> gorevleriOlustur(TxSession tx, KimlikBaglami k, String dosyaId, GorevSablonu sablon,
+      {required String sorumlu, String? yedek}) async {
+    final st = await tx.execute("SELECT r.kullanici_id::text FROM hukuk.kullanici_rol r JOIN hukuk.kullanici u "
+        "ON u.id = r.kullanici_id WHERE r.rol = 'stajyer' AND u.aktif ORDER BY u.ad_soyad LIMIT 1");
+    var sira = 0;
+    final gorevler = sablon.uygula(
+      dosyaId: dosyaId,
+      baslangic: Tarih.from(DateTime.now()),
+      roller: {'sorumlu': sorumlu, if (yedek != null) 'yedek': yedek, if (st.isNotEmpty) 'stajyer': st.first[0]! as String},
+      idUret: () => '${sira++}',
+    );
+    for (final g in gorevler) {
+      await tx.execute(
+        Sql.named('INSERT INTO hukuk.gorev (kiraci_id, dosya_id, baslik, atanan, yedek, son_tarih, oncelik) '
+            'VALUES (CAST(@k AS uuid), CAST(@d AS uuid), @b, CAST(@a AS uuid), CAST(@y AS uuid), CAST(@t AS date), @o)'),
+        parameters: {
+          'k': k.kiraciId,
+          'd': dosyaId,
+          'b': g.baslik,
+          'a': g.atanan,
+          'y': g.yedek == g.atanan ? null : g.yedek,
+          't': g.sonTarih?.isoBicim,
+          'o': g.oncelik.name,
+        },
+      );
+    }
+    await denetim(tx, k, 'olusturma', 'gorev', dosyaId, '"${sablon.ad}" şablonundan ${gorevler.length} görev');
+    return gorevler.length;
+  }
+
   static String _tarih(Object? v) {
     if (v is DateTime) return Tarih.from(v).isoBicim;
     return v?.toString() ?? '';
@@ -50,8 +92,8 @@ class DosyaApi {
     final k = kimlik(istek);
     final rs = await vt.kiraciIcin(
         k,
-        (tx) => tx.execute('SELECT id::text, ic_no, tur, baslik, sorumlu::text, yedek_sorumlu::text, gizli, asama, acilis '
-            'FROM hukuk.dosya ORDER BY acilis DESC, ic_no DESC LIMIT 500'));
+        (tx) => tx.execute('SELECT id::text, ic_no, tur, baslik, sorumlu::text, yedek_sorumlu::text, gizli, asama, acilis, '
+            'kapanis, mahkeme, esas_no FROM hukuk.dosya ORDER BY acilis DESC, ic_no DESC LIMIT 2000'));
     return jsonYanit([
       for (final r in rs)
         {
@@ -64,6 +106,9 @@ class DosyaApi {
           'gizli': r[6],
           'asama': r[7],
           'acilis': _tarih(r[8]),
+          'kapanis': r[9] == null ? null : _tarih(r[9]),
+          'mahkeme': r[10],
+          'esasNo': r[11],
         },
     ]);
   }
@@ -77,6 +122,17 @@ class DosyaApi {
     final sorumlu = (j['sorumlu'] as String?) ?? k.kullaniciId;
     final yedek = j['yedekSorumlu'] as String?;
     final gizli = j['gizli'] == true;
+    final mahkeme = (j['mahkeme'] as String?)?.trim();
+    final esasNo = DosyaApi.esasNoBicimle(j['esasNo'] as String?);
+    // Görev şablonu içerikle gelir (hazır ya da büronun kayıtlı şablonu); kurallar çekirdekte.
+    GorevSablonu? sablon;
+    if (j['gorevSablonu'] is Map) {
+      try {
+        sablon = GorevSablonu.json((j['gorevSablonu'] as Map).cast<String, dynamic>());
+      } on FormatException catch (e) {
+        throw ApiHatasi(400, e.message, kod: 'gecersiz_istek');
+      }
+    }
     // Taraflar: [{"kisiId": "...", "sifat": "muvekkil" | "karsiTaraf" | "diger"}]
     final taraflar = <(String, String)>[
       for (final t in (j['taraflar'] as List? ?? const []))
@@ -93,11 +149,22 @@ class DosyaApi {
       final noRs = await tx.execute(Sql.named('SELECT hukuk.sonraki_dosya_no(@y)'), parameters: {'y': DateTime.now().year});
       final icNo = noRs.first[0]! as String;
       final rs = await tx.execute(
-        Sql.named('INSERT INTO hukuk.dosya (kiraci_id, ic_no, tur, baslik, sorumlu, yedek_sorumlu, gizli) '
-            'VALUES (CAST(@k AS uuid), @n, @t, @b, CAST(@s AS uuid), CAST(@y AS uuid), @g) RETURNING id::text'),
-        parameters: {'k': k.kiraciId, 'n': icNo, 't': tur, 'b': baslik, 's': sorumlu, 'y': yedek, 'g': gizli},
+        Sql.named('INSERT INTO hukuk.dosya (kiraci_id, ic_no, tur, baslik, sorumlu, yedek_sorumlu, gizli, mahkeme, esas_no) '
+            'VALUES (CAST(@k AS uuid), @n, @t, @b, CAST(@s AS uuid), CAST(@y AS uuid), @g, @m, @e) RETURNING id::text'),
+        parameters: {
+          'k': k.kiraciId,
+          'n': icNo,
+          't': tur,
+          'b': baslik,
+          's': sorumlu,
+          'y': yedek,
+          'g': gizli,
+          'm': mahkeme == null || mahkeme.isEmpty ? null : mahkeme,
+          'e': esasNo,
+        },
       );
       final yeniId = rs.first[0]! as String;
+      if (sablon != null) await gorevleriOlustur(tx, k, yeniId, sablon, sorumlu: sorumlu, yedek: yedek);
       for (final t in taraflar) {
         await tx.execute(
           Sql.named('INSERT INTO hukuk.dosya_taraf (kiraci_id, dosya_id, kisi_id, sifat) '
@@ -111,12 +178,69 @@ class DosyaApi {
     return jsonYanit({'id': id}, durum: 201);
   }
 
+  /// UYAP/Excel dosya listesi aktarımı: önizlemeden geçen satırlar tek işlemde; aynı mahkeme + esas no zaten
+  /// varsa (görünmeyen gizli dosyalar dahil, veritabanı tekilliği) satır atlanır. Geçersiz satırda hiçbiri eklenmez.
+  Future<Response> _topluAktar(Request istek) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final sorumlu = (j['sorumlu'] as String?) ?? k.kullaniciId;
+    final yedek = j['yedekSorumlu'] as String?;
+    final liste = (j['dosyalar'] as List? ?? const []).cast<Map<String, dynamic>>();
+    if (liste.isEmpty) throw const ApiHatasi(400, 'Aktarılacak dosya yok.', kod: 'eksik_alan');
+    if (liste.length > 2000) throw const ApiHatasi(400, 'Tek seferde en fazla 2000 dosya aktarılabilir.', kod: 'gecersiz_istek');
+    final satirlar = <Map<String, Object?>>[];
+    for (var i = 0; i < liste.length; i++) {
+      final d = liste[i];
+      try {
+        final tur = zorunluMetin(d, 'tur');
+        if (!DosyaTuru.values.any((t) => t.name == tur)) throw const ApiHatasi(400, 'Geçersiz dosya türü.');
+        final baslik = zorunluMetin(d, 'baslik');
+        final mahkeme = zorunluMetin(d, 'mahkeme');
+        if (baslik.length > 200 || mahkeme.length > 200) throw const ApiHatasi(400, 'Başlık ya da mahkeme çok uzun.');
+        final esas = esasNoBicimle(zorunluMetin(d, 'esasNo'));
+        final acilis = d['acilis'] == null ? null : Tarih.parse(d['acilis'] as String);
+        satirlar.add({'t': tur, 'b': baslik, 'm': mahkeme, 'e': esas, 'a': acilis?.isoBicim});
+      } on ApiHatasi catch (e) {
+        throw ApiHatasi(400, '${d['satirNo'] ?? i + 1}. satır: ${e.mesaj}', kod: 'gecersiz_istek');
+      } on FormatException {
+        throw ApiHatasi(400, '${d['satirNo'] ?? i + 1}. satır: açılış tarihi geçersiz.', kod: 'gecersiz_istek');
+      }
+    }
+    final (eklenen, atlanan) = await vt.kiraciIcin(k, (tx) async {
+      await tx.execute(Sql.named("SELECT pg_advisory_xact_lock(hashtextextended('dosya_no' || @k, 0))"),
+          parameters: {'k': k.kiraciId});
+      var n = 0;
+      var atla = 0;
+      for (final s in satirlar) {
+        // Gizli dosyalar RLS ile görünmez; tekillik veritabanında da zorlanır, çakışmada satır atlanır.
+        final mevcut = await tx.execute(
+            Sql.named('SELECT hukuk.dosya_esas_var(CAST(@k AS uuid), @m, @e)'), parameters: {'k': k.kiraciId, 'm': s['m'], 'e': s['e']});
+        if (mevcut.first[0] == true) {
+          atla++;
+          continue;
+        }
+        final yil = s['a'] == null ? DateTime.now().year : int.parse((s['a']! as String).substring(0, 4));
+        final no = (await tx.execute(Sql.named('SELECT hukuk.sonraki_dosya_no(@y)'), parameters: {'y': yil})).first[0]! as String;
+        await tx.execute(
+          Sql.named('INSERT INTO hukuk.dosya (kiraci_id, ic_no, tur, baslik, sorumlu, yedek_sorumlu, mahkeme, esas_no, acilis) '
+              'VALUES (CAST(@k AS uuid), @n, @t, @b, CAST(@s AS uuid), CAST(@y AS uuid), @m, @e, '
+              'coalesce(CAST(@a AS date), current_date))'),
+          parameters: {'k': k.kiraciId, 'n': no, 's': sorumlu, 'y': yedek, ...s},
+        );
+        n++;
+      }
+      await denetim(tx, k, 'aktarim', 'dosya', '-', 'Gönderilen ${satirlar.length}, eklenen $n, zaten kayıtlı $atla');
+      return (n, atla);
+    });
+    return jsonYanit({'eklenen': eklenen, 'atlanan': atlanan}, durum: 201);
+  }
+
   Future<Response> _ayrinti(Request istek, String id) async {
     final k = kimlik(istek);
     final rs = await vt.kiraciIcin(k, (tx) async {
       final r = await tx.execute(
-        Sql.named('SELECT id::text, ic_no, tur, baslik, sorumlu::text, yedek_sorumlu::text, gizli, asama, acilis, kapanis '
-            'FROM hukuk.dosya WHERE id = CAST(@id AS uuid)'),
+        Sql.named('SELECT id::text, ic_no, tur, baslik, sorumlu::text, yedek_sorumlu::text, gizli, asama, acilis, kapanis, '
+            'mahkeme, esas_no FROM hukuk.dosya WHERE id = CAST(@id AS uuid)'),
         parameters: {'id': id},
       );
       if (r.isNotEmpty) await denetim(tx, k, 'goruntuleme', 'dosya', id);
@@ -135,6 +259,8 @@ class DosyaApi {
       'asama': r[7],
       'acilis': _tarih(r[8]),
       'kapanis': r[9] == null ? null : _tarih(r[9]),
+      'mahkeme': r[10],
+      'esasNo': r[11],
     });
   }
 

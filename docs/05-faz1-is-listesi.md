@@ -33,25 +33,25 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | --- | --- |
 | ◐ | Kişi/taraf kartı, ilişkiler, mükerrer birleştirme — çekirdek kurallar (Türkçe isim eşleştirme, unvan geçmişi, birleştirme) liste/arama/yeni kişi ekranı ve kişi kartı (düzenleme, unvan geçmişi, ilişkiler, yer aldığı dosyalar) hazır; sunucuda da (0022: unvan geçmişini yalnızca veritabanı büyütür, ilişkiler kiracı içinde) |
 | ◐ | Çıkar çatışması taraması, gerekçeli karar ve onay — tarayıcı (kimlik no, aynı/benzer isim, ilişkili kişi, gizli dosya maskeleme) ve karar ekranı hazır; denetim kaydı ve sunucu bekliyor |
-| ◐ | Vekâletname, alt vekil, işlem öncesi yetki kontrolü, yetki belgesi — kurallar (HMK m.74 özel yetkiler, tevkil) ve kontrol ekranı ile vekâletname ekleme formu (sunucuda) hazır; yetki belgesi çıktısı ve özel yetki listesinin avukat kontrolü bekliyor |
+| ◐ | Vekâletname, alt vekil, işlem öncesi yetki kontrolü, yetki belgesi — kurallar (HMK m.74 özel yetkiler, tevkil) ve kontrol ekranı ile vekâletname ekleme formu (sunucuda) ve yetki belgesi (yalnızca vekâletnamedeki yetkiler devredilir; sunucuda Word olarak dosyaya kaydedilir) hazır; şablon metni ve özel yetki listesinin avukat kontrolü bekliyor |
 
 ## Sprint 5–7 — Dosya, süre, görev, tebligat
 
 | Durum | İş |
 | --- | --- |
-| ◐ | Dosya kartı, taraflar, aşamalar, bağlı dosyalar — model, iç numara serisi, liste (yetki filtreli) ve detay ekranı hazır; dosya açma formu sunucuya bağlı |
+| ◐ | Dosya kartı, taraflar, aşamalar, bağlı dosyalar — model, iç numara serisi, liste (yetki filtreli) ve detay ekranı hazır; dosya açma formu sunucuya bağlı (mahkeme, esas no — kiracıda tekil — ve görev şablonu dahil) |
 | ◐ | Tebligat kaydı (manuel), eşleşmeyen evrak kuyruğu — ulaşma/tebliğ ayrımı, mükerrer engeli, esas no + mahkeme + taraf ile eşleştirme, kuyruk ve bağlama ekranı hazır |
 | ◐ | Süre oluşturma, teyit, asıl/yedek sorumlu, eskalasyon, yeniden hesap — kurallar (iki kişi teyidi, kanıtla tamamlama, eski hesabı saklama, eskalasyon, devir listesi) ve ekranlar hazır; sunucuda saatlik görev aynı kurallarla hatırlatma ve eskalasyon e-postası gönderir (her uyarı günde bir kez, 08:00'den sonra, metinde müvekkil bilgisi yok; 0020) |
 | ◐ | Duruşma, çakışma uyarısı, takvim — çakışma (yol süresi dahil), takvim görünümü ve duruşma ekleme formu (sunucuda) hazır; Google/Outlook senkronu bekliyor |
-| ◐ | Görev, iş akışı şablonları, kanıtla kapanış — model, 2 şablon (iş davası, icra takibi), kanıtla kapanış hazır; şablon düzenleyici bekliyor |
+| ◐ | Görev, iş akışı şablonları, kanıtla kapanış — model, 2 şablon (iş davası, icra takibi), kanıtla kapanış hazır; büroya özel şablon düzenleyici (yalnızca yöneticiler yazar, kurallar çekirdekte) ve dosya açılışında sunucuda görev oluşturma hazır (0024) |
 | ☐ | Bildirim servisi (e-posta, SMS, push sinyali) ve tercihler |
 
 ## Sprint 8–10 — Belge, şablon, finans
 
 | Durum | İş |
 | --- | --- |
-| ◐ | Belge yükleme, sürüm, hash, zararlı dosya taraması, OCR, arama — sürüm ve SHA-256 bütünlük, izinli dosya türleri, dosyada belge listesi hazır; cihazdan dosya yükleme (sunucuda içerik imzası, ClamAV taraması, SHA-256) hazır; OCR'ın uygulama sunucusuna bağlanması bekliyor |
-| ◐ | Şablon motoru, DOCX/PDF/UDF çıktı — alan birleştirme, koşullu blok, eksik alan raporu ve 3 taslak şablon (mazeret, ihtarname, ücret sözleşmesi) hazır; DOCX/PDF/UDF dönüşümü Python servisi bekliyor; şablon metinleri avukat onayı bekliyor |
+| ◐ | Belge yükleme, sürüm, hash, zararlı dosya taraması, OCR, arama — sürüm ve SHA-256 bütünlük, izinli dosya türleri, dosyada belge listesi hazır; cihazdan dosya yükleme (sunucuda içerik imzası, ClamAV taraması, SHA-256) hazır; metin çıkarma ve Türkçe OCR arka planda (belge servisi), belgelerin içinde Türkçe tam metin arama (kök eşleşmesi, yalnızca görülebilen dosyalar; 0025) hazır |
+| ◐ | Şablon motoru, DOCX/PDF/UDF çıktı — alan birleştirme, koşullu blok, eksik alan raporu ve 3 taslak şablon (mazeret, ihtarname, ücret sözleşmesi) hazır; Word çıktısı sunucuda belge servisiyle (eksik alan varsa reddedilir); PDF/UDF dönüşümü bekliyor; şablon metinleri avukat onayı bekliyor |
 | ◐ | Hesaplama araçları (faiz, harç, AAÜT, döviz) — dönemsel yasal faiz (%9/%24/%31), avans faizi, 2026 harçları, AAÜT 2025-26 ve 2026-27, makbuz hesabı hazır; avans faizi geçmişi, döviz ve işçilik alacakları bekliyor; tüm tarifeler avukat onayı bekliyor |
 | ◐ | Cari hesap, emanet hesabı, ücret sözleşmesi, e-SMM — cari (avans/masraf/ücret), emanet (eksiye düşmeme, onaylı mahsup, bekleme uyarısı) ve Finans ekranı hazır; e-SMM entegratör bağlantısı bekliyor |
 | ◐ | Temel sözleşme kaydı ve onayı — sözleşme kaydı, durum akışı (taslak→müzakere→onay→imza→yürürlük), yükümlülük takibi, ihbar/yenileme uyarıları ve ekranlar hazır; çok adımlı onay zinciri (hukuk → yüksek riskte/taramasızda hukuk direktörü → 1 milyon TL ve dövizde finans → 5 milyon TL'de genel müdür; eşikler taslak), aynı kişinin iki adımı onaylayamaması, gerekçeli ret/revizyon, onayınızı bekleyenler ve bildirimi hazır; e-imza bekliyor |
@@ -70,7 +70,7 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | --- | --- |
 | ◐ | Tanıtım sitesi, demo hesabı ve örnek veri — statik site (site/), üç hesap türü için demo girişi ve örnek veri hazır; form gönderimi ve fiyatların kesinleşmesi bekliyor |
 | ◐ | Ödeme, abonelik, e-fatura, başarısız ödeme akışı — abonelik yaşam döngüsü (14 gün deneme, aylık/yıllık, 1-3-7. gün tekrar deneme, askı, dönem sonu iptal, kıst koltuk farkı, KDV) ve ekranı hazır; yurt içi ödeme kuruluşu ve e-Arşiv entegrasyonu bekliyor |
-| ◐ | Veri aktarım sihirbazı (Excel/CSV, DavaTek/UYAP çıktıları) — CSV ve Excel (.xlsx, belge servisinde okunur; Windows-1254 CSV desteği) müvekkil aktarımı (sütun tahmini, TCKN/VKN, mükerrer, mutabakat) hazır; sunucu modunda tek işlemde sunucuya yazılır; UYAP çıktıları bekliyor |
+| ◐ | Veri aktarım sihirbazı (Excel/CSV, DavaTek/UYAP çıktıları) — CSV ve Excel (.xlsx, belge servisinde okunur; Windows-1254 CSV desteği) müvekkil aktarımı (sütun tahmini, TCKN/VKN, mükerrer, mutabakat) hazır; sunucu modunda tek işlemde sunucuya yazılır; UYAP/Excel dosya listesi aktarımı (sütun tahmini, esas no biçimleme, tür tahmini, mahkeme + esas no ile mükerrer kontrolü — gizli dosyalar dahil) hazır; UYAP çıktısının gerçek örneklerle doğrulanması bekliyor |
 | ☐ | Kabul testleri, sızma testi, yedekten geri dönüş testi |
 | ☐ | 5–10 pilot büro |
 

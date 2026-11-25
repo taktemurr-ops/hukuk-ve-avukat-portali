@@ -167,6 +167,15 @@ class SahteSunucu {
       case 'POST /kisiler/toplu':
         final j = jsonDecode(r.body) as Map<String, dynamic>;
         return _json({'eklenen': (j['kisiler'] as List).length, 'atlanan': 0}, 201);
+      case 'GET /belgeler/ara':
+        return _json({
+          'sonuclar': [
+            {'belgeId': 'b1', 'ad': 'Bilirkişi raporu', 'dosyaId': 'd1', 'dosyaNo': '2026/0001', 'dosyaBaslik': 'x',
+              'ocr': true, 'ozet': '… davacının «kıdem» «tazminatı» …'},
+          ],
+          'bekleyen': 2,
+          'okunamayan': 0,
+        });
       case 'GET /abonelik':
         return _json({
           'durum': 'deneme', 'etkinDurum': 'deneme', 'etkinDurumAdi': 'Deneme', 'donem': 'aylik',
@@ -206,6 +215,8 @@ class SahteSunucu {
         return _json({'id': portalMesajlari.length}, 201);
       case 'GET /portal-paylasimlari':
         return _json({'dosyalar': [], 'belgeler': []});
+      case 'GET /gorev-sablonlari':
+        return _json([]);
       case 'GET /taraflar':
         return _json([
           {'dosyaId': 'd1', 'kisiId': 'm1', 'sifat': 'muvekkil', 'dosyaAdi': '2026/0001 · Sunucudaki dosya', 'gizli': false, 'kapali': false},
@@ -678,5 +689,17 @@ void main() {
     expect(hata, isNull);
     expect(n, 1);
     expect(sunucu.istekler, containsAll(['POST /aktarim/tablo', 'POST /kisiler/toplu']));
+  });
+
+  test('Belge araması sunucuda yapılır; bekleyen belge sayısı da döner', () async {
+    final sunucu = SahteSunucu();
+    final api = ApiIstemcisi(Uri.parse('https://api.ornek.test/'), istemci: MockClient(sunucu.yanit))..token = 'tkn';
+    final depo = BellekVeriDeposu('k1');
+    SunucuSenkronu(api, depo);
+    final (s, bekleyen, hata) = await depo.belgeAra('kıdem tazminatı');
+    expect(hata, isNull);
+    expect(bekleyen, 2);
+    expect(s.single.ocr, isTrue);
+    expect(s.single.ozet, contains('«kıdem»'));
   });
 }

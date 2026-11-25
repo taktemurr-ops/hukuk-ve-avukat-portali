@@ -113,6 +113,15 @@ class _VekaletlerEkraniState extends State<VekaletlerEkrani> {
               children: [
                 Text('Dosya: $dosyaId', style: metin.bodySmall),
                 const Spacer(),
+                if (v.ozelYetkiler.contains(OzelYetki.tevkil) && v.durum == VekaletDurumu.gecerli) ...[
+                  TextButton(
+                    key: Key('yetki-belgesi-${v.id}'),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => YetkiBelgesiEkrani(depo: widget.depo, oturum: widget.oturum, vekaletname: v))),
+                    child: const Text('Yetki belgesi'),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 OutlinedButton(
                   key: Key('vekalet-kontrol-${v.id}'),
                   onPressed: () => _kontrolEt(v, dosyaId),
@@ -134,6 +143,180 @@ class _VekaletlerEkraniState extends State<VekaletlerEkrani> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Yetki belgesi (tevkil): vekâletnamede tevkil yetkisi olan avukat, sahip olduğu özel yetkilerden seçtiklerini
+/// başka bir avukata devreder. Kurallar çekirdekte; metin taslak şablondur (avukat kontrol edecek).
+class YetkiBelgesiEkrani extends StatefulWidget {
+  const YetkiBelgesiEkrani({super.key, required this.depo, required this.oturum, required this.vekaletname});
+
+  final BellekVeriDeposu depo;
+  final Oturum oturum;
+  final Vekaletname vekaletname;
+
+  @override
+  State<YetkiBelgesiEkrani> createState() => _YetkiBelgesiEkraniState();
+}
+
+class _YetkiBelgesiEkraniState extends State<YetkiBelgesiEkrani> {
+  final _c = {for (final a in ['alanAd', 'alanBaro', 'alanSicil', 'verenBaro', 'verenSicil', 'kapsam']) a: TextEditingController()};
+  final Set<OzelYetki> _yetkiler = {};
+  String? _dosyaId;
+  bool _bekliyor = false;
+
+  @override
+  void dispose() {
+    for (final c in _c.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String? _t(String a) => _c[a]!.text.trim().isEmpty ? null : _c[a]!.text.trim();
+
+  /// (metin, hata); hata kural ihlalidir (ör. vekâletnamede olmayan yetki).
+  (SablonCiktisi?, String?) _uret() {
+    final v = widget.vekaletname;
+    try {
+      final alt = VekaletKontrolu.yetkiBelgesiVer(
+        vekaletname: v,
+        verenAvukat: v.avukatlar.contains(widget.oturum.kullaniciId) ? widget.oturum.kullaniciId : v.avukatlar.first,
+        alanAvukat: _t('alanAd') ?? '-',
+        tarih: Tarih.from(DateTime.now()),
+        dosyalar: {if (_dosyaId != null) _dosyaId!},
+        devredilenYetkiler: _yetkiler,
+      );
+      final veren = v.avukatlar.contains(widget.oturum.kullaniciId) ? widget.oturum.adSoyad : widget.depo.kullaniciAdi(v.avukatlar.first);
+      return (
+        BelgeSablonu.yetkiBelgesi.uygula(VekaletKontrolu.yetkiBelgesiVerisi(
+          vekaletname: v,
+          alt: alt,
+          muvekkilAdi: widget.depo.kisi(v.muvekkilId)?.ad ?? v.muvekkilId,
+          verenAdi: veren,
+          alanAdi: _t('alanAd') ?? '',
+          verenBaro: _t('verenBaro'),
+          verenSicil: _t('verenSicil'),
+          alanBaro: _t('alanBaro'),
+          alanSicil: _t('alanSicil'),
+          kapsamAciklama: _t('kapsam'),
+          bugun: Tarih.from(DateTime.now()),
+        )),
+        null,
+      );
+    } on StateError catch (e) {
+      return (null, e.message);
+    }
+  }
+
+  Future<void> _kaydet(SablonCiktisi c) async {
+    final dosyaId = _dosyaId!;
+    final ad = 'Yetki belgesi - ${_t('alanAd')}';
+    setState(() => _bekliyor = true);
+    final h = await widget.depo.sunucudaVeyaYerelde(
+      sunucuda: (u) => u.wordBelgeKaydet(dosyaId: dosyaId, ad: ad, metin: c.metin, tur: BelgeTuru.vekaletname),
+      yerelde: () {
+        widget.depo.belgeOlustur(
+            dosyaId: dosyaId, ad: ad, metin: c.metin, yukleyen: widget.oturum.kullaniciId, tur: BelgeTuru.vekaletname);
+        return null;
+      },
+    );
+    if (!mounted) return;
+    setState(() => _bekliyor = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(h ?? (widget.depo.uzak == null ? 'Yetki belgesi dosyaya kaydedildi.' : 'Yetki belgesi Word olarak dosyaya kaydedildi.'))));
+    if (h == null) Navigator.of(context).pop();
+  }
+
+  Widget _alan(String a, String etiket, {double genislik = 260}) => SizedBox(
+        width: genislik,
+        child: TextField(
+          key: Key('yb-$a'),
+          controller: _c[a],
+          decoration: InputDecoration(labelText: etiket),
+          onChanged: (_) => setState(() {}),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final v = widget.vekaletname;
+    final (cikti, hata) = _uret();
+    final dosyalar = [
+      for (final d in widget.depo.dosyaKayitlari.where((d) => d.kisiId == v.muvekkilId && !d.kapali))
+        if (v.genel || v.dosyalar.contains(d.dosyaId)) d,
+    ];
+    final eksik = cikti?.eksikAlanlar ?? const <String>{};
+    return Scaffold(
+      appBar: AppBar(title: const Text('Yetki belgesi')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Text('${widget.depo.kisi(v.muvekkilId)?.ad ?? ''} · ${v.noter ?? '-'} · ${v.duzenlemeTarihi.turkceBicim}',
+            style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 12),
+        Wrap(spacing: 12, runSpacing: 12, children: [
+          _alan('alanAd', 'Yetki verilen avukat (Av. Ad Soyad)'),
+          _alan('alanBaro', 'Barosu', genislik: 160),
+          _alan('alanSicil', 'Baro sicil no', genislik: 160),
+          _alan('verenBaro', 'Sizin baronuz (isteğe bağlı)', genislik: 200),
+          _alan('verenSicil', 'Sizin sicil no (isteğe bağlı)', genislik: 200),
+        ]),
+        const SizedBox(height: 12),
+        _alan('kapsam', 'Kapsam (ör. 27.11.2026 tarihli duruşma)', genislik: 600),
+        const SizedBox(height: 16),
+        Text('Devredilecek özel yetkiler (yalnızca vekâletnamede olanlar)', style: Theme.of(context).textTheme.titleSmall),
+        Wrap(spacing: 6, children: [
+          for (final y in v.ozelYetkiler)
+            FilterChip(
+              key: Key('yb-yetki-${y.name}'),
+              label: Text(y.ad),
+              selected: _yetkiler.contains(y),
+              onSelected: (s) => setState(() {
+                if (s) {
+                  _yetkiler.add(y);
+                } else {
+                  _yetkiler.remove(y);
+                }
+              }),
+            ),
+        ]),
+        const SizedBox(height: 12),
+        DropdownMenu<String?>(
+          key: const Key('yb-dosya'),
+          label: const Text('Kaydedilecek dosya'),
+          initialSelection: _dosyaId,
+          onSelected: (d) => setState(() => _dosyaId = d),
+          dropdownMenuEntries: [
+            const DropdownMenuEntry<String?>(value: null, label: 'Seçilmedi'),
+            for (final d in dosyalar) DropdownMenuEntry<String?>(value: d.dosyaId, label: d.dosyaAdi),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (hata != null)
+          Text(hata, key: const Key('yb-hata'), style: TextStyle(color: Theme.of(context).colorScheme.error))
+        else ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: SelectableText(cikti!.metin, key: const Key('yb-metin')),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            eksik.isEmpty
+                ? 'Şablon taslaktır; metni avukat kontrol etmelidir. Baro pulunu unutmayın.'
+                : 'Eksik: ${eksik.join(', ')}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            key: const Key('yb-kaydet'),
+            onPressed: eksik.isNotEmpty || _dosyaId == null || _bekliyor ? null : () => _kaydet(cikti!),
+            icon: const Icon(Icons.save_alt),
+            label: Text(widget.depo.uzak == null ? 'Dosyaya kaydet' : 'Word olarak dosyaya kaydet'),
+          ),
+        ],
+      ]),
     );
   }
 }

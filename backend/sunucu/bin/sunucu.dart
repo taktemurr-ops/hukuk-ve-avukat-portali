@@ -71,6 +71,13 @@ Future<void> main() async {
     stdout.writeln('UYARI: virüs taraması kapalı (geliştirme).');
   }
   final davetAdresi = ortam['DAVET_ADRESI'];
+  // Belge metni çıkarma ve OCR (arka planda, belge servisi tanımlıysa).
+  final belgeServisiAdresi = ortam['BELGE_SERVISI_ADRESI'] ?? '';
+  if (belgeServisiAdresi.isNotEmpty) {
+    BelgeMetniGorevi(vt, YerelNesneDeposu(belgeKlasoru), BelgeServisi(Uri.parse(belgeServisiAdresi)),
+            kaydet: (h) => stderr.writeln('BELGE METNİ HATASI: $h'))
+        .baslat();
+  }
   final handler = uygulama(
     vt,
     virusTarayici: tarayici,

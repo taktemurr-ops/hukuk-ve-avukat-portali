@@ -13,6 +13,9 @@ abstract class MesajUzak {
 
 /// Depodaki bazı işlemlerin sunucuda yapılması için kanca. Sunucu bağlıyken ekranlar bu yolu kullanır;
 /// sonuç her işlemden sonra sunucudan yeniden yüklenir (sunucu tek doğru kaynaktır).
+/// Belge içi arama sonucu; [ozet] eşleşen bölümleri «» içinde gösterir.
+typedef BelgeAramaSonucu = ({String belgeId, String ad, String? dosyaId, String? dosyaNo, String ozet, bool ocr});
+
 /// Sunucudaki denetim zincirinden bir olay (özet sunucuda hesaplanır ve doğrulanır).
 class SunucuDenetimOlayi {
   const SunucuDenetimOlayi({
@@ -70,7 +73,14 @@ abstract class UzakIslemler {
     bool gizli,
     String? muvekkilId,
     String? karsiTarafId,
+    String? mahkeme,
+    String? esasNo,
+    GorevSablonu? sablon,
   });
+
+  Future<void> gorevSablonuKaydet(String? id, GorevSablonu sablon);
+
+  Future<void> gorevSablonuSil(String id);
 
   /// Süre sunucuda hesaplanır; dönen son gün.
   Future<Tarih> sureHesapla({required String dosyaId, required String kuralKodu, required Tarih tarih, String? aciklama});
@@ -86,6 +96,9 @@ abstract class UzakIslemler {
 
   /// Excel/CSV aktarımı (tek işlem); dönen: eklenen kayıt sayısı.
   Future<int> kisileriAktar(List<AktarimSatiri> satirlar);
+
+  /// UYAP/Excel dosya listesi aktarımı (tek işlem); dönen: (eklenen, zaten kayıtlı olduğu için atlanan).
+  Future<(int, int)> dosyalariAktar(List<DosyaAktarimSatiri> satirlar, {required String sorumlu, String? yedekSorumlu});
 
   /// Excel (.xlsx) dosyasının ilk sayfasını satırlar olarak okur (belge servisinde, Türkiye'de).
   Future<List<List<String>>> tabloOku(String dosyaAdi, List<int> icerik);
@@ -167,6 +180,12 @@ abstract class UzakIslemler {
 
   Future<void> belgePaylas(String belgeId, bool paylas);
 
+  /// Belgelerin içinde Türkçe tam metin arama. Dönen: (sonuçlar, metni henüz çıkarılmamış belge sayısı).
+  Future<(List<BelgeAramaSonucu>, int)> belgeAra(String sorgu);
+
+  /// Şablondan üretilen metni sunucuda Word'e çevirip dosyaya kaydeder (eksik alan varsa reddedilir).
+  Future<void> wordBelgeKaydet({required String dosyaId, required String ad, required String metin, BelgeTuru tur});
+
   /// Belgeyi yükler (sürüm 1); SHA-256 özeti sunucuda hesaplanır.
   Future<void> belgeYukle({
     required String dosyaId,
@@ -229,6 +248,9 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
             ? DosyaAsamasi.values.byName(j['asama'] as String)
             : DosyaAsamasi.onDegerlendirme,
         acilisTarihi: _t(j['acilis']),
+        kapanisTarihi: j['kapanis'] == null ? null : _t(j['kapanis']),
+        mahkeme: j['mahkeme'] as String?,
+        esasNo: j['esasNo'] as String?,
       );
 
   /// Sunucudaki kayıttan süre; hesap adımları sunucuda saklanan gerekçedir.
@@ -461,7 +483,30 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
       );
 
   /// Taraf, görev, duruşma, tebligat ve vekâletname verisini yükler.
+  @override
+  Future<void> gorevSablonuKaydet(String? id, GorevSablonu sablon) async {
+    if (id == null) {
+      await api.post('/gorev-sablonlari', sablon.toJson());
+    } else {
+      await api.put('/gorev-sablonlari/$id', sablon.toJson());
+    }
+    await _sablonlariYenile();
+  }
+
+  @override
+  Future<void> gorevSablonuSil(String id) async {
+    await api.delete('/gorev-sablonlari/$id');
+    await _sablonlariYenile();
+  }
+
+  Future<void> _sablonlariYenile() async {
+    depo.sunucuSablonlariniYukle([
+      for (final j in _liste(await api.get('/gorev-sablonlari'))) (j['id'] as String, GorevSablonu.json(j)),
+    ]);
+  }
+
   Future<void> _buroVerisiniYenile() async {
+    await _sablonlariYenile();
     final taraflar = _liste(await api.get('/taraflar'));
     final gorevler = _liste(await api.get('/gorevler'));
     final durusmalar = _liste(await api.get('/durusmalar'));
@@ -616,6 +661,9 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
     bool gizli = false,
     String? muvekkilId,
     String? karsiTarafId,
+    String? mahkeme,
+    String? esasNo,
+    GorevSablonu? sablon,
   }) async {
     await api.post('/dosyalar', {
       'tur': tur.name,
@@ -623,6 +671,9 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
       'sorumlu': sorumlu,
       if (yedekSorumlu != null) 'yedekSorumlu': yedekSorumlu,
       'gizli': gizli,
+      if (mahkeme != null && mahkeme.trim().isNotEmpty) 'mahkeme': mahkeme.trim(),
+      if (esasNo != null && esasNo.trim().isNotEmpty) 'esasNo': esasNo.trim(),
+      if (sablon != null) 'gorevSablonu': sablon.toJson(),
       'taraflar': [
         if (muvekkilId != null) {'kisiId': muvekkilId, 'sifat': 'muvekkil'},
         if (karsiTarafId != null) {'kisiId': karsiTarafId, 'sifat': 'karsiTaraf'},
@@ -685,6 +736,27 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
     }) as Map<String, dynamic>;
     await _isVerisiniYenile();
     return (y['eklenen'] as num).toInt();
+  }
+
+  @override
+  Future<(int, int)> dosyalariAktar(List<DosyaAktarimSatiri> satirlar, {required String sorumlu, String? yedekSorumlu}) async {
+    final y = await api.post('/dosyalar/toplu', {
+      'sorumlu': sorumlu,
+      if (yedekSorumlu != null) 'yedekSorumlu': yedekSorumlu,
+      'dosyalar': [
+        for (final s in satirlar)
+          {
+            'satirNo': s.satirNo,
+            'tur': s.tur.name,
+            'baslik': s.baslik,
+            'mahkeme': s.mahkeme,
+            'esasNo': s.esasNo,
+            if (s.acilis != null) 'acilis': s.acilis!.isoBicim,
+          },
+      ],
+    }) as Map<String, dynamic>;
+    await yenile();
+    return ((y['eklenen'] as num).toInt(), (y['atlanan'] as num).toInt());
   }
 
   @override
@@ -928,6 +1000,32 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
       'x-belge-adi': Uri.encodeComponent(ad),
       'x-belge-turu': tur.name,
     });
+    await yenile();
+  }
+
+  @override
+  Future<(List<BelgeAramaSonucu>, int)> belgeAra(String sorgu) async {
+    final y = await api.get('/belgeler/ara?q=${Uri.encodeQueryComponent(sorgu)}') as Map<String, dynamic>;
+    return (
+      [
+        for (final j in _liste(y['sonuclar']))
+          (
+            belgeId: j['belgeId'] as String,
+            ad: j['ad'] as String,
+            dosyaId: j['dosyaId'] as String?,
+            dosyaNo: j['dosyaNo'] as String?,
+            ozet: j['ozet'] as String? ?? '',
+            ocr: j['ocr'] == true,
+          ),
+      ],
+      (y['bekleyen'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  Future<void> wordBelgeKaydet(
+      {required String dosyaId, required String ad, required String metin, BelgeTuru tur = BelgeTuru.diger}) async {
+    await api.post('/dosyalar/$dosyaId/belgeler/word', {'ad': ad, 'metin': metin, 'tur': tur.name});
     await yenile();
   }
 

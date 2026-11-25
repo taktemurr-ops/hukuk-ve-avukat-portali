@@ -82,6 +82,61 @@ class BellekVeriDeposu extends ChangeNotifier {
   List<Kisi> get kisiler => List.unmodifiable(_kisiler);
   List<KisiIliskisi> get iliskiler => List.unmodifiable(_iliskiler);
 
+  /// Görev şablonları: hazır şablonlar (kimliksiz, değiştirilemez) ve büronun kendi şablonları.
+  final List<(String, GorevSablonu)> _sablonlar = [];
+
+  List<(String?, GorevSablonu)> get gorevSablonlari => [
+        for (final s in GorevSablonu.hazirSablonlar) (null, s),
+        ..._sablonlar,
+      ];
+
+  void sunucuSablonlariniYukle(List<(String, GorevSablonu)> liste) {
+    _sablonlar
+      ..clear()
+      ..addAll(liste);
+    notifyListeners();
+  }
+
+  /// Yeni (id null) ya da mevcut şablonu kaydeder; kurallar çekirdekte (GorevSablonu.json).
+  Future<String?> gorevSablonuKaydet(String? id, GorevSablonu s) {
+    try {
+      GorevSablonu.json(s.toJson());
+    } on FormatException catch (e) {
+      return Future.value(e.message);
+    }
+    return sunucudaVeyaYerelde(
+      sunucuda: (u) => u.gorevSablonuKaydet(id, s),
+      yerelde: () {
+        final adVar = _sablonlar.any((x) => x.$1 != id && x.$2.ad.toLowerCase() == s.ad.toLowerCase());
+        if (adVar) return 'Bu adla bir şablon zaten var.';
+        if (id == null) {
+          final yeni = yeniId('gs');
+          _sablonlar.add((yeni, s));
+          _kaydet(DenetimIslemi.olusturma, 'gorev_sablonu', yeni, '${s.ad} · ${s.adimlar.length} adım');
+        } else {
+          final i = _sablonlar.indexWhere((x) => x.$1 == id);
+          if (i < 0) return 'Şablon bulunamadı.';
+          _sablonlar[i] = (id, s);
+          _kaydet(DenetimIslemi.degisiklik, 'gorev_sablonu', id, '${s.ad} · ${s.adimlar.length} adım');
+        }
+        notifyListeners();
+        return null;
+      },
+    );
+  }
+
+  Future<String?> gorevSablonuSil(String id) => sunucudaVeyaYerelde(
+        sunucuda: (u) => u.gorevSablonuSil(id),
+        yerelde: () {
+          final i = _sablonlar.indexWhere((x) => x.$1 == id);
+          if (i < 0) return 'Şablon bulunamadı.';
+          final s = _sablonlar.removeAt(i);
+          _kaydet(DenetimIslemi.silme, 'gorev_sablonu', id, s.$2.ad);
+          notifyListeners();
+          return null;
+        },
+      );
+
   /// Sunucu kimlikleri (ilişki silmek için); yerelde boş.
   final Map<KisiIliskisi, String> _iliskiIdleri = Map.identity();
 
@@ -1122,6 +1177,40 @@ class BellekVeriDeposu extends ChangeNotifier {
 
   String? belgeMetni(String belgeId) => _belgeMetinleri[belgeId];
 
+  /// Belgelerin içinde arama. Sunucuda Türkçe tam metin (OCR dahil); yerelde şablondan üretilen metinlerde
+  /// Türkçe karakterden bağımsız sözcük araması. Dönen: (sonuçlar, bekleyen, hata).
+  Future<(List<BelgeAramaSonucu>, int, String?)> belgeAra(String sorgu) async {
+    final q = sorgu.trim();
+    if (q.length < 2) return (const <BelgeAramaSonucu>[], 0, 'En az 2 karakter yazın.');
+    final u = uzak;
+    if (u != null) {
+      try {
+        final (s, b) = await u.belgeAra(q);
+        return (s, b, null);
+      } on Exception catch (e) {
+        return (const <BelgeAramaSonucu>[], 0, '$e');
+      }
+    }
+    final sozcukler = IsimEslestirme.normallestir(q).split(' ').where((s) => s.length >= 2).toList();
+    final sonuc = <BelgeAramaSonucu>[];
+    for (final b in _belgeler) {
+      final metin = _belgeMetinleri[b.id];
+      if (metin == null) continue;
+      final n = IsimEslestirme.normallestir(metin);
+      if (sozcukler.isEmpty || !sozcukler.every(n.contains)) continue;
+      sonuc.add((
+        belgeId: b.id,
+        ad: b.ad,
+        dosyaId: b.dosyaId,
+        dosyaNo: dosya(b.dosyaId ?? '')?.icNo,
+        ozet: metin.length > 160 ? '${metin.substring(0, 160)}…' : metin,
+        ocr: false,
+      ));
+    }
+    _kaydet(DenetimIslemi.goruntuleme, 'belge_arama', '-', '${sonuc.length} sonuç');
+    return (sonuc, 0, null);
+  }
+
   Belge belgeOlustur({required String dosyaId, required String ad, required String metin, required String yukleyen, BelgeTuru tur = BelgeTuru.dilekce}) {
     final b = Belge(
       id: yeniId('b'),
@@ -1448,6 +1537,33 @@ class BellekVeriDeposu extends ChangeNotifier {
     } on Exception catch (e) {
       return (0, '$e');
     }
+  }
+
+  /// UYAP/Excel dosya listesini aktarır. Dönen: (eklenen, atlanan, hata).
+  Future<(int, int, String?)> dosyalariAktar(DosyaAktarimOnizlemesi o, {required String sorumlu, String? yedekSorumlu}) async {
+    final satirlar = o.satirlar.where((s) => s.durum == SatirDurumu.aktarilacak).toList();
+    final u = uzak;
+    if (u != null) {
+      try {
+        final (n, atla) = await u.dosyalariAktar(satirlar, sorumlu: sorumlu, yedekSorumlu: yedekSorumlu);
+        return (n, atla, null);
+      } on Exception catch (e) {
+        return (0, 0, '$e');
+      }
+    }
+    for (final s in satirlar) {
+      dosyaAc(
+        tur: s.tur,
+        baslik: s.baslik,
+        sorumlu: sorumlu,
+        yedekSorumlu: yedekSorumlu,
+        mahkeme: s.mahkeme,
+        esasNo: s.esasNo,
+      );
+    }
+    _kaydet(DenetimIslemi.aktarim, 'dosya', '-', 'Okunan ${o.satirlar.length}, aktarılan ${satirlar.length}');
+    notifyListeners();
+    return (satirlar.length, 0, null);
   }
 
   int _kisileriYerelAktar(AktarimOnizlemesi onizleme) {

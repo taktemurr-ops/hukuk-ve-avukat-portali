@@ -68,4 +68,36 @@ void main() {
       expect(CakismaKontrolu.bul([d('1', 10, 0, 'Çağlayan Adliyesi'), d('2', 11, 0, 'Çağlayan Adliyesi')]), isEmpty);
     });
   });
+
+  group('Görev şablonu JSON', () {
+    test('hazır şablon JSON üzerinden aynı kalır', () {
+      final j = GorevSablonu.isDavasiAcilisi.toJson();
+      final s = GorevSablonu.json(j);
+      expect(s.ad, GorevSablonu.isDavasiAcilisi.ad);
+      expect(s.adimlar.map((a) => a.rol), GorevSablonu.isDavasiAcilisi.adimlar.map((a) => a.rol));
+      expect(s.adimlar.last.oncelik, GorevOnceligi.yuksek);
+    });
+
+    test('kurala uymayan şablon Türkçe iletiyle reddedilir', () {
+      expect(() => GorevSablonu.json({'ad': 'Ab', 'adimlar': []}), throwsFormatException);
+      expect(
+        () => GorevSablonu.json({
+          'ad': 'Kira tahliye',
+          'adimlar': [
+            {'baslik': 'İhtar', 'gunSonra': 0, 'rol': 'muhasebe'},
+          ],
+        }),
+        throwsA(isA<FormatException>().having((e) => e.message, 'mesaj', contains('1. adım: rol'))),
+      );
+      expect(
+        () => GorevSablonu.json({
+          'ad': 'Kira tahliye',
+          'adimlar': [
+            {'baslik': 'İhtar', 'gunSonra': -1},
+          ],
+        }),
+        throwsFormatException,
+      );
+    });
+  });
 }

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
@@ -7,6 +5,7 @@ import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
 import '../servisler/dosya_secici.dart';
 import '../servisler/kimlik_servisi.dart';
+import '../servisler/sunucu_senkronu.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
 import 'etik_duvar_bolumu.dart';
@@ -41,7 +40,16 @@ class DosyalarEkrani extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('${dosyalar.length} dosya', style: Theme.of(context).textTheme.labelMedium),
+            Row(children: [
+              Expanded(child: Text('${dosyalar.length} dosya', style: Theme.of(context).textTheme.labelMedium)),
+              TextButton.icon(
+                key: const Key('belge-ara'),
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute<void>(builder: (_) => BelgeAramaEkrani(depo: depo, oturum: oturum))),
+                icon: const Icon(Icons.manage_search),
+                label: const Text('Belgelerin içinde ara'),
+              ),
+            ]),
             for (final d in dosyalar)
               Card(
                 child: ListTile(
@@ -72,6 +80,97 @@ class DosyalarEkrani extends StatelessWidget {
       'sorumlu: ${depo.kullaniciAdi(d.sorumlu)}',
       if (acikSureler.isNotEmpty) 'en yakın süre: ${kalanMetni(acikSureler.first.kalanGun(bugun))}',
     ].join(' · ');
+  }
+}
+
+/// Belgelerin içinde arama: sunucuda Türkçe tam metin (taranmış belgelerde OCR ile okunan metin dahil).
+/// Yalnızca görme yetkiniz olan dosyaların belgeleri listelenir.
+class BelgeAramaEkrani extends StatefulWidget {
+  const BelgeAramaEkrani({super.key, required this.depo, required this.oturum});
+
+  final BellekVeriDeposu depo;
+  final Oturum oturum;
+
+  @override
+  State<BelgeAramaEkrani> createState() => _BelgeAramaEkraniState();
+}
+
+class _BelgeAramaEkraniState extends State<BelgeAramaEkrani> {
+  final _sorgu = TextEditingController();
+  List<BelgeAramaSonucu>? _sonuclar;
+  int _bekleyen = 0;
+  String? _hata;
+  bool _bekliyor = false;
+
+  @override
+  void dispose() {
+    _sorgu.dispose();
+    super.dispose();
+  }
+
+  Future<void> _ara() async {
+    setState(() => _bekliyor = true);
+    final (s, b, h) = await widget.depo.belgeAra(_sorgu.text);
+    if (!mounted) return;
+    // Yerel modda da yalnızca görülebilen dosyalar (sunucuda bu kural veritabanında).
+    final gorunur = widget.depo.gorunurDosyalar(oturumAktoru(widget.oturum)).map((d) => d.id).toSet();
+    setState(() {
+      _bekliyor = false;
+      _hata = h;
+      _bekleyen = b;
+      _sonuclar = [for (final x in s) if (x.dosyaId == null || gorunur.contains(x.dosyaId)) x];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = _sonuclar;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Belgelerde ara')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        TextField(
+          key: const Key('belge-ara-metin'),
+          controller: _sorgu,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => _ara(),
+          decoration: InputDecoration(
+            labelText: 'Sözcük ya da "tam ifade" (ör. kıdem tazminatı)',
+            suffixIcon: IconButton(
+                key: const Key('belge-ara-dugme'), onPressed: _bekliyor ? null : _ara, icon: const Icon(Icons.search)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          widget.depo.uzak == null
+              ? 'Demo modunda yalnızca şablondan üretilen belgelerin metni aranır.'
+              : 'Ekler de bulunur: "tazminat" araması "tazminatı" ve "tazminatın" geçen belgeleri getirir. '
+                  'Taranmış belgelerin metni OCR ile okunur ve yanlış karakterler içerebilir.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        if (_hata != null) ...[
+          const SizedBox(height: 12),
+          Text(_hata!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        ],
+        if (s != null) ...[
+          const SizedBox(height: 12),
+          Text('${s.length} belge${_bekleyen > 0 ? ' · $_bekleyen belgenin metni henüz okunuyor' : ''}',
+              key: const Key('belge-ara-sayi'), style: Theme.of(context).textTheme.labelMedium),
+          for (final x in s)
+            Card(
+              child: ListTile(
+                key: Key('belge-sonuc-${x.belgeId}'),
+                leading: Icon(x.ocr ? Icons.document_scanner_outlined : Icons.description_outlined),
+                title: Text('${x.ad}${x.dosyaNo == null ? '' : ' · ${x.dosyaNo}'}'),
+                subtitle: Text(x.ozet),
+                onTap: x.dosyaId == null
+                    ? null
+                    : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => DosyaDetayEkrani(depo: widget.depo, oturum: widget.oturum, dosyaId: x.dosyaId!))),
+              ),
+            ),
+        ],
+      ]),
+    );
   }
 }
 
@@ -478,11 +577,11 @@ class _SablondanBelgeEkraniState extends State<SablondanBelgeEkrani> {
                           final ad = _sablon!.ad;
                           final metin = _metin.text;
                           final hata = await widget.depo.sunucudaVeyaYerelde(
-                            sunucuda: (u) => u.belgeYukle(
+                            // Sunucuda Word'e çevrilip kaydedilir (belge servisi); eksik alan varsa sunucu da reddeder.
+                            sunucuda: (u) => u.wordBelgeKaydet(
                               dosyaId: widget.dosyaId,
                               ad: ad,
-                              dosyaAdi: '$ad.txt',
-                              icerik: utf8.encode(metin),
+                              metin: metin,
                               tur: BelgeTuru.dilekce,
                             ),
                             yerelde: () {

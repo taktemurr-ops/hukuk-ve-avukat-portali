@@ -23,6 +23,8 @@ import 'src/veritabani.dart';
 export 'src/abonelik_api.dart';
 export 'src/aktarim_api.dart';
 export 'src/belge_api.dart';
+export 'src/belge_metni.dart';
+export 'src/belge_servisi.dart';
 export 'src/buro_api.dart';
 export 'src/davet_api.dart';
 export 'src/dosya_api.dart';
@@ -74,6 +76,7 @@ Handler uygulama(
   int belgeAzamiBoyut = 50 * 1024 * 1024,
   void Function(Object, StackTrace)? kaydet,
 }) {
+  final bs = belgeServisi == null ? null : BelgeServisi(belgeServisi);
   final cascade = Cascade()
       .add((Request r) => r.url.path == 'saglik' ? jsonYanit({'durum': 'ok'}) : Response.notFound(null))
       .add(KimlikApi(vt, sifreleyici, sifirlamaAdresi: sifirlamaAdresi, dogrulamaAdresi: dogrulamaAdresi).router.call)
@@ -82,11 +85,11 @@ Handler uygulama(
       .add(KurumsalApi(vt).router.call)
       .add(UyumApi(vt).router.call)
       .add(BuroApi(vt).router.call)
-      .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut, tarayici: virusTarayici).router.call)
+      .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut, tarayici: virusTarayici, belgeServisi: bs).router.call)
       .add(DavetApi(vt, davetAdresi: davetAdresi).router.call)
       .add(PortalApi(vt, depo).router.call)
       .add(AbonelikApi(vt, odemeSaglayici).router.call)
-      .add(AktarimApi(belgeServisi: belgeServisi, tarayici: virusTarayici).router.call);
+      .add(AktarimApi(belgeServisi: bs, tarayici: virusTarayici).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))

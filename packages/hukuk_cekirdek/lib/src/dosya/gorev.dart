@@ -69,6 +69,10 @@ class SablonAdimi {
   /// "sorumlu", "yedek" veya "stajyer" gibi; şablon uygulanırken kişiye çevrilir.
   final String rol;
   final GorevOnceligi oncelik;
+
+  static const roller = {'sorumlu', 'yedek', 'stajyer'};
+
+  Map<String, Object> toJson() => {'baslik': baslik, 'gunSonra': gunSonra, 'rol': rol, 'oncelik': oncelik.name};
 }
 
 /// "İş davası açılışı" gibi tekrar eden işlerin görev listesi.
@@ -97,6 +101,34 @@ class GorevSablonu {
         ),
     ];
   }
+
+  Map<String, Object> toJson() => {'ad': ad, 'adimlar': [for (final a in adimlar) a.toJson()]};
+
+  /// JSON'dan şablon; kurala uymayan şablonda Türkçe iletiyle [FormatException].
+  /// Kurallar: ad 3–100 karakter, 1–50 adım, adım başlığı en az 3 karakter, gün 0–3650, bilinen rol ve öncelik.
+  factory GorevSablonu.json(Map<String, dynamic> j) {
+    final ad = '${j['ad'] ?? ''}'.trim();
+    if (ad.length < 3 || ad.length > 100) throw const FormatException('Şablon adı 3–100 karakter olmalıdır.');
+    final ham = j['adimlar'];
+    if (ham is! List || ham.isEmpty || ham.length > 50) throw const FormatException('Şablonda 1–50 adım olmalıdır.');
+    final adimlar = <SablonAdimi>[];
+    for (var i = 0; i < ham.length; i++) {
+      final a = ham[i];
+      if (a is! Map) throw FormatException('${i + 1}. adım geçersiz.');
+      final baslik = '${a['baslik'] ?? ''}'.trim();
+      final gun = a['gunSonra'];
+      final rol = '${a['rol'] ?? 'sorumlu'}';
+      final oncelik = GorevOnceligi.values.where((o) => o.name == (a['oncelik'] ?? 'normal')).firstOrNull;
+      if (baslik.length < 3 || baslik.length > 200) throw FormatException('${i + 1}. adım: başlık 3–200 karakter olmalıdır.');
+      if (gun is! int || gun < 0 || gun > 3650) throw FormatException('${i + 1}. adım: gün 0–3650 arasında olmalıdır.');
+      if (!SablonAdimi.roller.contains(rol)) throw FormatException('${i + 1}. adım: rol sorumlu, yedek veya stajyer olmalıdır.');
+      if (oncelik == null) throw FormatException('${i + 1}. adım: öncelik geçersiz.');
+      adimlar.add(SablonAdimi(baslik, gun, rol: rol, oncelik: oncelik));
+    }
+    return GorevSablonu(ad: ad, adimlar: adimlar);
+  }
+
+  static const hazirSablonlar = [isDavasiAcilisi, icraTakibiBaslatma];
 
   static const isDavasiAcilisi = GorevSablonu(ad: 'İş davası açılışı', adimlar: [
     SablonAdimi('Arabuluculuk son tutanağını dosyaya ekle', 0, rol: 'stajyer'),

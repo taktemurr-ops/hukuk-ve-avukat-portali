@@ -115,4 +115,34 @@ void main() {
       );
     });
   });
+
+  test('Yetki belgesi şablonu: alanlar dolar, devredilmeyen yetki yazılmaz, eksik sicil işaretlenir', () {
+    final v = Vekaletname(
+      id: 'v1',
+      kiraciId: 'k',
+      muvekkilId: 'm',
+      avukatlar: {'a1'},
+      duzenlemeTarihi: Tarih(2025, 3, 14),
+      noter: 'Kadıköy 5. Noterliği',
+      yevmiyeNo: '04512',
+      ozelYetkiler: {OzelYetki.tevkil, OzelYetki.sulh, OzelYetki.ibra},
+    );
+    final alt = VekaletKontrolu.yetkiBelgesiVer(
+        vekaletname: v, verenAvukat: 'a1', alanAvukat: 'dis', tarih: Tarih(2026, 11, 25), devredilenYetkiler: {OzelYetki.sulh});
+    final veri = VekaletKontrolu.yetkiBelgesiVerisi(
+      vekaletname: v,
+      alt: alt,
+      muvekkilAdi: 'ABC Gıda A.Ş.',
+      verenAdi: 'Av. Ayşe Yılmaz',
+      alanAdi: 'Av. Can Demir',
+      alanBaro: 'Ankara',
+      kapsamAciklama: 'Ankara 3. İş Mahkemesi 2026/45 E. dosyasında 27.11.2026 duruşması',
+      bugun: Tarih(2026, 11, 25),
+    );
+    final c = BelgeSablonu.yetkiBelgesi.uygula(veri);
+    expect(c.metin, contains('Kadıköy 5. Noterliği, 14.03.2025 tarih ve 04512 yevmiye'));
+    expect(c.metin, contains('DEVREDİLEN ÖZEL YETKİLER: Sulh olma'));
+    expect(c.metin, isNot(contains('İbra')));
+    expect(c.eksikAlanlar, {'alan.sicil'});
+  });
 }

@@ -65,6 +65,9 @@ class _DosyaFormuState extends State<DosyaFormu> {
           gizli: _gizli,
           muvekkilId: _muvekkil,
           karsiTarafId: _karsiTaraf,
+          mahkeme: _mahkeme.text,
+          esasNo: _esas.text,
+          sablon: _sablon,
         );
         if (mounted) Navigator.of(context).pop(true);
       } on Exception catch (e) {
@@ -199,7 +202,7 @@ class _DosyaFormuState extends State<DosyaFormu> {
               spacing: 8,
               children: [
                 ChoiceChip(label: const Text('Yok'), selected: _sablon == null, onSelected: (_) => setState(() => _sablon = null)),
-                for (final s in const [GorevSablonu.isDavasiAcilisi, GorevSablonu.icraTakibiBaslatma])
+                for (final (_, s) in widget.depo.gorevSablonlari)
                   ChoiceChip(label: Text(s.ad), selected: _sablon == s, onSelected: (_) => setState(() => _sablon = s)),
               ],
             ),

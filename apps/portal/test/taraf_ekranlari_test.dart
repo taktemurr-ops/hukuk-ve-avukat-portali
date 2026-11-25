@@ -121,4 +121,19 @@ void main() {
     await _bas(tester, 'iliski-kaydet');
     expect(depo.kisininIliskileri('delta').single.karsiTaraf('delta'), 'orman');
   });
+  testWidgets('Yetki belgesi: yalnızca vekâletnamedeki yetkiler devredilir, eksik alan gösterilir', (tester) async {
+    await _ac(tester, 'Vekâletler');
+    await _bas(tester, 'yetki-belgesi-v1');
+    await tester.enterText(find.byKey(const Key('yb-alanAd')), 'Av. Can Demir');
+    await tester.enterText(find.byKey(const Key('yb-alanBaro')), 'Ankara');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Eksik: alan.sicil'), findsOneWidget);
+    await _bas(tester, 'yb-yetki-sulh');
+    await tester.enterText(find.byKey(const Key('yb-alanSicil')), '12345');
+    await tester.pumpAndSettle();
+    final metin = tester.widget<SelectableText>(find.byKey(const Key('yb-metin'))).data!;
+    expect(metin, contains('DEVREDİLEN ÖZEL YETKİLER: Sulh olma'));
+    expect(metin, contains('Kadıköy 5. Noterliği'));
+    expect(find.textContaining('Baro pulunu unutmayın'), findsOneWidget);
+  });
 }

@@ -190,6 +190,177 @@ class _VeriAktarimEkraniState extends State<VeriAktarimEkrani> {
   }
 }
 
+// ============================================================================= UYAP dosya listesi aktarımı
+
+/// UYAP Avukat Portalı'ndan (ya da başka programdan) Excel/CSV olarak alınan dosya listesini aktarır.
+/// Mahkeme + esas no ile mükerrer kontrolü yapılır; hiçbir dosya önizlemeden önce açılmaz.
+class DosyaAktarimEkrani extends StatefulWidget {
+  const DosyaAktarimEkrani({super.key, required this.depo, required this.kullaniciId});
+
+  final BellekVeriDeposu depo;
+  final String kullaniciId;
+
+  @override
+  State<DosyaAktarimEkrani> createState() => _DosyaAktarimEkraniState();
+}
+
+class _DosyaAktarimEkraniState extends State<DosyaAktarimEkrani> {
+  final _metin = TextEditingController();
+  DosyaAktarimOnizlemesi? _onizleme;
+  late String _sorumlu = widget.kullaniciId;
+  bool _bekliyor = false;
+
+  static const _ornek = 'Birim Adı;Dosya No;Dosya Türü;Davacı;Davalı;Açılış Tarihi;Dosya Durumu\n'
+      'İstanbul 3. İş Mahkemesi;2026/210;Hukuk;Zeynep Aydın;Mavi Lojistik A.Ş.;12.03.2026;Açık\n'
+      'İstanbul 8. İcra Dairesi;2026/15873 E;İcra;ABC Gıda;Yıldız Ltd.;02.04.2026;Açık';
+
+  @override
+  void dispose() {
+    _metin.dispose();
+    super.dispose();
+  }
+
+  void _onizle() => setState(() => _onizleme =
+      DosyaAktarimi.onizle(tablo: CsvAyristirici.ayristir(_metin.text), mevcut: widget.depo.tumDosyalar));
+
+  Future<void> _dosyadanYukle() async {
+    final f = await dosyaSecici(const ['xlsx', 'csv', 'txt']);
+    if (f == null || !mounted) return;
+    String? hata;
+    if (f.ad.toLowerCase().endsWith('.xlsx')) {
+      final u = widget.depo.uzak;
+      if (u == null) {
+        hata = 'Excel dosyası sunucu bağlantısıyla okunur. Bu modda dosyayı CSV olarak kaydedip yükleyin.';
+      } else {
+        setState(() => _bekliyor = true);
+        try {
+          _metin.text = csvYaz(await u.tabloOku(f.ad, f.icerik));
+        } on Exception catch (e) {
+          hata = '$e';
+        }
+      }
+    } else {
+      _metin.text = csvCoz(f.icerik);
+    }
+    if (!mounted) return;
+    setState(() => _bekliyor = false);
+    if (hata != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
+      return;
+    }
+    _onizle();
+  }
+
+  Future<void> _aktar() async {
+    final o = _onizleme!;
+    setState(() => _bekliyor = true);
+    final (n, atla, hata) = await widget.depo.dosyalariAktar(o, sorumlu: _sorumlu);
+    if (!mounted) return;
+    setState(() => _bekliyor = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(hata ?? '$n dosya açıldı${atla > 0 ? ', $atla dosya zaten kayıtlı olduğu için atlandı' : ''}.'),
+    ));
+    if (hata == null) {
+      setState(() {
+        _onizleme = null;
+        _metin.clear();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final o = _onizleme;
+    final kullanicilar = widget.depo.kullanicilar;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Veri aktarımı · UYAP dosya listesi')),
+      body: ListView(padding: const EdgeInsets.all(24), children: [
+        const Text('UYAP Avukat Portalı\'ndaki dosya listesini Excel olarak indirip yükleyin ya da başka bir programın '
+            'listesini kullanın. Mahkeme/birim ve esas no sütunları zorunludur; aynı mahkeme ve esas no ile kayıtlı dosya '
+            'atlanır. Sütun adları UYAP sürümüne göre değişebilir: eşlemeyi önizlemede kontrol edin.'),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, children: [
+          OutlinedButton.icon(
+            key: const Key('dosya-aktarim-dosya'),
+            onPressed: _bekliyor ? null : _dosyadanYukle,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Dosyadan yükle (.xlsx, .csv)'),
+          ),
+          TextButton(onPressed: () => setState(() => _metin.text = _ornek), child: const Text('Örnek veriyle doldur')),
+        ]),
+        TextField(
+          key: const Key('dosya-aktarim-metin'),
+          controller: _metin,
+          minLines: 5,
+          maxLines: 12,
+          decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Birim Adı;Dosya No;Davacı;Davalı'),
+          onChanged: (_) {
+            if (_onizleme != null) setState(() => _onizleme = null);
+          },
+        ),
+        const SizedBox(height: 12),
+        Wrap(spacing: 12, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          DropdownMenu<String>(
+            key: const Key('dosya-aktarim-sorumlu'),
+            label: const Text('Sorumlu avukat'),
+            initialSelection: _sorumlu,
+            onSelected: (v) => setState(() => _sorumlu = v ?? _sorumlu),
+            dropdownMenuEntries: [
+              for (final k in (kullanicilar.isEmpty ? {widget.kullaniciId: widget.kullaniciId} : kullanicilar).entries)
+                DropdownMenuEntry(value: k.key, label: k.value),
+            ],
+          ),
+          FilledButton.tonal(key: const Key('dosya-aktarim-onizle'), onPressed: _onizle, child: const Text('Önizle')),
+        ]),
+        if (o != null) ...[
+          const SizedBox(height: 20),
+          Wrap(spacing: 12, runSpacing: 8, children: [
+            DurumRozeti('Okunan ${o.satirlar.length}', RozetTuru.notr),
+            DurumRozeti('Açılacak ${o.sayi(SatirDurumu.aktarilacak)}', RozetTuru.onay),
+            DurumRozeti('Mükerrer ${o.sayi(SatirDurumu.mukerrer)}', RozetTuru.uyari),
+            DurumRozeti('Hatalı ${o.sayi(SatirDurumu.hatali)}', RozetTuru.kritik),
+          ]),
+          const SizedBox(height: 8),
+          Text('Eşlenen sütunlar: ${o.esleme.entries.map((e) => '${e.key.ad} ← "${o.basliklar[e.value]}"').join(', ')}',
+              style: const TextStyle(color: Renkler.metinIkincil)),
+          const SizedBox(height: 12),
+          for (final s in o.satirlar)
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                key: Key('dosya-aktarim-satir-${s.satirNo}'),
+                leading: Text('${s.satirNo}', style: const TextStyle(color: Renkler.metinIkincil)),
+                title: Text(s.baslik.isEmpty ? '(başlık yok)' : s.baslik),
+                subtitle: Text([
+                  s.mahkeme.isEmpty ? '(mahkeme yok)' : s.mahkeme,
+                  s.esasNo ?? s.deger(DosyaAlani.esasNo),
+                  s.tur.ad,
+                  ...s.hatalar,
+                  if (s.mukerrerAciklama != null) s.mukerrerAciklama!,
+                  ...s.uyarilar,
+                ].join(' · ')),
+                trailing: switch (s.durum) {
+                  SatirDurumu.aktarilacak => const DurumRozeti('Açılacak', RozetTuru.onay),
+                  SatirDurumu.mukerrer => const DurumRozeti('Atlanacak', RozetTuru.uyari),
+                  SatirDurumu.hatali => const DurumRozeti('Hatalı', RozetTuru.kritik),
+                },
+              ),
+            ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton(
+              key: const Key('dosya-aktarim-aktar'),
+              onPressed: _bekliyor || o.sayi(SatirDurumu.aktarilacak) == 0 ? null : _aktar,
+              child: Text('${o.sayi(SatirDurumu.aktarilacak)} dosyayı aç'),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
 // ============================================================================= Denetim kaydı
 
 /// Sunucu bağlıyken sunucudaki zincir (yalnızca yöneticiler), değilse bu cihazdaki yerel zincir gösterilir.

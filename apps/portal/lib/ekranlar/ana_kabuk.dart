@@ -14,6 +14,7 @@ import 'dis_avukat_ekrani.dart';
 import 'dosyalar_ekrani.dart';
 import 'finans_ekrani.dart';
 import 'genel_bakis_ekrani.dart';
+import 'gorev_sablonlari_ekrani.dart';
 import 'hesap_ekranlari.dart';
 import 'hesap_turleri_ekrani.dart';
 import 'hesaplamalar_ekrani.dart';
@@ -600,6 +601,26 @@ class _AyarlarSayfasi extends StatelessWidget {
                 subtitle: const Text('Excel/CSV\'den müvekkil ve taraf listesi aktarın (önizlemeli, mükerrer kontrollü).'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => ac(VeriAktarimEkrani(depo: depo)),
+              ),
+              const Divider(),
+              ListTile(
+                key: const Key('ayar-dosya-aktarim'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.drive_folder_upload_outlined),
+                title: const Text('UYAP dosya listesi aktarımı'),
+                subtitle: const Text('UYAP\'tan ya da başka programdan Excel/CSV dosya listesini aktarın (mükerrer kontrollü).'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ac(DosyaAktarimEkrani(depo: depo, kullaniciId: depo.aktifKullanici)),
+              ),
+              const Divider(),
+              ListTile(
+                key: const Key('ayar-sablonlar'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.checklist_rtl),
+                title: const Text('Görev şablonları'),
+                subtitle: const Text('Dosya açılınca otomatik atanan iş adımları (ör. iş davası açılışı).'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ac(GorevSablonlariEkrani(depo: depo)),
               ),
               const Divider(),
               ListTile(

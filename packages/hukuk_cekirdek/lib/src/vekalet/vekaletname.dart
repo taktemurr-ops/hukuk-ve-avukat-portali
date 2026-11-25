@@ -168,6 +168,42 @@ class VekaletKontrolu {
     return null;
   }
 
+  /// Yetki belgesi şablonunun ([BelgeSablonu.yetkiBelgesi]) alanları. Önce [yetkiBelgesiVer] ile kurallar denetlenir.
+  static Map<String, String?> yetkiBelgesiVerisi({
+    required Vekaletname vekaletname,
+    required AltVekalet alt,
+    required String muvekkilAdi,
+    required String verenAdi,
+    required String alanAdi,
+    String? verenBaro,
+    String? verenSicil,
+    String? alanBaro,
+    String? alanSicil,
+    String? kapsamAciklama,
+    required Tarih bugun,
+  }) =>
+      {
+        'muvekkil.ad': muvekkilAdi,
+        'vekalet.noter': vekaletname.noter,
+        'vekalet.tarih': vekaletname.duzenlemeTarihi.turkceBicim,
+        'vekalet.yevmiye': vekaletname.yevmiyeNo,
+        'veren.ad': verenAdi,
+        'veren.baro': verenBaro,
+        'veren.sicil': verenSicil,
+        'alan.ad': alanAdi,
+        'alan.baro': alanBaro,
+        'alan.sicil': alanSicil,
+        'kapsam': (kapsamAciklama?.trim().isNotEmpty ?? false)
+            ? kapsamAciklama!.trim()
+            : alt.dosyalar.isEmpty
+                ? 'Vekâletnamenin kapsadığı tüm işler'
+                : 'Belirtilen dosyalar',
+        'yetkiler': alt.ozelYetkiler.isEmpty
+            ? 'Yok (yalnızca olağan işlemler)'
+            : (alt.ozelYetkiler.toList()..sort((a, b) => a.index.compareTo(b.index))).map((y) => y.ad).join(', '),
+        'bugun': bugun.turkceBicim,
+      };
+
   /// Yetki belgesi (tevkil) oluşturur. Veren avukatın tevkil yetkisi olmalıdır.
   static AltVekalet yetkiBelgesiVer({
     required Vekaletname vekaletname,

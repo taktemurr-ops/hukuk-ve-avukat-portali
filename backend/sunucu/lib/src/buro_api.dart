@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
@@ -18,6 +20,11 @@ class BuroApi {
   Router get router => Router()
     ..get('/taraflar', _taraflar)
     ..post('/dosyalar/<id>/taraflar', _tarafEkle)
+    ..get('/gorev-sablonlari', _sablonlar)
+    ..post('/gorev-sablonlari', _sablonKaydet)
+    ..put('/gorev-sablonlari/<id>', _sablonKaydet)
+    ..delete('/gorev-sablonlari/<id>', _sablonPasif)
+    ..post('/dosyalar/<id>/gorev-sablonu', _sablonUygula)
     ..get('/gorevler', _gorevler)
     ..post('/gorevler', _gorevEkle)
     ..post('/gorevler/<id>/kapat', _gorevKapat)
@@ -684,5 +691,79 @@ class BuroApi {
     });
     if (n == 0) throw ApiHatasi.bulunamadi;
     return jsonYanit({'saklamaEngeli': engel});
+  }
+
+  // ---------------------------------------------------------------------------
+  // Görev şablonları (büroya özel; yalnızca yöneticiler yazar — veritabanı kuralı)
+  // ---------------------------------------------------------------------------
+
+  Future<Response> _sablonlar(Request istek) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(
+        k, (tx) => tx.execute('SELECT id::text, ad, adimlar FROM hukuk.gorev_sablonu WHERE aktif ORDER BY ad'));
+    return jsonYanit([
+      for (final r in rs) {'id': r[0], 'ad': r[1], 'adimlar': r[2]},
+    ]);
+  }
+
+  static GorevSablonu _sablonJson(Map<String, dynamic> j) {
+    try {
+      return GorevSablonu.json(j);
+    } on FormatException catch (e) {
+      throw ApiHatasi(400, e.message, kod: 'gecersiz_istek');
+    }
+  }
+
+  Future<Response> _sablonKaydet(Request istek, [String? id]) async {
+    final k = kimlik(istek);
+    final s = _sablonJson(await jsonGovde(istek));
+    final sonuc = await vt.kiraciIcin(k, (tx) async {
+      final y = await tx.execute('SELECT hukuk.tum_yetkili()');
+      if (y.first[0] != true) throw const ApiHatasi(403, 'Görev şablonlarını yalnızca yöneticiler değiştirebilir.', kod: 'yasak');
+      final adimlar = jsonEncode([for (final a in s.adimlar) a.toJson()]);
+      final rs = id == null
+          ? await tx.execute(
+              Sql.named('INSERT INTO hukuk.gorev_sablonu (kiraci_id, ad, adimlar) VALUES (CAST(@k AS uuid), @a, CAST(@j AS jsonb)) '
+                  'RETURNING id::text'),
+              parameters: {'k': k.kiraciId, 'a': s.ad, 'j': adimlar})
+          : await tx.execute(
+              Sql.named('UPDATE hukuk.gorev_sablonu SET ad = @a, adimlar = CAST(@j AS jsonb), guncelleme = now() '
+                  'WHERE id = CAST(@i AS uuid) AND aktif RETURNING id::text'),
+              parameters: {'i': id, 'a': s.ad, 'j': adimlar});
+      if (rs.isEmpty) throw ApiHatasi.bulunamadi;
+      await DosyaApi.denetim(tx, k, id == null ? 'olusturma' : 'degisiklik', 'gorev_sablonu', rs.first[0]! as String,
+          '${s.ad} · ${s.adimlar.length} adım');
+      return rs.first[0];
+    });
+    return jsonYanit({'id': sonuc}, durum: id == null ? 201 : 200);
+  }
+
+  Future<Response> _sablonPasif(Request istek, String id) async {
+    final k = kimlik(istek);
+    final n = await vt.kiraciIcin(k, (tx) async {
+      final rs = await tx.execute(
+          Sql.named('UPDATE hukuk.gorev_sablonu SET aktif = false, guncelleme = now() WHERE id = CAST(@i AS uuid) AND aktif '
+              'RETURNING ad'),
+          parameters: {'i': id});
+      if (rs.isNotEmpty) await DosyaApi.denetim(tx, k, 'silme', 'gorev_sablonu', id, '${rs.first[0]}');
+      return rs.length;
+    });
+    // Yönetici olmayanın güncellemesi RLS'ye takılır ve 0 satır döner.
+    if (n == 0) throw const ApiHatasi(404, 'Şablon bulunamadı ya da değiştirme yetkiniz yok.', kod: 'bulunamadi');
+    return jsonYanit({'pasif': true});
+  }
+
+  /// Açık bir dosyaya sonradan şablon uygulama (dosyayı görebilen herkes).
+  Future<Response> _sablonUygula(Request istek, String dosyaId) async {
+    final k = kimlik(istek);
+    final s = _sablonJson(await jsonGovde(istek));
+    final n = await vt.kiraciIcin(k, (tx) async {
+      final d = await tx.execute(
+          Sql.named('SELECT sorumlu::text, yedek_sorumlu::text FROM hukuk.dosya WHERE id = CAST(@d AS uuid) AND kapanis IS NULL'),
+          parameters: {'d': dosyaId});
+      if (d.isEmpty) throw ApiHatasi.bulunamadi;
+      return DosyaApi.gorevleriOlustur(tx, k, dosyaId, s, sorumlu: d.first[0]! as String, yedek: d.first[1] as String?);
+    });
+    return jsonYanit({'gorevSayisi': n}, durum: 201);
   }
 }

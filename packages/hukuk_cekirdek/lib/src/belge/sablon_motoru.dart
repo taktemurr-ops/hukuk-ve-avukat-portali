@@ -122,6 +122,27 @@ Tarih: {{bugun}}
 {{muvekkil.ad}}               {{avukat.ad}}''',
   );
 
+  static const yetkiBelgesi = BelgeSablonu(
+    kod: 'YETKI_BELGESI',
+    ad: 'Yetki belgesi (tevkil)',
+    dayanak: 'Av. K. m.56 ve HMK m.79 (tevkil); baro pulu — avukat kontrol edecek',
+    metin: '''YETKİ BELGESİ
+
+MÜVEKKİL: {{muvekkil.ad}}
+VEKÂLETNAME: {{vekalet.noter}}, {{vekalet.tarih}} tarih ve {{vekalet.yevmiye}} yevmiye numaralı vekâletname
+
+YETKİ VEREN AVUKAT: {{veren.ad}}{{#varsa veren.baro}}, {{veren.baro}} Barosu{{/varsa}}{{#varsa veren.sicil}}, sicil no {{veren.sicil}}{{/varsa}}
+YETKİ VERİLEN AVUKAT: {{alan.ad}}, {{alan.baro}} Barosu, sicil no {{alan.sicil}}
+
+KAPSAM: {{kapsam}}
+DEVREDİLEN ÖZEL YETKİLER: {{yetkiler}}
+
+Yukarıda bilgileri yazılı vekâletnameye dayanarak, vekâletnamedeki yetkilerimi, belirtilen kapsamla sınırlı olarak meslektaşım {{alan.ad}} tarafından kullanılmak üzere devrettiğimi bildiririm. Vekâletnamede yer almayan bir yetki devredilmemiştir. {{bugun}}
+
+{{veren.ad}}
+(İmza — baro pulu)''',
+  );
+
   static const List<BelgeSablonu> hazir = [mazeretDilekcesi, ihtarname, ucretSozlesmesi];
 }
 
