@@ -21,6 +21,19 @@ jobs:
       - run: dart analyze --fatal-infos
       - run: dart test
 
+  sunucu:
+    name: Uygulama sunucusu (Dart)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/sunucu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub get
+      - run: dart analyze
+      - run: dart test
+
   portal:
     name: Portal uygulaması (Flutter)
     runs-on: ubuntu-latest

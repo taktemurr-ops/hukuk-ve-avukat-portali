@@ -1,0 +1,20 @@
+name: hukuk_sunucu
+description: Hukuk ve Avukat Portalı uygulama sunucusu (HTTP API). Süre, faiz ve yetki kuralları hukuk_cekirdek ile paylaşılır.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  crypto: ^3.0.3
+  hukuk_cekirdek:
+    path: ../../packages/hukuk_cekirdek
+  pointycastle: ^3.9.1
+  postgres: ^3.4.0
+  shelf: ^1.4.1
+  shelf_router: ^1.1.4
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

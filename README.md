@@ -30,7 +30,8 @@ apps/portal/              Flutter uygulaması (web + mobil + masaüstü)
 packages/hukuk_cekirdek/  Saf Dart çekirdek: süre hesabı, tatil takvimi, hesap türleri
 services/belge/           Python belge servisi: metin çıkarma, Türkçe OCR, Word çıktısı
 site/                     Statik tanıtım sitesi (gömülü fontlar, çerezsiz)
-backend/                  Serverpod sunucusu (kurulum adımları içinde)
+backend/veritabani/       PostgreSQL şeması ve testleri (satır düzeyi güvenlik, denetim zinciri)
+backend/sunucu/           Dart HTTP API (shelf + postgres), hukuk_cekirdek'i paylaşır
 docs/                     Mimari, veri modeli, yetki modeli, iş listesi
 .github/workflows/        Otomatik derleme ve testler
 ```

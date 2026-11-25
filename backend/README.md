@@ -1,39 +1,45 @@
-# Sunucu (Serverpod)
+# Sunucu tarafı
 
-Serverpod projesi, Dart SDK'sı olan bir makinede bir kez üretilir ve depoya eklenir.
+| Klasör | İçerik |
+| --- | --- |
+| `veritabani/` | PostgreSQL 16 şeması (SQL göçleri) ve gerçek PostgreSQL'e karşı testler. Müşteri ayrımı, gizli dosya, etik duvar, dört göz ve değiştirilemez denetim kaydı veritabanında da zorlanır |
+| `sunucu/` | Dart HTTP API (shelf + postgres). Süre, faiz ve yetki kuralları uygulamayla aynı `hukuk_cekirdek` paketinden gelir; süreler sunucuda hesaplanır |
 
-## İlk kurulum (kurucu bilgisayarında)
+## Mimari kararı (25.11.2026)
+
+Başta Serverpod düşünülmüştü. Veri güvenliğini veritabanı seviyesinde de garanti etmek için şema elle yazılmış SQL
+göçleriyle yönetiliyor (satır düzeyi güvenlik, tetikleyiciler, SECURITY DEFINER fonksiyonları). Serverpod kendi
+ORM'i ve göç sistemiyle tabloları üretmek istediğinden bu yapıyla çakışır; bu yüzden sunucu, kod üretimi
+gerektirmeyen `shelf` + `postgres` paketleriyle yazıldı. Dil yine Dart, paylaşılan çekirdek aynı.
+
+## Yerelde çalıştırma
 
 ```bash
-dart pub global activate serverpod_cli
-cd backend
-serverpod create hukuk
-# Oluşan klasörler:
-#   hukuk_server   sunucu kodu
-#   hukuk_client   otomatik üretilen istemci
-#   hukuk_flutter  örnek Flutter uygulaması (kullanılmayacak, silinebilir; arayüz apps/portal)
+# 1. Veritabanı
+createdb hukuk
+for f in veritabani/migrations/*.sql; do psql -d hukuk -f "$f"; done
+psql -d hukuk -c "CREATE ROLE hukuk_api LOGIN PASSWORD 'degistirin' IN ROLE hukuk_uygulama"
+
+# 2. Sunucu
+cd sunucu
+dart pub get
+dart test
+PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dart run bin/sunucu.dart
 ```
 
-Ardından:
+## Uçlar (ilk sürüm)
 
-1. `hukuk_server/pubspec.yaml` içine çekirdek paketi ekleyin:
-   ```yaml
-   dependencies:
-     hukuk_cekirdek:
-       path: ../../packages/hukuk_cekirdek
-   ```
-2. `apps/portal/pubspec.yaml` içine istemciyi ekleyin:
-   ```yaml
-   dependencies:
-     hukuk_client:
-       path: ../../backend/hukuk/hukuk_client
-   ```
-3. Yerelde çalıştırma:
-   ```bash
-   cd backend/hukuk/hukuk_server
-   docker compose up --build --detach   # PostgreSQL + Redis
-   dart bin/main.dart --apply-migrations
-   ```
-4. `config/passwords.yaml` dosyasını **asla** depoya eklemeyin (.gitignore'da).
+| Yöntem | Yol | Açıklama |
+| --- | --- | --- |
+| GET | `/saglik` | Durum |
+| POST | `/giris` | E-posta + şifre → oturum token'ı (birden çok kurumda hesap varsa kurum seçimi) |
+| POST | `/cikis` | Oturumu kapatır |
+| GET | `/ben` | Kullanıcı, kurum ve roller |
+| GET/POST | `/dosyalar` | Görünür dosyalar / yeni dosya (yıl bazında numara) |
+| GET | `/dosyalar/{id}` | Dosya (görülemiyorsa 404; görüntüleme denetime yazılır) |
+| GET/POST | `/dosyalar/{id}/sureler` | Süreler / süre hesapla ve kaydet (sunucuda hesaplanır, teyit bekler) |
+| POST | `/sureler/{id}/teyit` | Teyit (hesaplayan kendisi teyit edemez) |
+| POST | `/sureler/{id}/tamamla` | Kanıtla tamamlama |
+| GET | `/denetim/dogrula` | Denetim zinciri sağlam mı |
 
-Bu adımlar tamamlandığında modeller (`docs/02-veri-modeli.md`) Serverpod model dosyalarına çevrilecek.
+Sunucu henüz derlenmedi (geliştirme ortamında Dart yok); ilk derleme ve `dart test` CI'da veya yerelde yapılacak.
