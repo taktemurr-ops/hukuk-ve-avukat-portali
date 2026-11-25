@@ -31,18 +31,18 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 
 | Durum | İş |
 | --- | --- |
-| ◐ | Kişi/taraf kartı, ilişkiler, mükerrer birleştirme — çekirdek kurallar (Türkçe isim eşleştirme, unvan geçmişi, birleştirme) ve liste/arama/yeni kişi ekranı hazır; düzenleme, ilişki ekranı ve sunucu bekliyor |
+| ◐ | Kişi/taraf kartı, ilişkiler, mükerrer birleştirme — çekirdek kurallar (Türkçe isim eşleştirme, unvan geçmişi, birleştirme) liste/arama/yeni kişi ekranı ve kişi kartı (düzenleme, unvan geçmişi, ilişkiler, yer aldığı dosyalar) hazır; sunucuda da (0022: unvan geçmişini yalnızca veritabanı büyütür, ilişkiler kiracı içinde) |
 | ◐ | Çıkar çatışması taraması, gerekçeli karar ve onay — tarayıcı (kimlik no, aynı/benzer isim, ilişkili kişi, gizli dosya maskeleme) ve karar ekranı hazır; denetim kaydı ve sunucu bekliyor |
-| ◐ | Vekâletname, alt vekil, işlem öncesi yetki kontrolü, yetki belgesi — kurallar (HMK m.74 özel yetkiler, tevkil) ve kontrol ekranı hazır; vekâletname ekleme formu, yetki belgesi çıktısı ve özel yetki listesinin avukat kontrolü bekliyor |
+| ◐ | Vekâletname, alt vekil, işlem öncesi yetki kontrolü, yetki belgesi — kurallar (HMK m.74 özel yetkiler, tevkil) ve kontrol ekranı ile vekâletname ekleme formu (sunucuda) hazır; yetki belgesi çıktısı ve özel yetki listesinin avukat kontrolü bekliyor |
 
 ## Sprint 5–7 — Dosya, süre, görev, tebligat
 
 | Durum | İş |
 | --- | --- |
-| ◐ | Dosya kartı, taraflar, aşamalar, bağlı dosyalar — model, iç numara serisi, liste (yetki filtreli) ve detay ekranı hazır; dosya açma formu bekliyor |
+| ◐ | Dosya kartı, taraflar, aşamalar, bağlı dosyalar — model, iç numara serisi, liste (yetki filtreli) ve detay ekranı hazır; dosya açma formu sunucuya bağlı |
 | ◐ | Tebligat kaydı (manuel), eşleşmeyen evrak kuyruğu — ulaşma/tebliğ ayrımı, mükerrer engeli, esas no + mahkeme + taraf ile eşleştirme, kuyruk ve bağlama ekranı hazır |
 | ◐ | Süre oluşturma, teyit, asıl/yedek sorumlu, eskalasyon, yeniden hesap — kurallar (iki kişi teyidi, kanıtla tamamlama, eski hesabı saklama, eskalasyon, devir listesi) ve ekranlar hazır; sunucuda saatlik görev aynı kurallarla hatırlatma ve eskalasyon e-postası gönderir (her uyarı günde bir kez, 08:00'den sonra, metinde müvekkil bilgisi yok; 0020) |
-| ◐ | Duruşma, çakışma uyarısı, takvim — çakışma (yol süresi dahil) ve takvim görünümü hazır; duruşma ekleme formu ve Google/Outlook senkronu bekliyor |
+| ◐ | Duruşma, çakışma uyarısı, takvim — çakışma (yol süresi dahil), takvim görünümü ve duruşma ekleme formu (sunucuda) hazır; Google/Outlook senkronu bekliyor |
 | ◐ | Görev, iş akışı şablonları, kanıtla kapanış — model, 2 şablon (iş davası, icra takibi), kanıtla kapanış hazır; şablon düzenleyici bekliyor |
 | ☐ | Bildirim servisi (e-posta, SMS, push sinyali) ve tercihler |
 

@@ -99,6 +99,10 @@ class SahteSunucu {
         return _json([
           {'id': 'm1', 'tur': 'tuzel', 'ad': 'Sunucu Müvekkil A.Ş.', 'kimlikNo': null, 'eposta': null},
         ]);
+      case 'GET /kisi-iliskileri':
+        return _json([]);
+      case 'PUT /kisiler/m1':
+        return _json({'unvanGecmisi': []});
       case 'GET /cari':
         return _json([
           {'id': 'c1', 'muvekkilId': 'm1', 'dosyaId': 'd1', 'tur': 'masrafAvansiAlindi', 'tutarKurus': 500000,

@@ -80,6 +80,72 @@ class BellekVeriDeposu extends ChangeNotifier {
   int _sayac = 0;
 
   List<Kisi> get kisiler => List.unmodifiable(_kisiler);
+  List<KisiIliskisi> get iliskiler => List.unmodifiable(_iliskiler);
+
+  /// Sunucu kimlikleri (ilişki silmek için); yerelde boş.
+  final Map<KisiIliskisi, String> _iliskiIdleri = Map.identity();
+
+  List<KisiIliskisi> kisininIliskileri(String kisiId) =>
+      _iliskiler.where((i) => i.kisiA == kisiId || i.kisiB == kisiId).toList();
+
+  /// Kartın güncellenmesi; tür değişmez. Ad değişirse eski ad unvan geçmişine yazılır (sunucuda veritabanı yazar).
+  Future<String?> kisiGuncelle(Kisi yeni) => sunucudaVeyaYerelde(
+        sunucuda: (u) => u.kisiGuncelle(yeni),
+        yerelde: () {
+          final i = _kisiler.indexWhere((k) => k.id == yeni.id);
+          if (i < 0) return 'Kişi bulunamadı.';
+          final eski = _kisiler[i];
+          if (yeni.ad.trim().isEmpty) return 'Ad boş olamaz.';
+          final ad = yeni.ad.trim();
+          // Boşaltılan alanlar da boşalsın diye kopya() yerine yeni kart kurulur; tür ve geçmiş eskiden gelir.
+          final guncel = Kisi(
+            id: eski.id,
+            kiraciId: eski.kiraciId,
+            tur: eski.tur,
+            ad: ad,
+            kimlikNo: yeni.kimlikNo,
+            mersisNo: yeni.mersisNo,
+            eposta: yeni.eposta,
+            telefon: yeni.telefon,
+            adres: yeni.adres,
+            iletisimTercihi: yeni.iletisimTercihi,
+            notlar: yeni.notlar,
+            unvanGecmisi: ad == eski.ad
+                ? eski.unvanGecmisi
+                : [...eski.unvanGecmisi, UnvanKaydi(unvan: eski.ad, gecerlilikBitisi: Tarih.from(DateTime.now()))],
+          );
+          _kisiler[i] = guncel;
+          _kaydet(DenetimIslemi.degisiklik, 'kisi', yeni.id, eski.ad == guncel.ad ? 'Kart güncellendi' : 'Unvan: ${eski.ad} → ${guncel.ad}');
+          notifyListeners();
+          return null;
+        },
+      );
+
+  Future<String?> iliskiEkle(String kisiA, String kisiB, IliskiTuru tur) => sunucudaVeyaYerelde(
+        sunucuda: (u) => u.iliskiEkle(kisiA: kisiA, kisiB: kisiB, tur: tur),
+        yerelde: () {
+          if (kisiA == kisiB) return 'Kişi kendisiyle ilişkilendirilemez.';
+          final mevcut = _iliskiler.any((i) => i.tur == tur && {i.kisiA, i.kisiB}.containsAll({kisiA, kisiB}));
+          if (mevcut) return 'Bu ilişki zaten kayıtlı.';
+          _iliskiler.add(KisiIliskisi(kisiA: kisiA, kisiB: kisiB, tur: tur));
+          _kaydet(DenetimIslemi.olusturma, 'kisi_iliski', '$kisiA-$kisiB', tur.name);
+          notifyListeners();
+          return null;
+        },
+      );
+
+  Future<String?> iliskiSil(KisiIliskisi i) {
+    final id = _iliskiIdleri[i];
+    return sunucudaVeyaYerelde(
+      sunucuda: (u) => id == null ? Future.error(Exception('İlişki sunucuda bulunamadı.')) : u.iliskiSil(id),
+      yerelde: () {
+        if (!_iliskiler.remove(i)) return 'İlişki bulunamadı.';
+        _kaydet(DenetimIslemi.silme, 'kisi_iliski', '${i.kisiA}-${i.kisiB}', i.tur.name);
+        notifyListeners();
+        return null;
+      },
+    );
+  }
   List<DosyaTarafKaydi> get dosyaKayitlari => List.unmodifiable(_dosyaKayitlari);
   List<Vekaletname> get vekaletnameler => List.unmodifiable(_vekaletnameler);
   List<KayitliKarar> get kararlar => List.unmodifiable(_kararlar);
@@ -677,6 +743,7 @@ class BellekVeriDeposu extends ChangeNotifier {
   /// Sunucudan gelen kişi, finans, zaman ve icra verisini önbelleğe yazar (öncekilerin yerine).
   void sunucuIsVerisiniYukle({
     required List<Kisi> kisiler,
+    List<(String, KisiIliskisi)> iliskiler = const [],
     required List<CariHareket> cari,
     required List<EmanetHareketi> emanetHareketleri,
     required List<ZamanKaydi> zamanKayitlari,
@@ -685,6 +752,12 @@ class BellekVeriDeposu extends ChangeNotifier {
     _kisiler
       ..clear()
       ..addAll(kisiler);
+    _iliskiler
+      ..clear()
+      ..addAll(iliskiler.map((e) => e.$2));
+    _iliskiIdleri
+      ..clear()
+      ..addEntries(iliskiler.map((e) => MapEntry(e.$2, e.$1)));
     _cari
       ..clear()
       ..addAll(cari);

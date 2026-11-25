@@ -99,4 +99,26 @@ void main() {
     await _bas(tester, 'vekalet-kontrol-v1');
     expect(find.text('Uygun değil'), findsOneWidget);
   });
+
+  testWidgets('Kişi kartı: unvan değişince eski unvan geçmişte kalır, ilişki eklenir ve taramada görünür', (tester) async {
+    final depo = await _ac(tester, 'Müvekkiller');
+    await _bas(tester, 'kisi-delta');
+    await _bas(tester, 'kart-duzenle');
+    await tester.enterText(find.byKey(const Key('kart-ad')), 'Delta Yapı A.Ş.');
+    await tester.enterText(find.byKey(const Key('kart-telefon')), '0212 555 00 00');
+    await _bas(tester, 'kart-kaydet');
+    expect(depo.kisi('delta')!.ad, 'Delta Yapı A.Ş.');
+    expect(depo.kisi('delta')!.unvanGecmisi.single.unvan, 'Delta İnşaat Ltd. Şti.');
+    expect(find.text('Eski unvanlar'), findsOneWidget);
+    // Eski unvanla tarama hâlâ eşleşir.
+    final rapor = depo.tarayici.tara([const AdayTaraf(ad: 'Delta İnşaat Ltd. Şti.', sifat: TarafSifati.muvekkil)]);
+    expect(rapor.eslesmeler, isNotEmpty);
+
+    await _bas(tester, 'kart-iliski-ekle');
+    await tester.enterText(find.byKey(const Key('iliski-ara')), 'Orman');
+    await tester.pumpAndSettle();
+    await _bas(tester, 'iliski-aday-orman');
+    await _bas(tester, 'iliski-kaydet');
+    expect(depo.kisininIliskileri('delta').single.karsiTaraf('delta'), 'orman');
+  });
 }

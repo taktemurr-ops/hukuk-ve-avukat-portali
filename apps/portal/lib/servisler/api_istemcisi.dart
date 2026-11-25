@@ -37,6 +37,9 @@ class ApiIstemcisi {
   Future<Object?> post(String yol, [Map<String, Object?> govde = const {}]) async =>
       _coz(await _http.post(_yol(yol), headers: _basliklar, body: jsonEncode(govde)).timeout(_zamanAsimi));
 
+  Future<Object?> put(String yol, [Map<String, Object?> govde = const {}]) async =>
+      _coz(await _http.put(_yol(yol), headers: _basliklar, body: jsonEncode(govde)).timeout(_zamanAsimi));
+
   /// Ham bayt gönderimi (belge yükleme). Türkçe karakterli dosya adları başlıkta URL kodlamalı gider.
   Future<Object?> postBayt(String yol, List<int> icerik, Map<String, String> basliklar) async => _coz(await _http
       .post(_yol(yol), headers: {..._basliklar, 'content-type': 'application/octet-stream', ...basliklar}, body: icerik)

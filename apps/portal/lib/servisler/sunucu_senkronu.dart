@@ -79,7 +79,14 @@ abstract class UzakIslemler {
 
   Future<void> sureTamamla(String sureId, String kanit);
 
-  Future<void> kisiEkle({required KisiTuru tur, required String ad, String? kimlikNo, String? eposta});
+  Future<void> kisiEkle({required KisiTuru tur, required String ad, String? kimlikNo, String? eposta, String? telefon});
+
+  /// Kartın tamamı; tür değişmez, ad değişirse eski ad sunucuda unvan geçmişine eklenir.
+  Future<void> kisiGuncelle(Kisi kisi);
+
+  Future<void> iliskiEkle({required String kisiA, required String kisiB, required IliskiTuru tur});
+
+  Future<void> iliskiSil(String iliskiId);
 
   Future<void> cariEkle({required String muvekkilId, required CariHareketTuru tur, required Para tutar, required String aciklama, String? dosyaId});
 
@@ -256,7 +263,16 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
         tur: KisiTuru.values.byName(j['tur'] as String),
         ad: j['ad'] as String,
         kimlikNo: j['kimlikNo'] as String?,
+        mersisNo: j['mersisNo'] as String?,
         eposta: j['eposta'] as String?,
+        telefon: j['telefon'] as String?,
+        adres: j['adres'] as String?,
+        iletisimTercihi: IletisimTercihi.values.asNameMap()[j['iletisimTercihi']] ?? IletisimTercihi.eposta,
+        notlar: j['notlar'] as String?,
+        unvanGecmisi: [
+          for (final u in (j['unvanGecmisi'] as List? ?? const []).cast<Map<String, dynamic>>())
+            UnvanKaydi(unvan: u['unvan'] as String, gecerlilikBitisi: _t(u['bitis'])),
+        ],
       );
 
   static CariHareket cariJson(Map<String, dynamic> j) => CariHareket(
@@ -491,6 +507,7 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
     final icra = _liste(await api.get('/icra'));
     depo.sunucuIsVerisiniYukle(
       kisiler: [for (final j in kisiler) kisiJson(j, depo.kiraciId)],
+      iliskiler: [for (final j in _liste(await api.get('/kisi-iliskileri'))) iliskiJson(j)],
       cari: [for (final j in cari) cariJson(j)],
       emanetHareketleri: [for (final j in emanet) emanetJson(j)],
       zamanKayitlari: [for (final j in zaman) zamanJson(j)],
@@ -632,15 +649,48 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
   }
 
   @override
-  Future<void> kisiEkle({required KisiTuru tur, required String ad, String? kimlikNo, String? eposta}) async {
+  Future<void> kisiEkle({required KisiTuru tur, required String ad, String? kimlikNo, String? eposta, String? telefon}) async {
     await api.post('/kisiler', {
       'tur': tur.name,
       'ad': ad.trim(),
       if (kimlikNo != null && kimlikNo.trim().isNotEmpty) 'kimlikNo': kimlikNo.trim(),
       if (eposta != null && eposta.trim().isNotEmpty) 'eposta': eposta.trim(),
+      if (telefon != null && telefon.trim().isNotEmpty) 'telefon': telefon.trim(),
     });
     await _isVerisiniYenile();
   }
+
+  @override
+  Future<void> kisiGuncelle(Kisi kisi) async {
+    await api.put('/kisiler/${kisi.id}', {
+      'ad': kisi.ad,
+      'kimlikNo': kisi.kimlikNo,
+      'mersisNo': kisi.mersisNo,
+      'eposta': kisi.eposta,
+      'telefon': kisi.telefon,
+      'adres': kisi.adres,
+      'iletisimTercihi': kisi.iletisimTercihi.name,
+      'notlar': kisi.notlar,
+    });
+    await _isVerisiniYenile();
+  }
+
+  @override
+  Future<void> iliskiEkle({required String kisiA, required String kisiB, required IliskiTuru tur}) async {
+    await api.post('/kisi-iliskileri', {'kisiA': kisiA, 'kisiB': kisiB, 'tur': tur.name});
+    await _isVerisiniYenile();
+  }
+
+  @override
+  Future<void> iliskiSil(String iliskiId) async {
+    await api.delete('/kisi-iliskileri/$iliskiId');
+    await _isVerisiniYenile();
+  }
+
+  static (String, KisiIliskisi) iliskiJson(Map<String, dynamic> j) => (
+        j['id'] as String,
+        KisiIliskisi(kisiA: j['kisiA'] as String, kisiB: j['kisiB'] as String, tur: IliskiTuru.values.byName(j['tur'] as String)),
+      );
 
   @override
   Future<void> cariEkle({

@@ -20,6 +20,10 @@ class IsApi {
   Router get router => Router()
     ..get('/kisiler', _kisiler)
     ..post('/kisiler', _kisiEkle)
+    ..put('/kisiler/<id>', _kisiGuncelle)
+    ..get('/kisi-iliskileri', _iliskiler)
+    ..post('/kisi-iliskileri', _iliskiEkle)
+    ..delete('/kisi-iliskileri/<id>', _iliskiSil)
     ..get('/kisiler/<id>/cari', _cari)
     ..get('/cari', _cariTumu)
     ..post('/cari', _cariEkle)
@@ -44,10 +48,123 @@ class IsApi {
   Future<Response> _kisiler(Request istek) async {
     final k = kimlik(istek);
     final rs = await vt.kiraciIcin(
-        k, (tx) => tx.execute('SELECT id::text, tur, ad, kimlik_no, eposta FROM hukuk.kisi ORDER BY ad LIMIT 2000'));
+        k,
+        (tx) => tx.execute('SELECT id::text, tur, ad, kimlik_no, eposta, mersis_no, telefon, adres, iletisim_tercihi, '
+            'notlar, unvan_gecmisi FROM hukuk.kisi ORDER BY ad LIMIT 5000'));
     return jsonYanit([
-      for (final r in rs) {'id': r[0], 'tur': r[1], 'ad': r[2], 'kimlikNo': r[3], 'eposta': r[4]},
+      for (final r in rs)
+        {
+          'id': r[0],
+          'tur': r[1],
+          'ad': r[2],
+          'kimlikNo': r[3],
+          'eposta': r[4],
+          'mersisNo': r[5],
+          'telefon': r[6],
+          'adres': r[7],
+          'iletisimTercihi': r[8],
+          'notlar': r[9],
+          'unvanGecmisi': r[10],
+        },
     ]);
+  }
+
+  /// Boş metin alanı `null` olarak saklanır; çok uzun alan reddedilir.
+  static String? _istegeBagli(Map<String, dynamic> j, String ad, int azami) {
+    final v = (j[ad] as String?)?.trim();
+    if (v == null || v.isEmpty) return null;
+    if (v.length > azami) throw ApiHatasi(400, '$ad çok uzun.', kod: 'gecersiz_istek');
+    return v;
+  }
+
+  static void _kisiAlanlariniDogrula(KisiTuru tur, String? no, String? eposta, String? mersis) {
+    if (no != null) {
+      final gecerli = tur == KisiTuru.gercek ? Dogrulayicilar.tcknGecerli(no) : Dogrulayicilar.vknGecerli(no);
+      if (!gecerli) throw const ApiHatasi(400, 'Kimlik/vergi numarası geçersiz.', kod: 'gecersiz_istek');
+    }
+    if (eposta != null && Dogrulayicilar.eposta(eposta) != null) {
+      throw const ApiHatasi(400, 'E-posta adresi geçersiz.', kod: 'gecersiz_istek');
+    }
+    if (mersis != null && !RegExp(r'^[0-9]{16}$').hasMatch(mersis)) {
+      throw const ApiHatasi(400, 'MERSİS numarası 16 haneli olmalıdır.', kod: 'gecersiz_istek');
+    }
+  }
+
+  /// Kartın tamamı gönderilir (gönderilmeyen alan boşaltılır). Tür değişmez; ad değişirse eski ad unvan geçmişine
+  /// veritabanında eklenir.
+  Future<Response> _kisiGuncelle(Request istek, String id) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final ad = zorunluMetin(j, 'ad');
+    final no = _istegeBagli(j, 'kimlikNo', 11);
+    final eposta = _istegeBagli(j, 'eposta', 200);
+    final mersis = _istegeBagli(j, 'mersisNo', 16);
+    final tercih = j['iletisimTercihi'] == null ? IletisimTercihi.eposta : enumAlani(j, 'iletisimTercihi', IletisimTercihi.values);
+    final sonuc = await vt.kiraciIcin(k, (tx) async {
+      final t = await tx.execute(Sql.named('SELECT tur, ad FROM hukuk.kisi WHERE id = CAST(@i AS uuid)'), parameters: {'i': id});
+      if (t.isEmpty) throw ApiHatasi.bulunamadi;
+      final tur = KisiTuru.values.byName(t.first[0]! as String);
+      _kisiAlanlariniDogrula(tur, no, eposta, mersis);
+      final rs = await tx.execute(
+        Sql.named('UPDATE hukuk.kisi SET ad = @a, kimlik_no = @n, eposta = @e, mersis_no = @m, telefon = @t, adres = @adr, '
+            'iletisim_tercihi = @it, notlar = @not WHERE id = CAST(@i AS uuid) RETURNING unvan_gecmisi'),
+        parameters: {
+          'i': id,
+          'a': ad,
+          'n': no,
+          'e': eposta,
+          'm': mersis,
+          't': _istegeBagli(j, 'telefon', 30),
+          'adr': _istegeBagli(j, 'adres', 500),
+          'it': tercih.name,
+          'not': _istegeBagli(j, 'notlar', 2000),
+        },
+      );
+      await DosyaApi.denetim(tx, k, 'degisiklik', 'kisi', id, t.first[1] == ad ? 'Kart güncellendi' : 'Unvan: ${t.first[1]} → $ad');
+      return rs.first[0];
+    });
+    return jsonYanit({'unvanGecmisi': sonuc});
+  }
+
+  Future<Response> _iliskiler(Request istek) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(
+        k, (tx) => tx.execute('SELECT id::text, kisi_a::text, kisi_b::text, tur FROM hukuk.kisi_iliski ORDER BY olusturma'));
+    return jsonYanit([
+      for (final r in rs) {'id': r[0], 'kisiA': r[1], 'kisiB': r[2], 'tur': r[3]},
+    ]);
+  }
+
+  Future<Response> _iliskiEkle(Request istek) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final a = zorunluMetin(j, 'kisiA');
+    final b = zorunluMetin(j, 'kisiB');
+    if (a == b) throw const ApiHatasi(400, 'Kişi kendisiyle ilişkilendirilemez.', kod: 'gecersiz_istek');
+    final tur = enumAlani(j, 'tur', IliskiTuru.values);
+    final id = await vt.kiraciIcin(k, (tx) async {
+      final rs = await tx.execute(
+        Sql.named('INSERT INTO hukuk.kisi_iliski (kiraci_id, kisi_a, kisi_b, tur) '
+            'VALUES (CAST(@k AS uuid), CAST(@a AS uuid), CAST(@b AS uuid), @t) RETURNING id::text'),
+        parameters: {'k': k.kiraciId, 'a': a, 'b': b, 't': tur.name},
+      );
+      final yeni = rs.first[0]! as String;
+      await DosyaApi.denetim(tx, k, 'olusturma', 'kisi_iliski', yeni, '$a ↔ $b (${tur.name})');
+      return yeni;
+    });
+    return jsonYanit({'id': id}, durum: 201);
+  }
+
+  Future<Response> _iliskiSil(Request istek, String id) async {
+    final k = kimlik(istek);
+    final n = await vt.kiraciIcin(k, (tx) async {
+      final rs = await tx.execute(Sql.named('DELETE FROM hukuk.kisi_iliski WHERE id = CAST(@i AS uuid) '
+          "RETURNING kisi_a::text || ' ↔ ' || kisi_b::text || ' (' || tur || ')'"), parameters: {'i': id});
+      if (rs.isNotEmpty) await DosyaApi.denetim(tx, k, 'silme', 'kisi_iliski', id, rs.first[0]! as String);
+      return rs.length;
+    });
+    if (n == 0) throw ApiHatasi.bulunamadi;
+    return jsonYanit({'silindi': true});
   }
 
   Future<Response> _kisiEkle(Request istek) async {
@@ -66,14 +183,16 @@ class IsApi {
     }
     final id = await vt.kiraciIcin(k, (tx) async {
       final rs = await tx.execute(
-        Sql.named('INSERT INTO hukuk.kisi (kiraci_id, tur, ad, kimlik_no, eposta) '
-            'VALUES (CAST(@k AS uuid), @t, @a, @n, @e) RETURNING id::text'),
+        Sql.named('INSERT INTO hukuk.kisi (kiraci_id, tur, ad, kimlik_no, eposta, telefon, adres) '
+            'VALUES (CAST(@k AS uuid), @t, @a, @n, @e, @tel, @adr) RETURNING id::text'),
         parameters: {
           'k': k.kiraciId,
           't': tur.name,
           'a': ad,
           'n': no == null || no.isEmpty ? null : no,
           'e': eposta == null || eposta.isEmpty ? null : eposta,
+          'tel': _istegeBagli(j, 'telefon', 30),
+          'adr': _istegeBagli(j, 'adres', 500),
         },
       );
       final yeni = rs.first[0]! as String;
