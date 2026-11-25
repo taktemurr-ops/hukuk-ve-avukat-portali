@@ -134,6 +134,7 @@ class SahteSunucu {
             'konu': 'Bilirkişi raporu', 'esasNo': null, 'taraflar': [], 'belgeOzeti': null, 'dosyaId': null},
         ]);
       case 'GET /vekaletnameler':
+      case 'GET /etik-duvarlar':
         return _json([]);
       case 'GET /sirketler':
         return _json([

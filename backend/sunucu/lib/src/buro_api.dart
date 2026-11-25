@@ -30,7 +30,10 @@ class BuroApi {
     ..post('/tebligatlar/<id>/bagla', _tebligatBagla)
     ..get('/vekaletnameler', _vekaletnameler)
     ..post('/vekaletnameler', _vekaletnameEkle)
-    ..post('/vekaletnameler/<id>/durum', _vekaletDurum);
+    ..post('/vekaletnameler/<id>/durum', _vekaletDurum)
+    ..get('/etik-duvarlar', _etikDuvarlar)
+    ..post('/dosyalar/<id>/etik-duvar', _etikDuvarKur)
+    ..post('/dosyalar/<id>/etik-duvar/kaldir', _etikDuvarKaldir);
 
   // ---------------------------------------------------------------------------
   // Taraflar
@@ -472,5 +475,76 @@ class BuroApi {
     });
     if (n == 0) throw ApiHatasi.bulunamadi;
     return jsonYanit({'durum': durum.name});
+  }
+
+  // ---------------------------------------------------------------------------
+  // Etik duvar (kurma ve kaldırma yalnızca tüm dosyalara yetkili yöneticilere açık; veritabanında zorlanır)
+  // ---------------------------------------------------------------------------
+
+  Future<Response> _etikDuvarlar(Request istek) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute('SELECT dosya_id::text, kullanici_id::text, gerekce, kuran::text, kurma, kaldiran::text, '
+            'kaldirma_gerekcesi, kaldirma FROM hukuk.etik_duvar ORDER BY kurma'));
+    return jsonYanit([
+      for (final r in rs)
+        {
+          'dosyaId': r[0],
+          'kullanici': r[1],
+          'gerekce': r[2],
+          'kuran': r[3],
+          'tarih': tarihMetni(r[4]),
+          'kaldiran': r[5],
+          'kaldirmaGerekcesi': r[6],
+          'kaldirmaTarihi': r[7] == null ? null : tarihMetni(r[7]),
+        },
+    ]);
+  }
+
+  static String _gerekce(Map<String, dynamic> j) {
+    final g = zorunluMetin(j, 'gerekce');
+    if (g.length < EtikDuvarDefteri.asgariGerekce) {
+      throw const ApiHatasi(400, 'Gerekçe en az ${EtikDuvarDefteri.asgariGerekce} karakter olmalı.', kod: 'gecersiz_istek');
+    }
+    return g;
+  }
+
+  Future<Response> _etikDuvarKur(Request istek, String dosyaId) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final kisi = zorunluMetin(j, 'kullaniciId');
+    final gerekce = _gerekce(j);
+    if (kisi == k.kullaniciId) throw const ApiHatasi(400, 'Kendinize etik duvar kuramazsınız.', kod: 'gecersiz_istek');
+    await vt.kiraciIcin(k, (tx) async {
+      await tx.execute(
+        Sql.named('INSERT INTO hukuk.etik_duvar (kiraci_id, dosya_id, kullanici_id, gerekce, kuran) '
+            'VALUES (CAST(@k AS uuid), CAST(@d AS uuid), CAST(@u AS uuid), @g, CAST(@ku AS uuid))'),
+        parameters: {'k': k.kiraciId, 'd': dosyaId, 'u': kisi, 'g': gerekce, 'ku': k.kullaniciId},
+      );
+      await DosyaApi.denetim(tx, k, 'degisiklik', 'etik_duvar', dosyaId, 'Engellendi: $kisi · $gerekce');
+    });
+    return jsonYanit({'durum': 'kuruldu'}, durum: 201);
+  }
+
+  Future<Response> _etikDuvarKaldir(Request istek, String dosyaId) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final kisi = zorunluMetin(j, 'kullaniciId');
+    final gerekce = _gerekce(j);
+    final n = await vt.kiraciIcin(k, (tx) async {
+      final rs = await tx.execute(
+        Sql.named('UPDATE hukuk.etik_duvar SET kaldiran = CAST(@ku AS uuid), kaldirma_gerekcesi = @g, kaldirma = now() '
+            'WHERE dosya_id = CAST(@d AS uuid) AND kullanici_id = CAST(@u AS uuid) AND kaldirma IS NULL'),
+        parameters: {'ku': k.kullaniciId, 'g': gerekce, 'd': dosyaId, 'u': kisi},
+      );
+      if (rs.affectedRows == 1) {
+        await DosyaApi.denetim(tx, k, 'degisiklik', 'etik_duvar', dosyaId, 'Engel kaldırıldı: $kisi · $gerekce');
+      }
+      return rs.affectedRows;
+    });
+    // Yetkisiz kullanıcı için RLS satırı gizler; yanıt da "bulunamadı" olur.
+    if (n == 0) throw const ApiHatasi(404, 'Etkin etik duvar bulunamadı veya kaldırma yetkiniz yok.', kod: 'bulunamadi');
+    return jsonYanit({'durum': 'kaldirildi'});
   }
 }

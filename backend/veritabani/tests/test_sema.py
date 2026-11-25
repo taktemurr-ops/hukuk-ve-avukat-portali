@@ -41,20 +41,37 @@ def test_gizli_dosya_ve_etik_duvar(uygulama, veri):
 
 
 def test_etik_duvar_yoneticiyi_de_engeller_ve_kaldirilabilir(uygulama, veri, yonetici):
+    # Mert de yönetici ortak olsun: duvarı yalnızca tüm dosyalara yetkili kişiler kurar ve kaldırır.
+    yonetici.execute("INSERT INTO hukuk.kullanici_rol VALUES (%s, %s, 'yoneticiOrtak')", (veri["k1"], veri["mert"]))
     yonetici.execute("INSERT INTO hukuk.etik_duvar (kiraci_id, dosya_id, kullanici_id, gerekce, kuran) VALUES (%s, %s, %s, %s, %s)",
-                     (veri["k1"], veri["d"]["gizli"], veri["ayse"], "Yöneticiyi de engelleyen duvar", veri["mert"]))
+                     (veri["k1"], veri["d"]["acik"], veri["ayse"], "Yöneticiyi de engelleyen duvar", veri["mert"]))
     u = uygulama.oturum(veri["k1"], veri["ayse"])
-    assert "Gizli soruşturma" not in u.liste("SELECT baslik FROM hukuk.dosya")
+    assert "Açık dosya" not in u.liste("SELECT baslik FROM hukuk.dosya")
+    # Engellenen kişi duvar kaydını (gerekçeyi) da göremez.
+    assert u.deger("SELECT count(*) FROM hukuk.etik_duvar WHERE dosya_id = %s", veri["d"]["acik"]) == 0
     u.oturum(veri["k1"], veri["mert"])
     u.c.execute("UPDATE hukuk.etik_duvar SET kaldiran = %s, kaldirma_gerekcesi = %s, kaldirma = now() WHERE dosya_id = %s",
-                (veri["mert"], "Çatışma sona erdi ve onay alındı", veri["d"]["gizli"]))
+                (veri["mert"], "Çatışma sona erdi ve onay alındı", veri["d"]["acik"]))
     u.oturum(veri["k1"], veri["ayse"])
-    assert "Gizli soruşturma" in u.liste("SELECT baslik FROM hukuk.dosya")
+    assert "Açık dosya" in u.liste("SELECT baslik FROM hukuk.dosya")
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         u.c.execute("DELETE FROM hukuk.etik_duvar")
     with pytest.raises(psycopg.errors.CheckViolation):
         u.c.execute("UPDATE hukuk.etik_duvar SET kaldiran = %s, kaldirma = now() WHERE dosya_id = %s",
                     (veri["ayse"], veri["d"]["duvarli"]))
+
+
+def test_etik_duvari_yalnizca_yonetici_kurar_ekip_uyesine_kurulamaz(uygulama, veri, yonetici):
+    e = uygulama.oturum(veri["k1"], veri["elif"])
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        e.c.execute("INSERT INTO hukuk.etik_duvar (kiraci_id, dosya_id, kullanici_id, gerekce, kuran) VALUES (%s, %s, %s, %s, %s)",
+                    (veri["k1"], veri["d"]["acik"], veri["ayse"], "Stajyerin kurduğu duvar denemesi", veri["elif"]))
+    a = uygulama.oturum(veri["k1"], veri["ayse"])
+    with pytest.raises(psycopg.errors.CheckViolation, match="ekibinde"):  # Mert açık dosyanın sorumlusu
+        a.c.execute("INSERT INTO hukuk.etik_duvar (kiraci_id, dosya_id, kullanici_id, gerekce, kuran) VALUES (%s, %s, %s, %s, %s)",
+                    (veri["k1"], veri["d"]["acik"], veri["mert"], "Sorumluya duvar kurma denemesi", veri["ayse"]))
+    with pytest.raises(psycopg.errors.CheckViolation, match="dosya ekibine eklenemez"):  # Mert duvarlı dosyada engelli
+        a.c.execute("INSERT INTO hukuk.dosya_ekip VALUES (%s, %s, %s)", (veri["k1"], veri["d"]["duvarli"], veri["mert"]))
 
 
 def test_kendine_duvar_ve_kisa_gerekce_reddedilir(uygulama, veri):

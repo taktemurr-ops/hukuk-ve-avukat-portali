@@ -27,6 +27,13 @@ class EtikDuvarDefteri {
 
   static const asgariGerekce = 10;
 
+  /// Sunucudan gelen kayıtlarla önbelleği değiştirir.
+  void yukle(Iterable<EtikDuvarKaydi> kayitlar) {
+    _kayitlar
+      ..clear()
+      ..addAll(kayitlar);
+  }
+
   /// Dosyadan şu an engellenmiş kullanıcılar.
   Set<String> engelliler(String dosyaId) =>
       {for (final k in _kayitlar) if (k.dosyaId == dosyaId && k.aktif) k.kullanici};

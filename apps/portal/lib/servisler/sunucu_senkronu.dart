@@ -55,6 +55,10 @@ abstract class UzakIslemler {
 
   Future<void> gorevKapat(String gorevId, {String? kanit});
 
+  Future<void> etikDuvarKur(String dosyaId, String kullanici, String gerekce);
+
+  Future<void> etikDuvarKaldir(String dosyaId, String kullanici, String gerekce);
+
   /// Kaydeder; varsa çakışma nedenlerini döner.
   Future<List<String>> durusmaEkle({
     required String dosyaId,
@@ -296,6 +300,20 @@ class SunucuSenkronu implements UzakIslemler {
     final durusmalar = _liste(await api.get('/durusmalar'));
     final tebligatlar = _liste(await api.get('/tebligatlar'));
     final vekaletnameler = _liste(await api.get('/vekaletnameler'));
+    final duvarlar = _liste(await api.get('/etik-duvarlar'));
+    depo.etikDuvar.yukle([
+      for (final j in duvarlar)
+        EtikDuvarKaydi(
+          dosyaId: j['dosyaId'] as String,
+          kullanici: j['kullanici'] as String,
+          gerekce: j['gerekce'] as String,
+          kuran: j['kuran'] as String,
+          tarih: _t(j['tarih']),
+        )
+          ..kaldiran = j['kaldiran'] as String?
+          ..kaldirmaGerekcesi = j['kaldirmaGerekcesi'] as String?
+          ..kaldirmaTarihi = _tn(j['kaldirmaTarihi']),
+    ]);
     depo.sunucuBuroVerisiniYukle(
       taraflar: [for (final j in taraflar) tarafJson(j)],
       gorevler: [for (final j in gorevler) gorevJson(j)],
@@ -574,5 +592,17 @@ class SunucuSenkronu implements UzakIslemler {
       if (asilEvrakYeri != null) 'asilEvrakYeri': asilEvrakYeri,
     });
     await _buroVerisiniYenile();
+  }
+
+  @override
+  Future<void> etikDuvarKur(String dosyaId, String kullanici, String gerekce) async {
+    await api.post('/dosyalar/$dosyaId/etik-duvar', {'kullaniciId': kullanici, 'gerekce': gerekce.trim()});
+    await yenile();
+  }
+
+  @override
+  Future<void> etikDuvarKaldir(String dosyaId, String kullanici, String gerekce) async {
+    await api.post('/dosyalar/$dosyaId/etik-duvar/kaldir', {'kullaniciId': kullanici, 'gerekce': gerekce.trim()});
+    await yenile();
   }
 }

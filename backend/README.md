@@ -49,6 +49,7 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET/POST | `/durusmalar` · DELETE `/durusmalar/{id}` | Duruşmalar / ekleme (aynı avukatın çakışmaları uyarı olarak döner) / silme |
 | GET/POST | `/tebligatlar` · POST `/tebligatlar/{id}/bagla` | Tebligatlar (tebliğ tarihi sunucuda, mükerrer kayıt engellenir) / dosyaya bağlama |
 | GET/POST | `/vekaletnameler` · POST `/vekaletnameler/{id}/durum` | Vekâletnameler / azil, istifa, süre dolması (sona eren kilitlenir) |
+| GET | `/etik-duvarlar` · POST `/dosyalar/{id}/etik-duvar` · `/etik-duvar/kaldir` | Etik duvar (yalnızca yöneticiler; ekip üyesine kurulamaz, engellenen kişi kaydı göremez) |
 | GET/POST | `/kisiler` | Kişiler / yeni kişi (TCKN/VKN ve e-posta doğrulanır) |
 | GET | `/kisiler/{id}/cari` | Müvekkil carisi: avans bakiyesi, masraf, ücret alacağı ve hareketler |
 | GET/POST | `/cari` | Tüm cari hareketler / yeni hareket (avans, masraf, iade, ücret tahakkuku/tahsilatı) |

@@ -55,7 +55,12 @@ class EtikDuvarBolumu extends StatelessWidget {
                         onayAnahtari: Key('etik-kaldir-onay'),
                       ),
                     );
-                    if (g != null && context.mounted) mesaj(depo.etikDuvarKaldir(dosya.id, k.kullanici, g));
+                    if (g == null || !context.mounted) return;
+                    final h = await depo.sunucudaVeyaYerelde(
+                      sunucuda: (u) => u.etikDuvarKaldir(dosya.id, k.kullanici, g),
+                      yerelde: () => depo.etikDuvarKaldir(dosya.id, k.kullanici, g),
+                    );
+                    if (context.mounted) mesaj(h);
                   },
                   child: const Text('Kaldır'),
                 )
@@ -129,9 +134,16 @@ class _EtikDuvarDiyaloguState extends State<_EtikDuvarDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('etik-kaydet'),
-          onPressed: () {
+          onPressed: () async {
             final k = _kullanici;
-            final h = k == null ? 'Kullanıcı seçin.' : widget.depo.etikDuvarKur(widget.dosya.id, k, _gerekce.text);
+            final gerekce = _gerekce.text;
+            final h = k == null
+                ? 'Kullanıcı seçin.'
+                : await widget.depo.sunucudaVeyaYerelde(
+                    sunucuda: (u) => u.etikDuvarKur(widget.dosya.id, k, gerekce),
+                    yerelde: () => widget.depo.etikDuvarKur(widget.dosya.id, k, gerekce),
+                  );
+            if (!mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {
