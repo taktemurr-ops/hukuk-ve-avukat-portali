@@ -36,7 +36,13 @@ Future<void> _bas(WidgetTester tester, String anahtar) async {
 Future<void> _dosyaSec(WidgetTester tester, String anahtar, String dosyaBasligi) async {
   await _bas(tester, anahtar);
   // Açılan menüdeki öğeye dokunulur (alanın kendi metnine değil).
-  final oge = find.descendant(of: find.byType(MenuItemButton), matching: find.textContaining(dosyaBasligi));
+  var oge = find.descendant(of: find.byType(MenuItemButton), matching: find.textContaining(dosyaBasligi));
+  if (oge.hitTestable().evaluate().isEmpty) {
+    // Menü açılmadıysa sağdaki ok düğmesiyle açılır.
+    await tester.tap(find.descendant(of: find.byKey(Key(anahtar)), matching: find.byType(IconButton)).first);
+    await tester.pumpAndSettle();
+    oge = find.descendant(of: find.byType(MenuItemButton), matching: find.textContaining(dosyaBasligi)).hitTestable();
+  }
   await tester.tap(oge.evaluate().isNotEmpty ? oge.last : find.textContaining(dosyaBasligi).last);
   await tester.pumpAndSettle();
 }
