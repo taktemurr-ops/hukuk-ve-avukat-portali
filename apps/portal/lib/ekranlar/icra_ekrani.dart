@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
@@ -307,7 +307,7 @@ class _TahsilatDiyaloguState extends State<_TahsilatDiyalogu> {
                     sunucuda: (u) => u.icraTahsilat(widget.icraId, Para.tl(t), g, aciklama),
                     yerelde: () => widget.depo.icraTahsilatEkle(widget.icraId, Para.tl(t), g, aciklama),
                   );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {
@@ -478,7 +478,7 @@ class _IcraTakipFormuState extends State<IcraTakipFormu> {
                         )
                         .id;
                   }
-                  if (!mounted) return;
+                  if (!mounted || !context.mounted) return;
                   Navigator.of(context).pushReplacement(
                       MaterialPageRoute<void>(builder: (_) => IcraDetayEkrani(depo: widget.depo, icraId: icraId)));
                 },

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
@@ -262,7 +262,7 @@ class _IsDiyaloguState extends State<_IsDiyalogu> {
                 return null;
               },
             );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (h != null) {
               setState(() => _hata = h);
               return;
@@ -339,7 +339,7 @@ class _FaturaDiyaloguState extends State<_FaturaDiyalogu> {
                     aciklama: aciklama),
               ),
             );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {
@@ -403,7 +403,7 @@ class _ButceDiyaloguState extends State<_ButceDiyalogu> {
                     yerelde: () => k.disAvukatIslemi('Bütçe artışı ${Para.tl(t).bicimli}', widget.isi.id,
                         () => widget.isi.butceArtir(Para.tl(t), gerekce, k.kullaniciId, k.bugunTarih)),
                   );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {
@@ -455,7 +455,7 @@ class _BuroDiyaloguState extends State<_BuroDiyalogu> {
       sunucuda: (u) => u.disAvukatEkle(buro: _buro.text, sorumluAvukat: _avukat.text, eposta: eposta, uzmanliklar: uzmanliklar),
       yerelde: () => k.disAvukatEkle(buro: _buro.text, sorumluAvukat: _avukat.text, eposta: eposta, uzmanliklar: uzmanliklar),
     );
-    if (!mounted) return;
+    if (!mounted || !context.mounted) return;
     if (h != null) {
       setState(() => _hata = h);
       return;

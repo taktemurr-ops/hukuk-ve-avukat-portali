@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
@@ -673,7 +673,7 @@ class _YukumlulukDiyaloguState extends State<_YukumlulukDiyalogu> {
                 return null;
               },
             );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (h != null) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
               return;

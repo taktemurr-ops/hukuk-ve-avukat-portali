@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/tasarim.dart';
@@ -143,7 +143,7 @@ class _EtikDuvarDiyaloguState extends State<_EtikDuvarDiyalogu> {
                     sunucuda: (u) => u.etikDuvarKur(widget.dosya.id, k, gerekce),
                     yerelde: () => widget.depo.etikDuvarKur(widget.dosya.id, k, gerekce),
                   );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {

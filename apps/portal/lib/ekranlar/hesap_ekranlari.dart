@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
@@ -1262,7 +1262,7 @@ class _TakvimAbonelikEkraniState extends State<TakvimAbonelikEkrani> {
                 '${d['sonOkuma'] == null ? '; henüz okunmadı' : '; son okuma ${tarihSaat(DateTime.parse(d['sonOkuma'] as String).toLocal())}'}). '
                 'Güvenlik için bağlantı yeniden gösterilemez; kaybettiyseniz yenileyin.', key: const Key('takvim-durum'))
           else
-            const Text('Henüz takvim bağlantınız yok.', key: const Key('takvim-durum')),
+            const Text('Henüz takvim bağlantınız yok.', key: Key('takvim-durum')),
           const SizedBox(height: 16),
           Wrap(spacing: 8, children: [
             FilledButton(

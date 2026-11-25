@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
@@ -512,7 +512,7 @@ class _SorumluDiyaloguState extends State<_SorumluDiyalogu> {
                     sunucuda: (u) => u.sorusturmaAc(widget.ihbar.id, s),
                     yerelde: () => k.sorusturmaAc(widget.ihbar, s),
                   );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {

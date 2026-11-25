@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/tasarim.dart';
@@ -129,7 +129,7 @@ class _SirketDiyaloguState extends State<_SirketDiyalogu> {
               sunucuda: (u) => u.sirketEkle(unvan: unvan, vkn: vkn, anaSirketId: _ana, kisaAd: kisa),
               yerelde: () => k.sirketEkle(unvan: unvan, vkn: vkn, anaSirketId: _ana, kisaAd: kisa),
             );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {

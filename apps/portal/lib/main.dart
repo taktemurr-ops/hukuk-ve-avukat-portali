@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'ekranlar/ana_kabuk.dart';
 import 'ekranlar/dis_avukat_portali_ekrani.dart';
@@ -63,11 +62,8 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
       debugShowCheckedModeBanner: false,
       locale: const Locale('tr', 'TR'),
       supportedLocales: const [Locale('tr', 'TR'), Locale('en', 'US')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
+      // Flutter, Material ve Cupertino çevirileri (Türkçe tarih seçici vb.).
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: acikTema(),
       themeMode: ThemeMode.light,
       home: oturum == null

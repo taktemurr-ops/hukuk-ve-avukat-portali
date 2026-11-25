@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
@@ -262,7 +262,7 @@ class _TalepFormuState extends State<TalepFormu> {
                 return null;
               },
             );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (hata != null) {
               setState(() => _hata = hata);
               return;

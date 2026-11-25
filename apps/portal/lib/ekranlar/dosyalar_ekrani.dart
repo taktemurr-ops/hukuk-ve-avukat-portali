@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
@@ -111,7 +111,7 @@ class _BelgeAramaEkraniState extends State<BelgeAramaEkrani> {
   Future<void> _ara() async {
     setState(() => _bekliyor = true);
     final (s, b, h) = await widget.depo.belgeAra(_sorgu.text);
-    if (!mounted) return;
+    if (!mounted || !context.mounted) return;
     // Yerel modda da yalnızca görülebilen dosyalar (sunucuda bu kural veritabanında).
     final gorunur = widget.depo.gorunurDosyalar(oturumAktoru(widget.oturum)).map((d) => d.id).toSet();
     setState(() {
@@ -263,7 +263,7 @@ class DosyaDetayEkrani extends StatelessWidget {
                                     }
                                     if (context.mounted) _mesaj(context, 'Süre teyit edildi.');
                                   } on StateError catch (e) {
-                                    _mesaj(context, e.message);
+                                    if (context.mounted) _mesaj(context, e.message);
                                   } on Exception catch (e) {
                                     if (context.mounted) _mesaj(context, '$e');
                                   }
@@ -285,7 +285,7 @@ class DosyaDetayEkrani extends StatelessWidget {
                                     }
                                     if (context.mounted) _mesaj(context, 'Süre tamamlandı.');
                                   } on ArgumentError catch (e) {
-                                    _mesaj(context, '${e.message}');
+                                    if (context.mounted) _mesaj(context, '${e.message}');
                                   } on Exception catch (e) {
                                     if (context.mounted) _mesaj(context, '$e');
                                   }
@@ -616,7 +616,7 @@ class _SablondanBelgeEkraniState extends State<SablondanBelgeEkrani> {
                               return null;
                             },
                           );
-                          if (!mounted) return;
+                          if (!mounted || !context.mounted) return;
                           if (hata != null) {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
                             return;

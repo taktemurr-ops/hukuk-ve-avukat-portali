@@ -51,10 +51,11 @@ class KurumsalDepo extends ChangeNotifier {
         baslik: 'Genel müdürlük işyeri kirası', karsiTaraf: 'Orman Gayrimenkul Yatırım A.Ş.',
         birim: 'İdari İşler', metin: ornekKiraSozlesmesi, kaydet: false, sirketId: 'abcHolding');
     kira.durum = SozlesmeDurumu.yururlukte;
-    k.sozlesmeYukle(
-        baslik: 'İhracat görüşmeleri gizlilik sözleşmesi', karsiTaraf: 'Northwind Trading Limited',
-        birim: 'Dış Ticaret', metin: ornekGizlilikSozlesmesi, kaydet: false, sirketId: 'abcDis')
-      ..durum = SozlesmeDurumu.onayda;
+    k
+        .sozlesmeYukle(
+            baslik: 'İhracat görüşmeleri gizlilik sözleşmesi', karsiTaraf: 'Northwind Trading Limited',
+            birim: 'Dış Ticaret', metin: ornekGizlilikSozlesmesi, kaydet: false, sirketId: 'abcDis')
+        .durum = SozlesmeDurumu.onayda;
 
     final nda = k.sozlesmeler[2];
     k.onaySurecleri[nda.id] = OnaySureci(sozlesmeId: nda.id, adimlar: k.onayPolitikasi.adimlar(nda), baslatan: 'hu2')

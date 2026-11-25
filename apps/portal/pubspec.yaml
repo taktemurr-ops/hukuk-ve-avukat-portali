@@ -9,8 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_localizations:
-    sdk: flutter
+  # Flutter 3.47'den itibaren Material ayrı paket (package:flutter/material.dart kullanımdan kalkıyor).
+  material_ui: ^1.0.0
   hukuk_cekirdek:
     path: ../../packages/hukuk_cekirdek
   http: ^1.2.2

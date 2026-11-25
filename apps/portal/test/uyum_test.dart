@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import 'package:portal/ekranlar/ana_kabuk.dart';
@@ -53,7 +53,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final yeni = k.ihbarlar.last;
-    // Kayıttan sonra ihbar sekmesine dönülür.
+    // Testteki ensureVisible, sekme sayfalarını (PageView) yatay kaydırıp başka sekmeye geçirebiliyor; ihbar sekmesine dönülür.
     await _bas(tester, 'uyum-sekme-ihbar');
     await _bas(tester, 'sorusturma-ac-${yeni.id}');
     await _bas(tester, 'sorusturma-sorumlu');

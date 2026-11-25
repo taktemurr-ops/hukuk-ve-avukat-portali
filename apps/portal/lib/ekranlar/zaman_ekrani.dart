@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
@@ -255,7 +255,7 @@ class _KronometrePaneliState extends State<KronometrePaneli> {
       sunucuda: (u) => u.zamanEkle(dosyaId: dosyaId, dakika: dakika, aciklama: aciklama),
       yerelde: () => widget.depo.zamanEkle(dosyaId: dosyaId, dakika: dakika, aciklama: aciklama),
     );
-    if (!mounted) return;
+    if (!mounted || !context.mounted) return;
     setState(() {
       _hata = hata;
       if (hata == null) _aciklama.clear();
@@ -407,7 +407,7 @@ class _ZamanDiyaloguState extends State<_ZamanDiyalogu> {
               sunucuda: (u) => u.zamanEkle(dosyaId: dosyaId, dakika: dk, aciklama: aciklama, faturalanabilir: fat),
               yerelde: () => widget.depo.zamanEkle(dosyaId: dosyaId, dakika: dk, aciklama: aciklama, faturalanabilir: fat),
             );
-            if (!mounted) return;
+            if (!mounted || !context.mounted) return;
             if (hata == null) {
               Navigator.pop(context);
             } else {
