@@ -53,6 +53,17 @@ abstract class KurumsalUzak {
 
   /// [hedef]: kurul veya ilgililer.
   Future<void> ihlalBildirim(String ihlalId, String hedef);
+
+  Future<void> disIsAc({required String disAvukatId, required String konu, required Para butce});
+
+  Future<void> disAvukatEkle({required String buro, required String sorumluAvukat, required String eposta, List<String> uzmanliklar});
+
+  Future<void> disFaturaEkle(String isiId, {required String no, required Para tutar, required String aciklama});
+
+  /// [islem]: onayla, reddet veya finans.
+  Future<void> disFaturaIslemi(String faturaId, String islem, {String gerekce});
+
+  Future<void> disButceArtir(String isiId, Para tutar, String gerekce);
 }
 
 class KurumsalSenkronu implements KurumsalUzak {
@@ -203,6 +214,55 @@ class KurumsalSenkronu implements KurumsalUzak {
         ..kurulaBildirim = _z(j['kurulaBildirim'])
         ..ilgililereBildirim = _z(j['ilgililereBildirim']);
 
+  static (List<DisAvukat>, List<DisAvukatIsi>) disAvukatJson(Map<String, dynamic> j) {
+    final avukatlar = [
+      for (final a in _liste(j['avukatlar'] ?? const []))
+        DisAvukat(
+          id: a['id'] as String,
+          buro: a['buro'] as String,
+          sorumluAvukat: a['sorumluAvukat'] as String,
+          eposta: a['eposta'] as String,
+          uzmanliklar: [for (final x in (a['uzmanliklar'] as List? ?? const [])) '$x'],
+          saatlikUcret: a['saatlikKurus'] == null ? null : Para.kurus(a['saatlikKurus'] as int),
+        ),
+    ];
+    final isler = <DisAvukatIsi>[];
+    for (final i in _liste(j['isler'] ?? const [])) {
+      final isi = DisAvukatIsi(
+        id: i['id'] as String,
+        disAvukatId: i['disAvukatId'] as String,
+        konu: i['konu'] as String,
+        ilkButce: Para.kurus(i['ilkButceKurus'] as int),
+        baslangic: _t(i['baslangic'])!,
+        dosyaId: i['dosyaId'] as String?,
+        talepId: i['talepId'] as String?,
+      )..kapali = i['kapali'] == true;
+      for (final f in _liste(i['faturalar'] ?? const [])) {
+        isi.faturalar.add(DisAvukatFaturasi(
+          id: f['id'] as String,
+          no: f['no'] as String,
+          tarih: _t(f['tarih'])!,
+          tutar: Para.kurus(f['tutarKurus'] as int),
+          aciklama: f['aciklama'] as String? ?? '',
+        )
+          ..durum = FaturaDurumu.values.firstWhere((d) => d.name == f['durum'], orElse: () => FaturaDurumu.bekliyor)
+          ..onaylayan = f['onaylayan'] as String?
+          ..retGerekcesi = f['retGerekcesi'] as String?);
+      }
+      for (final b in _liste(i['butceArtislari'] ?? const [])) {
+        isi.butceArtislari.add(ButceArtisi(
+            Para.kurus(b['tutarKurus'] as int), b['gerekce'] as String, b['onaylayan'] as String, _t(b['tarih'])!));
+      }
+      isler.add(isi);
+    }
+    return (avukatlar, isler);
+  }
+
+  Future<void> _disAvukatYenile() async {
+    final (a, i) = disAvukatJson(await api.get('/dis-avukatlar') as Map<String, dynamic>);
+    kurumsal.sunucuDisAvukatVerisiniYukle(avukatlar: a, isler: i);
+  }
+
   Future<void> _uyumYenile() async {
     final ihbarlar = [for (final j in _liste(await api.get('/ihbarlar'))) ihbarJson(j)];
     final ihlaller = [for (final j in _liste(await api.get('/veri-ihlalleri'))) ihlalJson(j)];
@@ -236,6 +296,7 @@ class KurumsalSenkronu implements KurumsalUzak {
       ],
     );
     await _uyumYenile();
+    await _disAvukatYenile();
   }
 
   @override
@@ -387,5 +448,41 @@ class KurumsalSenkronu implements KurumsalUzak {
   Future<void> ihlalBildirim(String ihlalId, String hedef) async {
     await api.post('/veri-ihlalleri/$ihlalId/bildirim', {'hedef': hedef});
     await _uyumYenile();
+  }
+
+  @override
+  Future<void> disIsAc({required String disAvukatId, required String konu, required Para butce}) async {
+    await api.post('/dis-avukat-isleri', {'disAvukatId': disAvukatId, 'konu': konu.trim(), 'butceKurus': butce.kurus});
+    await _disAvukatYenile();
+  }
+
+  @override
+  Future<void> disFaturaEkle(String isiId, {required String no, required Para tutar, required String aciklama}) async {
+    await api.post('/dis-avukat-isleri/$isiId/fatura', {'no': no.trim(), 'tutarKurus': tutar.kurus, 'aciklama': aciklama.trim()});
+    await _disAvukatYenile();
+  }
+
+  @override
+  Future<void> disFaturaIslemi(String faturaId, String islem, {String gerekce = ''}) async {
+    await api.post('/dis-avukat-faturalari/$faturaId/$islem', {if (gerekce.isNotEmpty) 'gerekce': gerekce});
+    await _disAvukatYenile();
+  }
+
+  @override
+  Future<void> disButceArtir(String isiId, Para tutar, String gerekce) async {
+    await api.post('/dis-avukat-isleri/$isiId/butce', {'tutarKurus': tutar.kurus, 'gerekce': gerekce.trim()});
+    await _disAvukatYenile();
+  }
+
+  @override
+  Future<void> disAvukatEkle({
+    required String buro,
+    required String sorumluAvukat,
+    required String eposta,
+    List<String> uzmanliklar = const [],
+  }) async {
+    await api.post('/dis-avukatlar',
+        {'buro': buro.trim(), 'sorumluAvukat': sorumluAvukat.trim(), 'eposta': eposta.trim(), 'uzmanliklar': uzmanliklar});
+    await _disAvukatYenile();
   }
 }

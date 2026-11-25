@@ -378,6 +378,16 @@ class KurumsalDepo extends ChangeNotifier {
     notifyListeners();
   }
 
+  void sunucuDisAvukatVerisiniYukle({required List<DisAvukat> avukatlar, required List<DisAvukatIsi> isler}) {
+    disAvukatlar
+      ..clear()
+      ..addAll(avukatlar);
+    disAvukatIsleri
+      ..clear()
+      ..addAll(isler);
+    notifyListeners();
+  }
+
   void sunucuUyumVerisiniYukle({
     required List<Ihbar> ihbarlar,
     required List<Sorusturma> sorusturmalar,
@@ -547,6 +557,17 @@ class KurumsalDepo extends ChangeNotifier {
   final List<DisAvukat> disAvukatlar = [];
   final List<DisAvukatIsi> disAvukatIsleri = [];
   int _disSira = 0;
+
+  /// Yerel (demo) büro ekleme; hata varsa mesajı döner.
+  String? disAvukatEkle({required String buro, required String sorumluAvukat, required String eposta, List<String> uzmanliklar = const []}) {
+    _disSira++;
+    final a = DisAvukat(
+        id: 'da$_disSira', buro: buro.trim(), sorumluAvukat: sorumluAvukat.trim(), eposta: eposta.trim(), uzmanliklar: uzmanliklar);
+    disAvukatlar.add(a);
+    depo.okumaKaydet(DenetimIslemi.olusturma, 'dis_avukat', a.id, a.buro);
+    notifyListeners();
+    return null;
+  }
 
   DisAvukat? disAvukat(String id) {
     for (final a in disAvukatlar) {

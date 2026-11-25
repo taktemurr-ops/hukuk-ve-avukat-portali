@@ -237,6 +237,8 @@ class SahteSunucu {
             ],
           },
         ]);
+      case 'GET /dis-avukatlar':
+        return _json({'avukatlar': [], 'isler': []});
       case 'GET /ihbarlar':
         return _json([
           {
@@ -369,7 +371,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
     await _bas(tester, 'giris-yap');
     expect(sunucu.istekler, containsAll(['GET /sirketler', 'GET /sozlesmeler', 'GET /talepler', 'GET /sozlesmeler/sz1/onay',
-      'GET /ihbarlar', 'GET /veri-ihlalleri']));
+      'GET /ihbarlar', 'GET /veri-ihlalleri', 'GET /dis-avukatlar']));
     await _bas(tester, 'menu-sozlesmeler');
     expect(find.textContaining('Sunucudaki bakım sözleşmesi'), findsWidgets);
     // Demo verisi kullanılmaz.

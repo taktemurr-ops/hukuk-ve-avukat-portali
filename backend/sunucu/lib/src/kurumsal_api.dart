@@ -38,7 +38,14 @@ class KurumsalApi {
     ..get('/talepler', _talepler)
     ..post('/talepler', _talepEkle)
     ..post('/talepler/<id>/durum', _talepDurum)
-    ..post('/talepler/<id>/ata', _talepAta);
+    ..post('/talepler/<id>/ata', _talepAta)
+    ..get('/dis-avukatlar', _disAvukatlar)
+    ..post('/dis-avukatlar', _disAvukatEkle)
+    ..post('/dis-avukat-isleri', _disIsAc)
+    ..post('/dis-avukat-isleri/<id>/fatura', _disFaturaEkle)
+    ..post('/dis-avukat-isleri/<id>/butce', _disButceArtir)
+    ..post('/dis-avukat-isleri/<id>/kapat', _disIsKapat)
+    ..post('/dis-avukat-faturalari/<id>/<islem>', _disFaturaIslemi);
 
   static Future<Set<String>> _roller(TxSession tx, String kullaniciId) async {
     final rs = await tx.execute(Sql.named('SELECT rol FROM hukuk.kullanici_rol WHERE kullanici_id = CAST(@u AS uuid)'),
@@ -661,5 +668,207 @@ class KurumsalApi {
       await DosyaApi.denetim(tx, k, 'degisiklik', 'talep', id, 'Atandı: $adSoyad');
     });
     return jsonYanit({'atanan': kisi});
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dış avukatlar (bütçe ve fatura kuralları veritabanında da zorlanır)
+  // ---------------------------------------------------------------------------
+
+  Future<Response> _disAvukatlar(Request istek) async {
+    final k = kimlik(istek);
+    final (avukatlar, isler, faturalar, artislar) = await vt.kiraciIcin(k, (tx) async {
+      final a = await tx.execute('SELECT id::text, buro, sorumlu_avukat, eposta, uzmanliklar, saatlik_kurus FROM hukuk.dis_avukat '
+          'WHERE aktif ORDER BY buro');
+      final i = await tx.execute('SELECT id::text, dis_avukat_id::text, konu, ilk_butce_kurus, baslangic, dosya_id::text, '
+          'talep_id::text, kapali FROM hukuk.dis_avukat_isi ORDER BY baslangic DESC');
+      final f = await tx.execute('SELECT id::text, isi_id::text, no, tarih, tutar_kurus, aciklama, durum, onaylayan::text, '
+          'ret_gerekcesi FROM hukuk.dis_avukat_faturasi ORDER BY tarih, no');
+      final b = await tx.execute('SELECT isi_id::text, tutar_kurus, gerekce, onaylayan::text, tarih FROM hukuk.dis_avukat_butce_artisi '
+          'ORDER BY id');
+      return (a, i, f, b);
+    });
+    Map<String, List<Map<String, Object?>>> grupla(Result rs, Map<String, Object?> Function(List<Object?>) donustur) {
+      final m = <String, List<Map<String, Object?>>>{};
+      for (final r in rs) {
+        (m[r[1]! as String] ??= []).add(donustur(r));
+      }
+      return m;
+    }
+
+    final fMap = grupla(faturalar, (r) => {
+          'id': r[0],
+          'no': r[2],
+          'tarih': tarihMetni(r[3]),
+          'tutarKurus': r[4],
+          'aciklama': r[5],
+          'durum': r[6],
+          'onaylayan': r[7],
+          'retGerekcesi': r[8],
+        });
+    final bMap = <String, List<Map<String, Object?>>>{};
+    for (final r in artislar) {
+      (bMap[r[0]! as String] ??= []).add({'tutarKurus': r[1], 'gerekce': r[2], 'onaylayan': r[3], 'tarih': tarihMetni(r[4])});
+    }
+    return jsonYanit({
+      'avukatlar': [
+        for (final r in avukatlar)
+          {'id': r[0], 'buro': r[1], 'sorumluAvukat': r[2], 'eposta': r[3], 'uzmanliklar': r[4], 'saatlikKurus': r[5]},
+      ],
+      'isler': [
+        for (final r in isler)
+          {
+            'id': r[0],
+            'disAvukatId': r[1],
+            'konu': r[2],
+            'ilkButceKurus': r[3],
+            'baslangic': tarihMetni(r[4]),
+            'dosyaId': r[5],
+            'talepId': r[6],
+            'kapali': r[7],
+            'faturalar': fMap[r[0]] ?? const [],
+            'butceArtislari': bMap[r[0]] ?? const [],
+          },
+      ],
+    });
+  }
+
+  Future<Response> _disAvukatEkle(Request istek) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final eposta = zorunluMetin(j, 'eposta').toLowerCase();
+    final h = Dogrulayicilar.eposta(eposta);
+    if (h != null) throw ApiHatasi(400, h, kod: 'gecersiz_istek');
+    final id = await vt.kiraciIcin(k, (tx) async {
+      await _hukukEkibiOlmali(tx, k);
+      final rs = await tx.execute(
+        Sql.named('INSERT INTO hukuk.dis_avukat (kiraci_id, buro, sorumlu_avukat, eposta, uzmanliklar, saatlik_kurus) '
+            'VALUES (CAST(@k AS uuid), @b, @s, @e, CAST(@u AS text[]), @sa) RETURNING id::text'),
+        parameters: {
+          'k': k.kiraciId,
+          'b': zorunluMetin(j, 'buro'),
+          's': zorunluMetin(j, 'sorumluAvukat'),
+          'e': eposta,
+          'u': [for (final x in (j['uzmanliklar'] as List? ?? const [])) '$x'],
+          'sa': j['saatlikKurus'] is int ? j['saatlikKurus'] as int : null,
+        },
+      );
+      final yeni = rs.first[0]! as String;
+      await DosyaApi.denetim(tx, k, 'olusturma', 'dis_avukat', yeni, j['buro'] as String);
+      return yeni;
+    });
+    return jsonYanit({'id': id}, durum: 201);
+  }
+
+  Future<Response> _disIsAc(Request istek) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final butce = j['butceKurus'];
+    if (butce is! int || butce <= 0) throw const ApiHatasi(400, '"butceKurus" sıfırdan büyük olmalı.', kod: 'gecersiz_istek');
+    final id = await vt.kiraciIcin(k, (tx) async {
+      await _hukukEkibiOlmali(tx, k);
+      final rs = await tx.execute(
+        Sql.named('INSERT INTO hukuk.dis_avukat_isi (kiraci_id, dis_avukat_id, konu, ilk_butce_kurus, dosya_id, talep_id) '
+            'VALUES (CAST(@k AS uuid), CAST(@a AS uuid), @ko, @b, CAST(@d AS uuid), CAST(@t AS uuid)) RETURNING id::text'),
+        parameters: {
+          'k': k.kiraciId,
+          'a': zorunluMetin(j, 'disAvukatId'),
+          'ko': zorunluMetin(j, 'konu'),
+          'b': butce,
+          'd': j['dosyaId'] as String?,
+          't': j['talepId'] as String?,
+        },
+      );
+      final yeni = rs.first[0]! as String;
+      await DosyaApi.denetim(tx, k, 'olusturma', 'dis_avukat_isi', yeni, '${j['konu']} · ${Para.kurus(butce).bicimli}');
+      return yeni;
+    });
+    return jsonYanit({'id': id}, durum: 201);
+  }
+
+  Future<Response> _disFaturaEkle(Request istek, String isiId) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final tutar = j['tutarKurus'];
+    if (tutar is! int || tutar <= 0) throw const ApiHatasi(400, 'Fatura tutarı sıfırdan büyük olmalı.', kod: 'gecersiz_istek');
+    final tarih = j['tarih'] == null ? Tarih.from(DateTime.now()) : tarihAlani(j, 'tarih');
+    final id = await vt.kiraciIcin(k, (tx) async {
+      await _hukukEkibiOlmali(tx, k);
+      final rs = await tx.execute(
+        Sql.named('INSERT INTO hukuk.dis_avukat_faturasi (kiraci_id, isi_id, no, tarih, tutar_kurus, aciklama) '
+            'VALUES (CAST(@k AS uuid), CAST(@i AS uuid), @n, CAST(@t AS date), @tu, @a) RETURNING id::text'),
+        parameters: {
+          'k': k.kiraciId,
+          'i': isiId,
+          'n': zorunluMetin(j, 'no'),
+          't': tarih.isoBicim,
+          'tu': tutar,
+          'a': (j['aciklama'] as String?)?.trim() ?? '',
+        },
+      );
+      final yeni = rs.first[0]! as String;
+      await DosyaApi.denetim(tx, k, 'olusturma', 'dis_avukat_isi', isiId, 'Fatura eklendi: ${j['no']}');
+      return yeni;
+    });
+    return jsonYanit({'id': id}, durum: 201);
+  }
+
+  Future<Response> _disButceArtir(Request istek, String isiId) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final tutar = j['tutarKurus'];
+    if (tutar is! int || tutar <= 0) throw const ApiHatasi(400, 'Artış tutarı sıfırdan büyük olmalı.', kod: 'gecersiz_istek');
+    final gerekce = zorunluMetin(j, 'gerekce');
+    if (gerekce.length < 10) throw const ApiHatasi(400, 'Bütçe artışı için gerekçe en az 10 karakter olmalı.', kod: 'gecersiz_istek');
+    await vt.kiraciIcin(k, (tx) async {
+      await _hukukEkibiOlmali(tx, k);
+      await tx.execute(
+        Sql.named('INSERT INTO hukuk.dis_avukat_butce_artisi (kiraci_id, isi_id, tutar_kurus, gerekce) '
+            'VALUES (CAST(@k AS uuid), CAST(@i AS uuid), @t, @g)'),
+        parameters: {'k': k.kiraciId, 'i': isiId, 't': tutar, 'g': gerekce},
+      );
+      await DosyaApi.denetim(tx, k, 'degisiklik', 'dis_avukat_isi', isiId, 'Bütçe artışı ${Para.kurus(tutar).bicimli}: $gerekce');
+    });
+    return jsonYanit({'durum': 'eklendi'}, durum: 201);
+  }
+
+  Future<Response> _disIsKapat(Request istek, String isiId) async {
+    final k = kimlik(istek);
+    final n = await vt.kiraciIcin(k, (tx) async {
+      await _hukukEkibiOlmali(tx, k);
+      final rs = await tx.execute(
+          Sql.named('UPDATE hukuk.dis_avukat_isi SET kapali = true WHERE id = CAST(@i AS uuid) AND NOT kapali'),
+          parameters: {'i': isiId});
+      if (rs.affectedRows == 1) await DosyaApi.denetim(tx, k, 'degisiklik', 'dis_avukat_isi', isiId, 'İş kapatıldı');
+      return rs.affectedRows;
+    });
+    if (n == 0) throw const ApiHatasi(404, 'Açık iş bulunamadı.', kod: 'bulunamadi');
+    return jsonYanit({'kapali': true});
+  }
+
+  /// [islem]: onayla, reddet (gerekce) veya finans. Geçiş ve bütçe kuralları veritabanında zorlanır.
+  Future<Response> _disFaturaIslemi(Request istek, String faturaId, String islem) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final (sql, aciklama) = switch (islem) {
+      'onayla' => ("UPDATE hukuk.dis_avukat_faturasi SET durum = 'onaylandi', onaylayan = CAST(@u AS uuid) "
+            'WHERE id = CAST(@f AS uuid) RETURNING isi_id::text, no', 'Fatura onaylandı'),
+      'reddet' => ("UPDATE hukuk.dis_avukat_faturasi SET durum = 'reddedildi', onaylayan = CAST(@u AS uuid), ret_gerekcesi = @g "
+            'WHERE id = CAST(@f AS uuid) RETURNING isi_id::text, no', 'Fatura reddedildi'),
+      'finans' => ("UPDATE hukuk.dis_avukat_faturasi SET durum = 'finansaGonderildi' WHERE id = CAST(@f AS uuid) "
+            'AND CAST(@u AS uuid) IS NOT NULL RETURNING isi_id::text, no', 'Finansa gönderildi'),
+      _ => throw const ApiHatasi(404, 'Bilinmeyen işlem.', kod: 'bulunamadi'),
+    };
+    final gerekce = (j['gerekce'] as String?)?.trim() ?? '';
+    if (islem == 'reddet' && gerekce.length < 5) {
+      throw const ApiHatasi(400, 'Ret gerekçesi yazılmalı.', kod: 'gecersiz_istek');
+    }
+    await vt.kiraciIcin(k, (tx) async {
+      await _hukukEkibiOlmali(tx, k);
+      final rs = await tx.execute(Sql.named(sql),
+          parameters: {'u': k.kullaniciId, 'f': faturaId, if (islem == 'reddet') 'g': gerekce});
+      if (rs.isEmpty) throw ApiHatasi.bulunamadi;
+      await DosyaApi.denetim(tx, k, 'degisiklik', 'dis_avukat_isi', rs.first[0]! as String, '$aciklama: ${rs.first[1]}');
+    });
+    return jsonYanit({'durum': islem});
   }
 }

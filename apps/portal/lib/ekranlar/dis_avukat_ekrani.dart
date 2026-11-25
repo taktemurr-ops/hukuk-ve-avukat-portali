@@ -44,7 +44,15 @@ class DisAvukatlarEkrani extends StatelessWidget {
         builder: (context, _) {
           final metin = Theme.of(context).textTheme;
           return ListView(padding: const EdgeInsets.fromLTRB(24, 24, 24, 96), children: [
-            Text('Dış avukatlar', style: metin.headlineMedium),
+            Row(children: [
+              Expanded(child: Text('Dış avukatlar', style: metin.headlineMedium)),
+              OutlinedButton.icon(
+                key: const Key('dis-buro-yeni'),
+                onPressed: () => showDialog<void>(context: context, builder: (_) => _BuroDiyalogu(kurumsal: k)),
+                icon: const Icon(Icons.person_add_alt),
+                label: const Text('Büro ekle'),
+              ),
+            ]),
             const SizedBox(height: 16),
             Wrap(spacing: 16, runSpacing: 16, children: [
               for (final o in k.disAvukatOzetleri)
@@ -105,8 +113,14 @@ class DisAvukatlarEkrani extends StatelessWidget {
                             key: Key('fatura-onayla-${f.id}'),
                             tooltip: 'Onayla',
                             icon: const Icon(Icons.check_circle_outline, color: Renkler.yesil),
-                            onPressed: () => _mesaj(context,
-                                k.disAvukatIslemi('Fatura onaylandı: ${f.no}', i.id, () => i.faturaOnayla(f, k.kullaniciId))),
+                            onPressed: () async {
+                              final h = await k.sunucudaVeyaYerelde(
+                                sunucuda: (u) => u.disFaturaIslemi(f.id, 'onayla'),
+                                yerelde: () =>
+                                    k.disAvukatIslemi('Fatura onaylandı: ${f.no}', i.id, () => i.faturaOnayla(f, k.kullaniciId)),
+                              );
+                              if (context.mounted) _mesaj(context, h);
+                            },
                           ),
                           IconButton(
                             key: Key('fatura-reddet-${f.id}'),
@@ -122,18 +136,26 @@ class DisAvukatlarEkrani extends StatelessWidget {
                                   onayAnahtari: Key('ret-onay'),
                                 ),
                               );
-                              if (g != null && context.mounted) {
-                                _mesaj(context,
-                                    k.disAvukatIslemi('Fatura reddedildi: ${f.no}', i.id, () => i.faturaReddet(f, k.kullaniciId, g)));
-                              }
+                              if (g == null || !context.mounted) return;
+                              final h = await k.sunucudaVeyaYerelde(
+                                sunucuda: (u) => u.disFaturaIslemi(f.id, 'reddet', gerekce: g),
+                                yerelde: () => k.disAvukatIslemi(
+                                    'Fatura reddedildi: ${f.no}', i.id, () => i.faturaReddet(f, k.kullaniciId, g)),
+                              );
+                              if (context.mounted) _mesaj(context, h);
                             },
                           ),
                         ],
                         if (f.durum == FaturaDurumu.onaylandi)
                           TextButton(
                             key: Key('fatura-finans-${f.id}'),
-                            onPressed: () =>
-                                _mesaj(context, k.disAvukatIslemi('Finansa gönderildi: ${f.no}', i.id, () => i.finansaGonder(f))),
+                            onPressed: () async {
+                              final h = await k.sunucudaVeyaYerelde(
+                                sunucuda: (u) => u.disFaturaIslemi(f.id, 'finans'),
+                                yerelde: () => k.disAvukatIslemi('Finansa gönderildi: ${f.no}', i.id, () => i.finansaGonder(f)),
+                              );
+                              if (context.mounted) _mesaj(context, h);
+                            },
                             child: const Text('Finansa gönder'),
                           ),
                       ]),
@@ -217,14 +239,26 @@ class _IsDiyaloguState extends State<_IsDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('dis-is-kaydet'),
-          onPressed: () {
+          onPressed: () async {
             final b = tutarCoz(_butce.text);
             final a = _avukat;
             if (a == null || b == null || b <= 0 || _konu.text.trim().isEmpty) {
               setState(() => _hata = 'Büro, konu ve bütçe zorunludur.');
               return;
             }
-            k.disAvukatIsiAc(disAvukatId: a, konu: _konu.text, butce: Para.tl(b));
+            final konu = _konu.text;
+            final h = await k.sunucudaVeyaYerelde(
+              sunucuda: (u) => u.disIsAc(disAvukatId: a, konu: konu, butce: Para.tl(b)),
+              yerelde: () {
+                k.disAvukatIsiAc(disAvukatId: a, konu: konu, butce: Para.tl(b));
+                return null;
+              },
+            );
+            if (!mounted) return;
+            if (h != null) {
+              setState(() => _hata = h);
+              return;
+            }
             Navigator.pop(context);
           },
           child: const Text('Kaydet'),
@@ -276,22 +310,28 @@ class _FaturaDiyaloguState extends State<_FaturaDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('fatura-kaydet'),
-          onPressed: () {
+          onPressed: () async {
             final t = tutarCoz(_tutar.text);
             if (t == null || _no.text.trim().isEmpty) {
               setState(() => _hata = 'Fatura no ve tutar zorunludur.');
               return;
             }
-            final h = k.disAvukatIslemi(
-              'Fatura eklendi: ${_no.text.trim()}',
-              widget.isi.id,
-              () => widget.isi.faturaEkle(
-                  id: 'df${DateTime.now().microsecondsSinceEpoch}',
-                  no: _no.text,
-                  tarih: k.bugunTarih,
-                  tutar: Para.tl(t),
-                  aciklama: _aciklama.text),
+            final no = _no.text;
+            final aciklama = _aciklama.text;
+            final h = await k.sunucudaVeyaYerelde(
+              sunucuda: (u) => u.disFaturaEkle(widget.isi.id, no: no, tutar: Para.tl(t), aciklama: aciklama),
+              yerelde: () => k.disAvukatIslemi(
+                'Fatura eklendi: ${no.trim()}',
+                widget.isi.id,
+                () => widget.isi.faturaEkle(
+                    id: 'df${DateTime.now().microsecondsSinceEpoch}',
+                    no: no,
+                    tarih: k.bugunTarih,
+                    tutar: Para.tl(t),
+                    aciklama: aciklama),
+              ),
             );
+            if (!mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {
@@ -345,12 +385,17 @@ class _ButceDiyaloguState extends State<_ButceDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('butce-kaydet'),
-          onPressed: () {
+          onPressed: () async {
             final t = tutarCoz(_tutar.text);
+            final gerekce = _gerekce.text;
             final h = t == null
                 ? 'Tutarı kontrol edin.'
-                : k.disAvukatIslemi('Bütçe artışı ${Para.tl(t).bicimli}', widget.isi.id,
-                    () => widget.isi.butceArtir(Para.tl(t), _gerekce.text, k.kullaniciId, k.bugunTarih));
+                : await k.sunucudaVeyaYerelde(
+                    sunucuda: (u) => u.disButceArtir(widget.isi.id, Para.tl(t), gerekce),
+                    yerelde: () => k.disAvukatIslemi('Bütçe artışı ${Para.tl(t).bicimli}', widget.isi.id,
+                        () => widget.isi.butceArtir(Para.tl(t), gerekce, k.kullaniciId, k.bugunTarih)),
+                  );
+            if (!mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {
@@ -359,6 +404,81 @@ class _ButceDiyaloguState extends State<_ButceDiyalogu> {
           },
           child: const Text('Onayla'),
         ),
+      ],
+    );
+  }
+}
+
+/// Anlaşmalı dış avukat bürosu ekleme.
+class _BuroDiyalogu extends _FormDiyalogu {
+  const _BuroDiyalogu({required super.kurumsal});
+
+  @override
+  State<_BuroDiyalogu> createState() => _BuroDiyaloguState();
+}
+
+class _BuroDiyaloguState extends State<_BuroDiyalogu> {
+  final _buro = TextEditingController();
+  final _avukat = TextEditingController();
+  final _eposta = TextEditingController();
+  final _uzmanlik = TextEditingController();
+  String? _hata;
+
+  @override
+  void dispose() {
+    for (final c in [_buro, _avukat, _eposta, _uzmanlik]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _kaydet() async {
+    final k = widget.kurumsal;
+    final eposta = _eposta.text.trim();
+    final hata = _buro.text.trim().length < 2 || _avukat.text.trim().isEmpty
+        ? 'Büro ve sorumlu avukat zorunludur.'
+        : Dogrulayicilar.eposta(eposta);
+    if (hata != null) {
+      setState(() => _hata = hata);
+      return;
+    }
+    final uzmanliklar = [for (final x in _uzmanlik.text.split(',')) if (x.trim().isNotEmpty) x.trim()];
+    final h = await k.sunucudaVeyaYerelde(
+      sunucuda: (u) => u.disAvukatEkle(buro: _buro.text, sorumluAvukat: _avukat.text, eposta: eposta, uzmanliklar: uzmanliklar),
+      yerelde: () => k.disAvukatEkle(buro: _buro.text, sorumluAvukat: _avukat.text, eposta: eposta, uzmanliklar: uzmanliklar),
+    );
+    if (!mounted) return;
+    if (h != null) {
+      setState(() => _hata = h);
+      return;
+    }
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Dış avukat bürosu ekle'),
+      content: SizedBox(
+        width: 420,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(key: const Key('buro-ad'), controller: _buro, decoration: const InputDecoration(labelText: 'Büro')),
+          TextField(key: const Key('buro-avukat'), controller: _avukat, decoration: const InputDecoration(labelText: 'Sorumlu avukat')),
+          TextField(
+              key: const Key('buro-eposta'),
+              controller: _eposta,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'E-posta')),
+          TextField(
+              key: const Key('buro-uzmanlik'),
+              controller: _uzmanlik,
+              decoration: const InputDecoration(labelText: 'Uzmanlıklar (virgülle)')),
+          if (_hata != null) Text(_hata!, key: const Key('buro-hata'), style: const TextStyle(color: Renkler.kritik)),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
+        FilledButton(key: const Key('buro-kaydet'), onPressed: _kaydet, child: const Text('Kaydet')),
       ],
     );
   }

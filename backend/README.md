@@ -82,6 +82,9 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | POST | `/sozlesmeler/{id}/durum` | Durum geçişi; "onayda"ya geçiş yeni onay turu açar, imzaya yalnızca zincir tamamlanınca geçilir |
 | POST | `/sozlesmeler/{id}/yukumlulukler` · `/yukumlulukler/{id}/tamamla` | Sözleşme yükümlülüğü ekleme / tamamlama |
 | GET/POST | `/sozlesmeler/{id}/onay` | Onay zinciri (rollerden: hukuk, direktör, finans ≥1 M TL, genel müdür ≥5 M TL) / karar |
+| GET/POST | `/dis-avukatlar` | Dış avukat büroları, işleri, faturaları ve bütçe artışları / büro ekleme |
+| POST | `/dis-avukat-isleri` · `/{id}/fatura` · `/{id}/butce` · `/{id}/kapat` | İş açma, fatura ekleme, gerekçeli bütçe artışı, kapatma |
+| POST | `/dis-avukat-faturalari/{id}/onayla` · `/reddet` · `/finans` | Fatura onayı (bütçeyi aşan onay veritabanında da engellenir), ret, finansa gönderme |
 | GET/POST | `/talepler` | Talepler ve geçmişi / yeni talep (SLA iş günüyle hesaplanır, en az yüklü ekip üyesine atanır) |
 | POST | `/talepler/{id}/durum` | Durum geçişi (bilgi beklemesi SLA'yı öteler, ret gerekçe ister) |
 | POST | `/talepler/{id}/ata` | Hukuk ekibinden birine atama |
