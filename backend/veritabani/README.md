@@ -1,6 +1,6 @@
 # Veritabanı şeması (PostgreSQL 16)
 
-`migrations/` altındaki SQL dosyaları sırayla uygulanır. Şema, uygulama sunucusundan bağımsız olarak veri güvenliğini
+`migrations/` altındaki SQL dosyaları `goc.py` ile sırayla, her biri tek işlemde uygulanır (uygulananlar `public.hukuk_goc`'ta; uygulanmış dosya değiştirilemez). Şema, uygulama sunucusundan bağımsız olarak veri güvenliğini
 veritabanı seviyesinde de garanti eder:
 
 | Kural | Nasıl |
@@ -25,7 +25,7 @@ Yeni müşteri kaydında uygulama önce yeni kiracı kimliğini üretir, `app.ki
 
 ## Testler
 
-Gerçek PostgreSQL'e karşı çalışır (21 test):
+Gerçek PostgreSQL'e karşı çalışır (53 test):
 
 ```bash
 pip install "psycopg[binary]" pytest

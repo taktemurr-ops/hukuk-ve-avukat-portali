@@ -104,5 +104,10 @@ jobs:
       - run: python -m pytest -q
         env:
           PG_DSN: host=localhost port=5432 user=postgres password=test
+      - name: Göç uygulayıcı boş veritabanında çalışıyor mu
+        run: |
+          psql "host=localhost port=5432 user=postgres password=test" -c "CREATE DATABASE goc_deneme"
+          PG_DSN="host=localhost port=5432 user=postgres password=test dbname=goc_deneme" python goc.py
+          PG_DSN="host=localhost port=5432 user=postgres password=test dbname=goc_deneme" python goc.py --kontrol
       - name: Sunucudaki SQL metinlerini şemaya karşı PREPARE et
         run: python ../../araclar/sql_denetim.py "host=localhost port=5432 user=postgres password=test"

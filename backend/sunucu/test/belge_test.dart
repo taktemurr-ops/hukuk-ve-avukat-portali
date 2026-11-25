@@ -38,4 +38,22 @@ void main() {
       expect(() => d.oku('11111111-1111-1111-1111-111111111111/../x/1'), throwsArgumentError);
     });
   });
+
+  group('ClamAV yanıtı ve INSTREAM çerçeveleri', () {
+    test('yanıtlar', () {
+      expect(ClamdTarayici.yanitCoz('stream: OK\u0000').temiz, isTrue);
+      expect(ClamdTarayici.yanitCoz('stream: Eicar-Test-Signature FOUND\u0000').bulgu, 'Eicar-Test-Signature');
+      expect(() => ClamdTarayici.yanitCoz('INSTREAM size limit exceeded. ERROR'), throwsStateError);
+    });
+
+    test('çerçeveler: komut, uzunluklu parçalar, sıfır sonlandırıcı', () {
+      final c = ClamdTarayici.cerceveler(List.filled(70000, 1));
+      expect(utf8.decode(c.first), 'zINSTREAM\u0000');
+      expect(c[1], [0, 1, 0, 0]); // 65536
+      expect(c[2].length, 65536);
+      expect(c[3], [0, 0, 0x11, 0x70]); // 4464
+      expect(c[4].length, 4464);
+      expect(c.last, [0, 0, 0, 0]);
+    });
+  });
 }

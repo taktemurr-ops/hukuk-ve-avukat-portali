@@ -52,9 +52,22 @@ Future<void> main() async {
     stdout.writeln('UYARI: SMTP tanımlı değil; e-postalar sunucu günlüğüne yazılıyor (geliştirme).');
   }
   EpostaGorevi(vt, eposta, kaydet: (h) => stderr.writeln('E-POSTA HATASI: $h')).baslat();
+  // Zararlı yazılım taraması: CLAMD_ADRESI (ör. clamav:3310). Canlıda zorunlu.
+  VirusTarayici? tarayici;
+  final clamd = ortam['CLAMD_ADRESI'] ?? '';
+  if (clamd.isNotEmpty) {
+    final p = clamd.split(':');
+    tarayici = ClamdTarayici(p.first, p.length > 1 ? int.parse(p[1]) : 3310);
+  } else if (ortam['ORTAM'] == 'canli') {
+    stderr.writeln('CLAMD_ADRESI tanımlı değil; canlı ortamda belge taraması zorunludur.');
+    exit(2);
+  } else {
+    stdout.writeln('UYARI: virüs taraması kapalı (geliştirme).');
+  }
   final davetAdresi = ortam['DAVET_ADRESI'];
   final handler = uygulama(
     vt,
+    virusTarayici: tarayici,
     davetAdresi: davetAdresi == null || davetAdresi.isEmpty ? null : Uri.parse(davetAdresi),
     odemeSaglayici: odeme,
     depo: YerelNesneDeposu(belgeKlasoru),

@@ -16,6 +16,7 @@ import 'src/nesne_deposu.dart';
 import 'src/odeme_saglayici.dart';
 import 'src/portal_api.dart';
 import 'src/sifreleme.dart';
+import 'src/virus_tarama.dart';
 import 'src/uyum_api.dart';
 import 'src/veritabani.dart';
 
@@ -34,6 +35,7 @@ export 'src/odeme_saglayici.dart';
 export 'src/portal_api.dart';
 export 'src/sifre.dart';
 export 'src/sifreleme.dart';
+export 'src/virus_tarama.dart';
 export 'src/uyum_api.dart';
 export 'src/veritabani.dart';
 
@@ -62,6 +64,7 @@ Handler uygulama(
   required AlanSifreleyici sifreleyici,
   OdemeSaglayici? odemeSaglayici,
   Uri? davetAdresi,
+  VirusTarayici? virusTarayici,
   Set<String> izinliKokenler = const {},
   int belgeAzamiBoyut = 50 * 1024 * 1024,
   void Function(Object, StackTrace)? kaydet,
@@ -74,7 +77,7 @@ Handler uygulama(
       .add(KurumsalApi(vt).router.call)
       .add(UyumApi(vt).router.call)
       .add(BuroApi(vt).router.call)
-      .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut).router.call)
+      .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut, tarayici: virusTarayici).router.call)
       .add(DavetApi(vt, davetAdresi: davetAdresi).router.call)
       .add(PortalApi(vt, depo).router.call)
       .add(AbonelikApi(vt, odemeSaglayici).router.call);

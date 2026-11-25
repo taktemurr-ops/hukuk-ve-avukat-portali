@@ -1,0 +1,87 @@
+# Hukuk ve Avukat Portalı — tek sunuculu kurulum (Türkiye'deki sunucuda). Canlıda TLS, yedekleme ve izleme
+# deploy/README.md'deki adımlarla eklenir. Gizli değerler .env dosyasında (depoya konmaz; örnek: .env.ornek).
+name: hukuk
+
+services:
+  veritabani:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hukuk
+      POSTGRES_USER: hukuk_sahip
+      POSTGRES_PASSWORD: ${PG_SAHIP_SIFRE:?PG_SAHIP_SIFRE gerekli}
+    volumes:
+      - veritabani:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hukuk_sahip -d hukuk"]
+      interval: 5s
+      retries: 20
+    networks: [ic]
+
+  goc:
+    image: python:3.12-slim
+    depends_on:
+      veritabani: { condition: service_healthy }
+    working_dir: /goc
+    volumes:
+      - ../backend/veritabani:/goc:ro
+    environment:
+      PG_DSN: host=veritabani dbname=hukuk user=hukuk_sahip password=${PG_SAHIP_SIFRE}
+      PG_UYGULAMA_SIFRE: ${PG_UYGULAMA_SIFRE:?PG_UYGULAMA_SIFRE gerekli}
+    command: sh -c "pip install --quiet 'psycopg[binary]' && python goc.py"
+    networks: [ic]
+
+  sunucu:
+    build:
+      context: ..
+      dockerfile: backend/sunucu/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      goc: { condition: service_completed_successfully }
+      clamav: { condition: service_started }
+    environment:
+      ORTAM: ${ORTAM:-gelistirme}
+      PG_HOST: veritabani
+      PG_VERITABANI: hukuk
+      PG_KULLANICI: hukuk_api
+      PG_SIFRE: ${PG_UYGULAMA_SIFRE}
+      PG_SSL: kapali            # aynı iç ağda; ayrı veritabanı sunucusunda "acik" yapın
+      TOTP_ANAHTARI: ${TOTP_ANAHTARI:?TOTP_ANAHTARI gerekli}
+      IZINLI_KOKENLER: ${IZINLI_KOKENLER:-}
+      DIS_ADRES: ${DIS_ADRES:-http://localhost:8080/}
+      DAVET_ADRESI: ${DAVET_ADRESI:-}
+      CLAMD_ADRESI: clamav:3310
+      ODEME_SAGLAYICI: ${ODEME_SAGLAYICI:-}
+      ODEME_GIZLI: ${ODEME_GIZLI:-}
+      SMTP_SUNUCU: ${SMTP_SUNUCU:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_KULLANICI: ${SMTP_KULLANICI:-}
+      SMTP_SIFRE: ${SMTP_SIFRE:-}
+      SMTP_GONDEREN: ${SMTP_GONDEREN:-}
+      BELGE_AZAMI_MB: ${BELGE_AZAMI_MB:-50}
+    volumes:
+      - belgeler:/veri/belgeler
+    ports:
+      - "127.0.0.1:8080:8080"    # önündeki TLS ters vekil (ör. Caddy/nginx) üzerinden yayınlanır
+    networks: [ic]
+
+  belge:
+    build:
+      context: ../services/belge
+    restart: unless-stopped
+    networks: [ic]
+
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes:
+      - clamav:/var/lib/clamav
+    networks: [ic]
+
+volumes:
+  veritabani:
+  belgeler:
+  clamav:
+
+networks:
+  ic:

@@ -10,6 +10,7 @@ import 'dosya_api.dart';
 import 'hata.dart';
 import 'kimlik_api.dart';
 import 'nesne_deposu.dart';
+import 'virus_tarama.dart';
 import 'veritabani.dart';
 
 /// Dosyanın ilk baytları, uzantısının söylediği türle uyuşuyor mu? Uyuşmuyorsa hata iletisi döner.
@@ -48,11 +49,14 @@ String? icerikTuruKontrol(String uzanti, List<int> b) {
 /// Belge yükleme, sürüm ve indirme. İçerik nesne deposunda, kayıt ve SHA-256 özeti veritabanında tutulur;
 /// belgeye erişim dosyanın görünürlüğüne bağlıdır (RLS) ve her indirme denetim kaydına yazılır.
 class BelgeApi {
-  BelgeApi(this.vt, this.depo, {this.azamiBoyut = 50 * 1024 * 1024});
+  BelgeApi(this.vt, this.depo, {this.azamiBoyut = 50 * 1024 * 1024, this.tarayici});
 
   final Veritabani vt;
   final NesneDeposu depo;
   final int azamiBoyut;
+
+  /// Tanımlıysa her yükleme depoya yazılmadan önce taranır; tarayıcıya ulaşılamazsa yükleme reddedilir.
+  final VirusTarayici? tarayici;
 
   Router get router => Router()
     ..get('/dosyalar/<id>/belgeler', _liste)
@@ -82,13 +86,26 @@ class BelgeApi {
     return ad;
   }
 
-  /// Yükleme kontrolleri: uzantı, boyut, içerik imzası; dönen özet SHA-256.
-  (String, String) _kontrol(String dosyaAdi, List<int> icerik) {
+  /// Yükleme kontrolleri: uzantı, boyut, içerik imzası, zararlı yazılım taraması; dönen özet SHA-256.
+  Future<(String, String)> _kontrol(String dosyaAdi, List<int> icerik) async {
     final hata = yuklemeKontrol(dosyaAdi: dosyaAdi, boyut: icerik.length);
     if (hata != null) throw ApiHatasi(400, hata, kod: 'gecersiz_dosya');
     final uzanti = dosyaAdi.substring(dosyaAdi.lastIndexOf('.') + 1).toLowerCase();
     final turHatasi = icerikTuruKontrol(uzanti, icerik);
     if (turHatasi != null) throw ApiHatasi(400, turHatasi, kod: 'gecersiz_dosya');
+    final t = tarayici;
+    if (t != null) {
+      final VirusTaramaSonucu sonuc;
+      try {
+        sonuc = await t.tara(icerik);
+      } on Object {
+        throw const ApiHatasi(503, 'Dosya güvenlik taraması şu anda yapılamıyor; lütfen biraz sonra tekrar deneyin.',
+            kod: 'tarama_yok');
+      }
+      if (!sonuc.temiz) {
+        throw const ApiHatasi(422, 'Dosyada zararlı yazılım bulundu; yüklenmedi.', kod: 'zararli_dosya');
+      }
+    }
     return (uzanti, sha256Ozeti(icerik));
   }
 
@@ -125,7 +142,7 @@ class BelgeApi {
     final tur = BelgeTuru.values.where((t) => t.name == istek.headers['x-belge-turu']).firstOrNull ?? BelgeTuru.diger;
     final belgeAdi = Uri.decodeComponent(istek.headers['x-belge-adi'] ?? '').trim();
     final icerik = await _govde(istek);
-    final (_, ozet) = _kontrol(dosyaAdi, icerik);
+    final (_, ozet) = await _kontrol(dosyaAdi, icerik);
     final sonuc = await vt.kiraciIcin(k, (tx) async {
       final rs = await tx.execute(
         Sql.named('INSERT INTO hukuk.belge (kiraci_id, dosya_id, ad, tur) VALUES (CAST(@k AS uuid), CAST(@d AS uuid), @a, @t) '
@@ -152,7 +169,7 @@ class BelgeApi {
     final k = kimlik(istek);
     final dosyaAdi = _dosyaAdi(istek);
     final icerik = await _govde(istek);
-    final (_, ozet) = _kontrol(dosyaAdi, icerik);
+    final (_, ozet) = await _kontrol(dosyaAdi, icerik);
     final no = await vt.kiraciIcin(k, (tx) async {
       // Belge görünür mü (dosya RLS'i) ve sıradaki sürüm numarası; aynı belgeye eşzamanlı yüklemeye karşı kilit.
       final b = await tx.execute(Sql.named('SELECT id FROM hukuk.belge WHERE id = CAST(@b AS uuid) FOR UPDATE'),
