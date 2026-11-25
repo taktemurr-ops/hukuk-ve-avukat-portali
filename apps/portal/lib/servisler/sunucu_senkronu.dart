@@ -13,8 +13,50 @@ abstract class MesajUzak {
 
 /// Depodaki bazı işlemlerin sunucuda yapılması için kanca. Sunucu bağlıyken ekranlar bu yolu kullanır;
 /// sonuç her işlemden sonra sunucudan yeniden yüklenir (sunucu tek doğru kaynaktır).
+/// Sunucudaki denetim zincirinden bir olay (özet sunucuda hesaplanır ve doğrulanır).
+class SunucuDenetimOlayi {
+  const SunucuDenetimOlayi({
+    required this.sira,
+    required this.zaman,
+    required this.kullanici,
+    required this.islem,
+    required this.nesneTuru,
+    required this.nesneId,
+    required this.aciklama,
+    required this.ozet,
+  });
+
+  final int sira;
+  final DateTime zaman;
+  final String kullanici;
+  final String islem;
+  final String nesneTuru;
+  final String nesneId;
+  final String aciklama;
+  final String ozet;
+
+  /// Bilinen işlemler Türkçe adıyla, sunucuya özgü olanlar (ör. hesap açma) olduğu gibi.
+  String get islemAdi => DenetimIslemi.values.asNameMap()[islem]?.ad ?? islem;
+
+  factory SunucuDenetimOlayi.json(Map<String, dynamic> j) => SunucuDenetimOlayi(
+        sira: (j['sira'] as num).toInt(),
+        zaman: DateTime.parse(j['zaman'] as String),
+        kullanici: j['kullanici'] as String? ?? '',
+        islem: j['islem'] as String,
+        nesneTuru: j['nesneTuru'] as String,
+        nesneId: j['nesneId'] as String,
+        aciklama: j['aciklama'] as String? ?? '',
+        ozet: j['ozet'] as String,
+      );
+}
+
 abstract class UzakIslemler {
   Future<void> yenile();
+
+  Future<void> denetimKaydet(DenetimIslemi islem, String nesneTuru, String nesneId, String aciklama);
+
+  /// Son olaylar (en yeniden) ve zincir doğrulaması: bozuk sıra ya da sağlamsa null. Yalnızca yöneticiler.
+  Future<(List<SunucuDenetimOlayi>, int?)> denetimGetir();
 
   Future<void> imhaTutanagiHazirla(Set<String> dosyaIdleri, ImhaYontemi yontem);
 
@@ -517,6 +559,18 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
         kapanis: j['kapanis'] == null ? null : Tarih.parse(j['kapanis'] as String),
         yasalSaklamaEngeli: j['saklamaEngeli'] as String?,
       );
+
+  @override
+  Future<void> denetimKaydet(DenetimIslemi islem, String nesneTuru, String nesneId, String aciklama) async {
+    await api.post('/denetim/kayit', {'islem': islem.name, 'nesneTuru': nesneTuru, 'nesneId': nesneId, 'aciklama': aciklama});
+  }
+
+  @override
+  Future<(List<SunucuDenetimOlayi>, int?)> denetimGetir() async {
+    final liste = [for (final j in _liste(await api.get('/denetim'))) SunucuDenetimOlayi.json(j)];
+    final d = (await api.get('/denetim/dogrula') as Map).cast<String, dynamic>();
+    return (liste, d['saglam'] == true ? null : (d['bozukSira'] as num?)?.toInt());
+  }
 
   @override
   Future<void> imhaTutanagiHazirla(Set<String> dosyaIdleri, ImhaYontemi yontem) async {

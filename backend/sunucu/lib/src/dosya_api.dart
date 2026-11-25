@@ -29,6 +29,8 @@ class DosyaApi {
     ..post('/dosyalar/<id>/sureler', _sureHesapla)
     ..post('/sureler/<id>/teyit', _teyit)
     ..post('/sureler/<id>/tamamla', _tamamla)
+    ..get('/denetim', _denetimListe)
+    ..post('/denetim/kayit', _denetimKayit)
     ..get('/denetim/dogrula', _denetimDogrula);
 
   static Future<void> denetim(TxSession tx, KimlikBaglami k, String islem, String nesneTuru, String nesneId,
@@ -274,5 +276,59 @@ class DosyaApi {
             parameters: {'k': k.kiraciId}));
     final bozuk = rs.first[0];
     return jsonYanit({'saglam': bozuk == null, 'bozukSira': bozuk});
+  }
+
+  /// Yalnızca yöneticiler (RLS); yöneticisi olmayan boş liste değil 403 alsın diye önce yetki sorulur.
+  /// `once`: bu sıradan küçük kayıtlar (sayfalama), en yeniden eskiye en çok 200.
+  Future<Response> _denetimListe(Request istek) async {
+    final k = kimlik(istek);
+    final once = int.tryParse(istek.url.queryParameters['once'] ?? '');
+    final rs = await vt.kiraciIcin(k, (tx) async {
+      final y = await tx.execute('SELECT hukuk.tum_yetkili()');
+      if (y.first[0] != true) throw const ApiHatasi(403, 'Denetim kaydını yalnızca yöneticiler görebilir.', kod: 'yasak');
+      return tx.execute(
+        Sql.named('SELECT sira, zaman, coalesce(kullanici_id::text, \'\'), islem, nesne_turu, nesne_id, aciklama, ozet '
+            'FROM hukuk.denetim_kaydi WHERE (CAST(@o AS bigint) IS NULL OR sira < CAST(@o AS bigint)) '
+            'ORDER BY sira DESC LIMIT 200'),
+        parameters: {'o': once},
+      );
+    });
+    return jsonYanit([
+      for (final r in rs)
+        {
+          'sira': r[0],
+          'zaman': (r[1]! as DateTime).toUtc().toIso8601String(),
+          'kullanici': r[2],
+          'islem': r[3],
+          'nesneTuru': r[4],
+          'nesneId': r[5],
+          'aciklama': r[6],
+          'ozet': r[7],
+        },
+    ]);
+  }
+
+  /// İstemcide gerçekleşen okuma olayları (rapor dışa aktarma, ekranda görüntüleme). Değişiklik türü işlemler
+  /// yalnızca sunucunun kendi uçlarınca yazılır; istemci onları uyduramaz.
+  static const _istemciIslemleri = {'goruntuleme', 'indirme', 'disaAktarma', 'paylasim'};
+
+  Future<Response> _denetimKayit(Request istek) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final islem = '${j['islem']}';
+    if (!_istemciIslemleri.contains(islem)) {
+      throw const ApiHatasi(400, 'Bu işlem türü istemciden kaydedilemez.', kod: 'gecersiz_istek');
+    }
+    String alan(String ad, int azami) {
+      final v = '${j[ad] ?? ''}'.trim();
+      if (v.length > azami) throw ApiHatasi(400, '$ad çok uzun.', kod: 'gecersiz_istek');
+      return v;
+    }
+
+    final tur = alan('nesneTuru', 50);
+    final id = alan('nesneId', 200);
+    if (tur.isEmpty || id.isEmpty) throw const ApiHatasi(400, 'Nesne belirtilmedi.', kod: 'eksik_alan');
+    await vt.kiraciIcin(k, (tx) => denetim(tx, k, islem, tur, id, alan('aciklama', 500)));
+    return jsonYanit({'kaydedildi': true}, durum: 201);
   }
 }

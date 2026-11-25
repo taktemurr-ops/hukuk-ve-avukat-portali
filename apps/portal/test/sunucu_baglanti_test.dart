@@ -261,6 +261,17 @@ class SahteSunucu {
             'etkilenenKisiSayisi': 3, 'kurulaBildirim': null, 'ilgililereBildirim': null,
           },
         ]);
+      case 'GET /denetim':
+        return _json([
+          {'sira': 7, 'zaman': '2026-11-25T10:00:00.000Z', 'kullanici': 'u1', 'islem': 'disaAktarma', 'nesneTuru': 'rapor',
+            'nesneId': 'İş yükü', 'aciklama': '', 'ozet': 'abcdef0123456789'},
+          {'sira': 6, 'zaman': '2026-11-25T09:00:00.000Z', 'kullanici': '', 'islem': 'hesapAcma', 'nesneTuru': 'kiraci',
+            'nesneId': 'k1', 'aciklama': '', 'ozet': '0123456789abcdef'},
+        ]);
+      case 'GET /denetim/dogrula':
+        return _json({'saglam': true, 'bozukSira': null});
+      case 'POST /denetim/kayit':
+        return _json({'kaydedildi': true}, 201);
       case 'GET /kvkk/saklama':
         return _json({
           'sonPeriyodikImha': '2026-05-01',
@@ -584,5 +595,20 @@ void main() {
     expect(t.no, 'IT-2026-001');
     expect(await depo.imhaTutanagiOnayla(t), isNull);
     expect(sunucu.istekler, contains('POST /kvkk/imha-tutanagi/t1/onay'));
+  });
+
+  test('Denetim: okuma olayı sunucuya gider, sunucu zinciri okunur', () async {
+    final sunucu = SahteSunucu();
+    final api = ApiIstemcisi(Uri.parse('https://api.ornek.test/'), istemci: MockClient(sunucu.yanit))..token = 'tkn';
+    final depo = BellekVeriDeposu('k1');
+    final senkron = SunucuSenkronu(api, depo);
+    depo.okumaKaydet(DenetimIslemi.disaAktarma, 'rapor', 'İş yükü', 'CSV');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(sunucu.istekler, contains('POST /denetim/kayit'));
+    final (olaylar, bozuk) = await senkron.denetimGetir();
+    expect(bozuk, isNull);
+    expect(olaylar.map((o) => o.sira), [7, 6]);
+    expect(olaylar.first.islemAdi, 'Dışa aktarma');
+    expect(olaylar.last.islemAdi, 'hesapAcma');
   });
 }

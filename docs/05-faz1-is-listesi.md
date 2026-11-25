@@ -24,7 +24,7 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | ◐ | Kayıt, hesap türü seçimi, e-posta doğrulama, aktivasyon, şifre belirleme — arayüz ve doğrulama kuralları hazır (TCKN/VKN, şifre, telefon); sunucu bağlantısı bekliyor |
 | ◐ | Giriş, iki adımlı doğrulama, şifre sıfırlama, oturum yönetimi — giriş, şifremi unuttum, 5 hatalı denemede kilit, TOTP (RFC 6238 vektörleriyle doğrulandı) ve 2FA kurulum ekranı hazır; girişte kod sorma ve sunucu bekliyor |
 | ◐ | Kiracı, tüzel kişilik, birim, kullanıcı, rol, davet — davet kodu, 72 saat geçerlilik, ücretsiz roller ve koltuk kontrolü ve Ekip ve davetler ekranı hazır; davet e-postası ve sunucu bekliyor |
-| ◐ | Yetki fonksiyonu (tek kapı) + denetim kaydı — yetki denetçisi ve rol/işlem matrisi hazır; zincirli (SHA-256) denetim kaydı, doğrulama ve Denetim Kaydı ekranı hazır; sunucuda kalıcı saklama bekliyor |
+| ◐ | Yetki fonksiyonu (tek kapı) + denetim kaydı — yetki denetçisi ve rol/işlem matrisi hazır; zincirli (SHA-256) denetim kaydı, doğrulama ve Denetim Kaydı ekranı hazır; sunucuda kalıcı ve yalnızca yöneticilerce okunur (0019), rapor dışa aktarma gibi istemci olayları da sunucu zincirine yazılır, ekran sunucu modunda sunucu zincirini doğrular |
 | ☐ | Lisans profili ve modül açma-kapama |
 
 ## Sprint 3–4 — Müvekkil, iş kabulü, vekâlet

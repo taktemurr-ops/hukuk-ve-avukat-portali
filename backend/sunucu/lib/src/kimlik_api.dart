@@ -59,7 +59,8 @@ Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris'
           return ic(istek.change(context: {_kimlikAnahtari: baglam}));
         };
 
-bool _yazmaKilidiMuaf(String yol) => yol == 'cikis' || yol.startsWith('abonelik') || yol.startsWith('ben/');
+bool _yazmaKilidiMuaf(String yol) => yol == 'cikis' || yol.startsWith('abonelik') || yol.startsWith('ben/') ||
+    yol == 'denetim/kayit'; // salt okunur hesapta da dışa aktarma kaydı düşülmeli
 
 class KimlikApi {
   KimlikApi(this.vt, this.sifreleyici, {Random? rastgele, this.oturumSuresi = const Duration(hours: 8), DateTime Function()? saat})

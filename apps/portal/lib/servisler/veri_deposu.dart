@@ -1228,8 +1228,11 @@ class BellekVeriDeposu extends ChangeNotifier {
   }
 
   /// Görüntüleme ve indirme gibi okuma işlemlerini kaydeder.
-  void okumaKaydet(DenetimIslemi islem, String nesneTuru, String nesneId, [String aciklama = '']) =>
-      _kaydet(islem, nesneTuru, nesneId, aciklama);
+  /// Sunucu bağlıyken olay sunucudaki zincire de yazılır; ağ hatası kullanıcının işini durdurmaz.
+  void okumaKaydet(DenetimIslemi islem, String nesneTuru, String nesneId, [String aciklama = '']) {
+    _kaydet(islem, nesneTuru, nesneId, aciklama);
+    uzak?.denetimKaydet(islem, nesneTuru, nesneId, aciklama).catchError((Object _) {});
+  }
 
   Map<String, String> get kullanicilar => Map.unmodifiable(_kullaniciAdlari);
 

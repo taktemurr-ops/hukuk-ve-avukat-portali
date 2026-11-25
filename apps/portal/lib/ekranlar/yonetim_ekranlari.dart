@@ -3,6 +3,7 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
+import '../servisler/sunucu_senkronu.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
 
@@ -148,49 +149,96 @@ class _VeriAktarimEkraniState extends State<VeriAktarimEkrani> {
 
 // ============================================================================= Denetim kaydı
 
-class DenetimKaydiEkrani extends StatelessWidget {
+/// Sunucu bağlıyken sunucudaki zincir (yalnızca yöneticiler), değilse bu cihazdaki yerel zincir gösterilir.
+class DenetimKaydiEkrani extends StatefulWidget {
   const DenetimKaydiEkrani({super.key, required this.depo});
 
   final BellekVeriDeposu depo;
 
   @override
+  State<DenetimKaydiEkrani> createState() => _DenetimKaydiEkraniState();
+}
+
+class _DenetimKaydiEkraniState extends State<DenetimKaydiEkrani> {
+  Future<(List<SunucuDenetimOlayi>, int?)>? _sunucu;
+
+  @override
+  void initState() {
+    super.initState();
+    _sunucu = widget.depo.uzak?.denetimGetir();
+  }
+
+  Widget _durum(int? bozuk, int adet, {bool sunucu = false}) => Panel(
+        child: Row(
+          children: [
+            Icon(bozuk == null ? Icons.verified_user_outlined : Icons.gpp_bad_outlined,
+                color: bozuk == null ? Renkler.yesil : Renkler.kritik, size: 32),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                bozuk == null
+                    ? sunucu
+                        ? 'Sunucudaki kayıt zinciri baştan sona doğrulandı; hiçbir olay sonradan değiştirilmemiş veya silinmemiş. '
+                            'Son $adet olay gösteriliyor.'
+                        : 'Kayıt zinciri sağlam: $adet olay, hiçbiri sonradan değiştirilmemiş veya silinmemiş.'
+                    : 'Kayıt zinciri $bozuk. olayda kırılmış! Bu durum yöneticiye ve güvenlik ekibine bildirilmelidir.',
+                key: const Key('denetim-durum'),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _satir(int sira, String baslik, String alt, String ozet) => ListTile(
+        dense: true,
+        leading: Text('#$sira', style: const TextStyle(color: Renkler.metinIkincil)),
+        title: Text(baslik),
+        subtitle: Text(alt),
+        trailing: Text(ozet.substring(0, 8), style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+      );
+
+  @override
   Widget build(BuildContext context) {
-    final olaylar = depo.denetim.olaylar.reversed.toList();
-    final bozuk = depo.denetim.dogrula();
+    final depo = widget.depo;
+    final sunucu = _sunucu;
     return Scaffold(
       appBar: AppBar(title: const Text('Denetim kaydı')),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Panel(
-            child: Row(
-              children: [
-                Icon(bozuk == null ? Icons.verified_user_outlined : Icons.gpp_bad_outlined,
-                    color: bozuk == null ? Renkler.yesil : Renkler.kritik, size: 32),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    bozuk == null
-                        ? 'Kayıt zinciri sağlam: ${olaylar.length} olay, hiçbiri sonradan değiştirilmemiş veya silinmemiş.'
-                        : 'Kayıt zinciri $bozuk. olayda kırılmış! Bu durum yöneticiye ve güvenlik ekibine bildirilmelidir.',
-                    key: const Key('denetim-durum'),
-                  ),
-                ),
-              ],
+      body: sunucu == null
+          ? () {
+              final olaylar = depo.denetim.olaylar.reversed.toList();
+              return ListView(padding: const EdgeInsets.all(24), children: [
+                _durum(depo.denetim.dogrula(), olaylar.length),
+                const SizedBox(height: 16),
+                for (final o in olaylar)
+                  _satir(o.sira, '${o.islem.ad} · ${o.nesneTuru} ${o.nesneId}',
+                      '${tarihSaat(o.zaman.toLocal())} · ${depo.kullaniciAdi(o.kullaniciId)}'
+                          '${o.aciklama.isNotEmpty ? ' · ${o.aciklama}' : ''}',
+                      o.ozet),
+              ]);
+            }()
+          : FutureBuilder(
+              future: sunucu,
+              builder: (context, s) {
+                if (s.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('${s.error}', key: const Key('denetim-hata')),
+                  );
+                }
+                final v = s.data;
+                if (v == null) return const Center(child: CircularProgressIndicator());
+                final (olaylar, bozuk) = v;
+                return ListView(padding: const EdgeInsets.all(24), children: [
+                  _durum(bozuk, olaylar.length, sunucu: true),
+                  const SizedBox(height: 16),
+                  for (final o in olaylar)
+                    _satir(o.sira, '${o.islemAdi} · ${o.nesneTuru} ${o.nesneId}',
+                        '${tarihSaat(o.zaman.toLocal())} · ${o.kullanici.isEmpty ? 'sistem' : depo.kullaniciAdi(o.kullanici)}'
+                            '${o.aciklama.isNotEmpty ? ' · ${o.aciklama}' : ''}',
+                        o.ozet),
+                ]);
+              },
             ),
-          ),
-          const SizedBox(height: 16),
-          for (final o in olaylar)
-            ListTile(
-              dense: true,
-              leading: Text('#${o.sira}', style: const TextStyle(color: Renkler.metinIkincil)),
-              title: Text('${o.islem.ad} · ${o.nesneTuru} ${o.nesneId}'),
-              subtitle: Text('${tarihSaat(o.zaman.toLocal())} · ${depo.kullaniciAdi(o.kullaniciId)}'
-                  '${o.aciklama.isNotEmpty ? ' · ${o.aciklama}' : ''}'),
-              trailing: Text(o.ozet.substring(0, 8), style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-            ),
-        ],
-      ),
     );
   }
 }
