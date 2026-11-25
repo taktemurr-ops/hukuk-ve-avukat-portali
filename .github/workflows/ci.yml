@@ -70,6 +70,30 @@ jobs:
       - run: flutter test
       - run: flutter build web
 
+  web-onizleme:
+    # Analiz uyarıları yayını durdurmasın: demo verisiyle çalışan web sürümü ayrı derlenir ve indirilebilir paket olur.
+    # Sunucu adresi verilmez; yalnızca tarayıcıdaki demo verisi kullanılır, gerçek müvekkil verisi yoktur.
+    name: Web önizleme (demo)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/portal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter create . --project-name portal --org tr.hukukportali --platforms=web
+      - run: flutter pub get
+      - run: flutter build web --release --no-web-resources-cdn
+      - name: Göreli adrese çevir (herhangi bir klasörden açılabilsin)
+        run: sed -i 's|<base href="/">|<base href="./">|' build/web/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-demo
+          path: apps/portal/build/web
+          retention-days: 14
+
   belge:
     name: Belge servisi (Python)
     runs-on: ubuntu-latest
