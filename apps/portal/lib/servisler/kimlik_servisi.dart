@@ -47,6 +47,7 @@ class Oturum {
     required this.kurumAdi,
     required this.hesapTuru,
     required this.roller,
+    this.muvekkilKisiId,
   });
 
   final String kullaniciId;
@@ -56,6 +57,11 @@ class Oturum {
   final String kurumAdi;
   final HesapTuru hesapTuru;
   final Set<Rol> roller;
+
+  /// Müvekkil portalı oturumunda, büro kayıtlarındaki müvekkil kişi kimliği.
+  final String? muvekkilKisiId;
+
+  bool get muvekkilPortali => muvekkilKisiId != null;
 
   LisansProfili get lisans => LisansProfili.varsayilan(hesapTuru);
 }
@@ -86,6 +92,9 @@ abstract class KimlikServisi {
 
   /// Kayıt olmadan, örnek verilerle salt deneme oturumu. Demo verisi kalıcı değildir.
   Future<Oturum> demoGiris(HesapTuru tur);
+
+  /// Müvekkil portalını örnek müvekkil olarak dener.
+  Future<Oturum> demoMuvekkilGiris();
 }
 
 /// Yalnızca geliştirme ve demo için bellekte çalışan kimlik servisi.
@@ -161,6 +170,21 @@ class BellekKimlikServisi implements KimlikServisi {
       },
       hesapTuru: tur,
       roller: {_kurucuRol(tur)},
+    );
+  }
+
+  @override
+  Future<Oturum> demoMuvekkilGiris() async {
+    _sayac++;
+    return _oturum = Oturum(
+      kullaniciId: 'mvk$_sayac',
+      kiraciId: 'demo-kiraci$_sayac',
+      adSoyad: 'Can Demir (ABC Gıda yetkilisi)',
+      eposta: 'can.demir@abcgida.com.tr',
+      kurumAdi: 'Demo Hukuk Bürosu',
+      hesapTuru: HesapTuru.hukukBurosu,
+      roller: const {Rol.muvekkil},
+      muvekkilKisiId: 'abc',
     );
   }
 

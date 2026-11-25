@@ -479,6 +479,89 @@ class BellekVeriDeposu extends ChangeNotifier {
 
   List<Belge> dosyaBelgeleri(String dosyaId) => _belgeler.where((b) => b.dosyaId == dosyaId).toList();
 
+  // ---------------------------------------------------------------------------
+  // Müvekkil portalı
+  // ---------------------------------------------------------------------------
+
+  final Set<String> _portalDosyalari = {};
+  final Set<String> _paylasilanBelgeler = {};
+  final List<PortalMesaji> _mesajlar = [];
+
+  bool portaldaMi(String dosyaId) => _portalDosyalari.contains(dosyaId);
+  bool belgePaylasildiMi(String belgeId) => _paylasilanBelgeler.contains(belgeId);
+
+  void portalPaylas(String dosyaId, bool paylas) {
+    paylas ? _portalDosyalari.add(dosyaId) : _portalDosyalari.remove(dosyaId);
+    _kaydet(DenetimIslemi.paylasim, 'dosya', dosyaId, paylas ? 'Müvekkil portalında paylaşıldı' : 'Portal paylaşımı kaldırıldı');
+    notifyListeners();
+  }
+
+  void belgePaylas(String belgeId, bool paylas) {
+    paylas ? _paylasilanBelgeler.add(belgeId) : _paylasilanBelgeler.remove(belgeId);
+    _kaydet(DenetimIslemi.paylasim, 'belge', belgeId, paylas ? 'Müvekkille paylaşıldı' : 'Müvekkil paylaşımı kaldırıldı');
+    notifyListeners();
+  }
+
+  List<PortalMesaji> dosyaMesajlari(String dosyaId) =>
+      _mesajlar.where((m) => m.dosyaId == dosyaId).toList()..sort((a, b) => a.zaman.compareTo(b.zaman));
+
+  /// Büronun okumadığı müvekkil mesajları.
+  int okunmamisMuvekkilMesaji(String dosyaId) =>
+      _mesajlar.where((m) => m.dosyaId == dosyaId && m.muvekkildenMi && !m.okundu).length;
+
+  /// Hata varsa mesajı döner. Müvekkil yalnızca portalda paylaşılan kendi dosyasına yazabilir.
+  String? mesajGonder({required String dosyaId, required String metin, required bool muvekkildenMi, String? muvekkilKisiId}) {
+    final hata = PortalMesaji.dogrula(metin);
+    if (hata != null) return hata;
+    if (muvekkildenMi && (!portaldaMi(dosyaId) || dosyaMuvekkili(dosyaId) != muvekkilKisiId)) {
+      return 'Bu dosyaya mesaj gönderme yetkiniz yok.';
+    }
+    final m = PortalMesaji(
+      id: yeniId('m'),
+      dosyaId: dosyaId,
+      gonderen: aktifKullanici,
+      muvekkildenMi: muvekkildenMi,
+      metin: metin.trim(),
+      zaman: DateTime.now(),
+    );
+    _mesajlar.add(m);
+    _kaydet(DenetimIslemi.olusturma, 'mesaj', dosyaId, muvekkildenMi ? 'Müvekkil mesajı' : 'Müvekkile mesaj');
+    notifyListeners();
+    return null;
+  }
+
+  /// Karşı taraftan gelen mesajları okundu işaretler.
+  void mesajlariOku(String dosyaId, {required bool muvekkilOkuyor}) {
+    var degisti = false;
+    for (var i = 0; i < _mesajlar.length; i++) {
+      final m = _mesajlar[i];
+      if (m.dosyaId == dosyaId && !m.okundu && m.muvekkildenMi != muvekkilOkuyor) {
+        _mesajlar[i] = m.okunduIsaretle();
+        degisti = true;
+      }
+    }
+    if (degisti) notifyListeners();
+  }
+
+  Set<String> muvekkilDosyalari(String kisiId) => {
+        for (final k in _dosyaKayitlari)
+          if (k.kisiId == kisiId && k.sifat == TarafSifati.muvekkil) k.dosyaId,
+      };
+
+  List<MuvekkilDosyaOzeti> muvekkilOzetleri(String kisiId) => MuvekkilPortali.ozetler(
+        muvekkilinDosyalari: muvekkilDosyalari(kisiId),
+        portaldaPaylasilan: _portalDosyalari,
+        dosyalar: _dosyalar,
+        durusmalar: _durusmalar,
+        belgeler: _belgeler,
+        paylasilanBelgeler: _paylasilanBelgeler,
+        mesajlar: _mesajlar,
+        simdi: DateTime.now(),
+      );
+
+  List<Dosya> get tumDosyalar => List.unmodifiable(_dosyalar);
+  List<CariHareket> get tumCariHareketler => List.unmodifiable(_cari);
+
   String? belgeMetni(String belgeId) => _belgeMetinleri[belgeId];
 
   Belge belgeOlustur({required String dosyaId, required String ad, required String metin, required String yukleyen, BelgeTuru tur = BelgeTuru.dilekce}) {
@@ -576,6 +659,28 @@ class BellekVeriDeposu extends ChangeNotifier {
       dosyaAdi: 'Dava dilekçesi v2.docx',
       aciklama: 'Islah sonrası',
     );
+    _portalDosyalari.add('d1');
+    _paylasilanBelgeler.add(dilekce.id);
+    final simdi = DateTime.now();
+    _mesajlar.addAll([
+      PortalMesaji(
+        id: yeniId('m'),
+        dosyaId: 'd1',
+        gonderen: av1,
+        muvekkildenMi: false,
+        metin: 'Dava dilekçesinin son hâlini portala ekledik. Bir sonraki duruşmadan önce sizi arayacağım.',
+        zaman: simdi.subtract(const Duration(days: 3)),
+        okundu: true,
+      ),
+      PortalMesaji(
+        id: yeniId('m'),
+        dosyaId: 'd1',
+        gonderen: 'mvk-abc',
+        muvekkildenMi: true,
+        metin: 'Teşekkürler. Tedarikçiyle yapılan yazışmaları da iletelim mi?',
+        zaman: simdi.subtract(const Duration(days: 1)),
+      ),
+    ]);
     belgeOlustur(
       dosyaId: 'd1',
       ad: 'Gerekçeli karar',

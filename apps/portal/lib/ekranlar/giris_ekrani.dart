@@ -70,7 +70,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
   }
 
   Future<void> _demo() async {
-    final tur = await showModalBottomSheet<HesapTuru>(
+    final secim = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
         child: Column(
@@ -86,14 +86,23 @@ class _GirisEkraniState extends State<GirisEkrani> {
                 leading: const Icon(Icons.play_circle_outline),
                 title: Text(t.ad),
                 subtitle: Text(t.aciklama),
-                onTap: () => Navigator.pop(context, t),
+                onTap: () => Navigator.pop(context, t.name),
               ),
+            ListTile(
+              key: const Key('demo-muvekkil'),
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Müvekkil portalı'),
+              subtitle: const Text('Büronuzun müvekkillerine sunduğu ekranı müvekkil gözüyle görün'),
+              onTap: () => Navigator.pop(context, 'muvekkil'),
+            ),
           ],
         ),
       ),
     );
-    if (tur == null) return;
-    final oturum = await widget.servis.demoGiris(tur);
+    if (secim == null) return;
+    final oturum = secim == 'muvekkil'
+        ? await widget.servis.demoMuvekkilGiris()
+        : await widget.servis.demoGiris(HesapTuru.values.byName(secim));
     if (!mounted) return;
     widget.girisYapildi(oturum);
   }

@@ -72,3 +72,10 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | ◐ | Veri aktarım sihirbazı (Excel/CSV, DavaTek/UYAP çıktıları) — CSV müvekkil aktarımı (sütun tahmini, TCKN/VKN, mükerrer, mutabakat) hazır; Excel ve UYAP çıktıları bekliyor |
 | ☐ | Kabul testleri, sızma testi, yedekten geri dönüş testi |
 | ☐ | 5–10 pilot büro |
+
+## Faz 2'den öne alınanlar (25.11.2026)
+
+| Durum | İş |
+| --- | --- |
+| ◐ | Raporlar — iş yükü (kişi bazlı), açık süre dağılımı, ücret alacağı yaşlandırma (FIFO) ve masraf alacağı, talep performansı (SLA uyumu, ortalama çözüm), sözleşme risk ve bitiş özeti; CSV kopyalama denetim kaydına yazılır. PDF/Excel çıktısı ve zamanlanmış rapor e-postası bekliyor |
+| ◐ | Müvekkil portalı — yalnızca davetle; büro dosya bazında paylaşır, belge bazında paylaşır; müvekkil dosya özeti, sonraki duruşma, paylaşılan belgeler ve yazışmayı görür; süre, görev, iç not ve ekip görünmez; okundu bilgisi, denetim kaydı. Gerçek davet akışı, bildirim e-postası ve belge indirme sunucu bekliyor |

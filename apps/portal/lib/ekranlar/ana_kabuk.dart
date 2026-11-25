@@ -13,6 +13,7 @@ import 'genel_bakis_ekrani.dart';
 import 'hesap_ekranlari.dart';
 import 'hesap_turleri_ekrani.dart';
 import 'muvekkiller_ekrani.dart';
+import 'raporlar_ekrani.dart';
 import 'sozlesmeler_ekrani.dart';
 import 'talepler_ekrani.dart';
 import 'finans_ekrani.dart';
@@ -151,12 +152,10 @@ class _AnaKabukState extends State<AnaKabuk> {
         _B.vekaletler => VekaletlerEkrani(depo: _depo, oturum: widget.oturum),
         _B.finans => FinansEkrani(depo: _depo),
         _B.hesaplamalar => const HesaplamalarEkrani(),
-        _B.raporlar => const YakindaSayfasi(
-            baslik: 'Raporlar',
-            faz: 'Faz 2',
-            ikon: Icons.bar_chart_rounded,
-            aciklama: 'Açık dosya, kritik süre, tahsilat, iş yükü ve çevrim süresi göstergeleri.',
-          ),
+        _B.raporlar => RaporlarEkrani(
+            depo: _depo,
+            oturum: widget.oturum,
+            kurumsal: widget.oturum.hesapTuru == HesapTuru.kurumsal ? _kurumsal : null),
         _B.ayarlar => _AyarlarSayfasi(depo: _depo, yonetim: _yonetim),
       };
 

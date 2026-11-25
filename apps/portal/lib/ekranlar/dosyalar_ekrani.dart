@@ -5,7 +5,9 @@ import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/veri_deposu.dart';
+import '../tema/tema.dart';
 import 'formlar.dart';
+import 'muvekkil_portali_ekrani.dart';
 
 Aktor oturumAktoru(Oturum o) => Aktor(kullaniciId: o.kullaniciId, kiraciId: o.kiraciId, roller: o.roller);
 
@@ -269,6 +271,17 @@ class DosyaDetayEkrani extends StatelessWidget {
                     'SHA-256 ${b.guncel.ozet.substring(0, 12)}…'
                     '${b.surumler.length > 1 ? ' · orijinal sürüm 1 korunuyor' : ''}',
                   ),
+                  trailing: !depo.portaldaMi(d.id) || b.gizli
+                      ? null
+                      : IconButton(
+                          key: Key('belge-paylas-${b.id}'),
+                          tooltip: depo.belgePaylasildiMi(b.id) ? 'Müvekkil paylaşımını kaldır' : 'Müvekkille paylaş',
+                          onPressed: () => depo.belgePaylas(b.id, !depo.belgePaylasildiMi(b.id)),
+                          icon: Icon(
+                            depo.belgePaylasildiMi(b.id) ? Icons.visibility : Icons.visibility_off_outlined,
+                            color: depo.belgePaylasildiMi(b.id) ? Renkler.yesil : Renkler.metinIkincil,
+                          ),
+                        ),
                 ),
               const Divider(height: 32),
               Text('Tebligatlar', style: metin.titleMedium),
@@ -281,6 +294,8 @@ class DosyaDetayEkrani extends StatelessWidget {
                     '${t.kanal.ad} · ulaşma ${t.ulasmaTarihi.turkceBicim} · tebliğ ${t.tebligTarihi.turkceBicim}',
                   ),
                 ),
+              const Divider(height: 32),
+              PortalYonetimBolumu(depo: depo, dosyaId: d.id),
             ],
           ),
         );

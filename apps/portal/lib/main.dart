@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'ekranlar/ana_kabuk.dart';
 import 'ekranlar/giris_ekrani.dart';
+import 'ekranlar/muvekkil_portali_ekrani.dart';
 import 'servisler/kimlik_servisi.dart';
 import 'tema/tema.dart';
 
@@ -53,7 +54,9 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
               servis: widget.kimlikServisi,
               girisYapildi: (o) => setState(() => _oturum = o),
             )
-          : AnaKabuk(oturum: oturum, cikisYap: _cikisYap),
+          : oturum.muvekkilPortali
+              ? MuvekkilPortaliEkrani(oturum: oturum, cikisYap: _cikisYap)
+              : AnaKabuk(oturum: oturum, cikisYap: _cikisYap),
     );
   }
 }
