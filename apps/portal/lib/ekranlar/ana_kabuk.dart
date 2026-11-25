@@ -130,11 +130,17 @@ class _AnaKabukState extends State<AnaKabuk> {
         HizliIslem.kisi => _B.muvekkiller,
         HizliIslem.cikarCatismasi => _B.cikarCatismasi,
         HizliIslem.sureHesapla => _B.hesaplamalar,
+        HizliIslem.talep => _B.talepler,
+        HizliIslem.sozlesme => _B.sozlesmeler,
       });
 
   Widget _sayfa() => switch (_secili) {
         _B.genelBakis => GenelBakisEkrani(
-            depo: _depo, oturum: widget.oturum, dosyaAc: _dosyaAc, hizliIslem: _hizliIslem),
+            depo: _depo,
+            oturum: widget.oturum,
+            dosyaAc: _dosyaAc,
+            hizliIslem: _hizliIslem,
+            kurumsal: widget.oturum.hesapTuru == HesapTuru.kurumsal ? _kurumsal : null),
         _B.talepler => TaleplerEkrani(kurumsal: _kurumsal),
         _B.dosyalar => DosyalarEkrani(depo: _depo, oturum: widget.oturum),
         _B.sozlesmeler => SozlesmelerEkrani(kurumsal: _kurumsal),

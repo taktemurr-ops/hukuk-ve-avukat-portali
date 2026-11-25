@@ -4,11 +4,12 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
+import '../servisler/kurumsal_depo.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
 
 /// Hızlı işlem: Genel Bakış'taki "Yeni" düğmesinden açılan bölümler.
-enum HizliIslem { tebligat, kisi, cikarCatismasi, sureHesapla }
+enum HizliIslem { tebligat, kisi, cikarCatismasi, sureHesapla, talep, sozlesme }
 
 class _IsSatiri {
   const _IsSatiri({
@@ -38,6 +39,7 @@ class GenelBakisEkrani extends StatelessWidget {
     required this.oturum,
     required this.dosyaAc,
     required this.hizliIslem,
+    this.kurumsal,
   });
 
   final BellekVeriDeposu depo;
@@ -45,10 +47,14 @@ class GenelBakisEkrani extends StatelessWidget {
   final ValueChanged<String> dosyaAc;
   final ValueChanged<HizliIslem> hizliIslem;
 
+  /// Kurumsal hesapta sözleşme ve talep göstergeleri için.
+  final KurumsalDepo? kurumsal;
+
   @override
   Widget build(BuildContext context) {
+    final k = kurumsal;
     return ListenableBuilder(
-      listenable: depo,
+      listenable: k == null ? depo : Listenable.merge([depo, k]),
       builder: (context, _) {
         final bugun = Tarih.from(DateTime.now());
         final genislik = MediaQuery.sizeOf(context).width;
@@ -87,11 +93,15 @@ class GenelBakisEkrani extends StatelessWidget {
               key: const Key('yeni-islem'),
               onSelected: hizliIslem,
               position: PopupMenuPosition.under,
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: HizliIslem.tebligat, child: Text('Tebligat kaydet')),
-                PopupMenuItem(value: HizliIslem.kisi, child: Text('Yeni müvekkil / taraf')),
-                PopupMenuItem(value: HizliIslem.cikarCatismasi, child: Text('Çıkar çatışması taraması')),
-                PopupMenuItem(value: HizliIslem.sureHesapla, child: Text('Süre, faiz, harç hesapla')),
+              itemBuilder: (_) => [
+                if (oturum.hesapTuru == HesapTuru.kurumsal) ...const [
+                  PopupMenuItem(value: HizliIslem.talep, child: Text('Hukuk talebi aç')),
+                  PopupMenuItem(value: HizliIslem.sozlesme, child: Text('Sözleşme yükle ve tara')),
+                ],
+                const PopupMenuItem(value: HizliIslem.tebligat, child: Text('Tebligat kaydet')),
+                const PopupMenuItem(value: HizliIslem.kisi, child: Text('Yeni müvekkil / taraf')),
+                const PopupMenuItem(value: HizliIslem.cikarCatismasi, child: Text('Çıkar çatışması taraması')),
+                const PopupMenuItem(value: HizliIslem.sureHesapla, child: Text('Süre, faiz, harç hesapla')),
               ],
               child: IgnorePointer(
                 child: FilledButton.icon(
@@ -111,7 +121,12 @@ class GenelBakisEkrani extends StatelessWidget {
               vurgulu: dolacak > 0),
           _Kpi('Eşleşmeyen Tebligat', '${kuyruk.length}', Icons.mail_outline, Renkler.notrZemin, Renkler.notr),
           oturum.hesapTuru == HesapTuru.kurumsal
-              ? const _Kpi('Sözleşme Onayı', '0', Icons.description_outlined, Renkler.yesilZemin, Renkler.yesil)
+              ? _Kpi(
+                  'Sözleşme Onayı',
+                  '${k?.sozlesmeler.where((s) => s.durum == SozlesmeDurumu.onayda || s.durum == SozlesmeDurumu.imzada).length ?? 0}',
+                  Icons.description_outlined,
+                  Renkler.yesilZemin,
+                  Renkler.yesil)
               : _Kpi('Teyit Bekleyen Süre', '$teyitBekleyen', Icons.fact_check_outlined, Renkler.yesilZemin,
                   Renkler.yesil),
         ];
