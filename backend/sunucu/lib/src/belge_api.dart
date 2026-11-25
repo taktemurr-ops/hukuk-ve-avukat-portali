@@ -67,6 +67,7 @@ class BelgeApi {
     ..post('/dosyalar/<id>/belgeler', _yukle)
     ..post('/dosyalar/<id>/belgeler/word', _wordOlustur)
     ..get('/belgeler/ara', _ara)
+    ..post('/raporlar/disa-aktar', _raporDisaAktar)
     ..post('/belgeler/<id>/surumler', _yeniSurum)
     ..get('/belgeler/<id>/surumler/<no>/icerik', _indir);
 
@@ -185,6 +186,27 @@ class BelgeApi {
       ],
       'bekleyen': durum.first[0],
       'okunamayan': durum.first[1],
+    });
+  }
+
+  /// Rapor tablosunu (istemcide yetkiye göre süzülmüş veriden) Excel ya da PDF olarak döner; dosya saklanmaz,
+  /// dışa aktarma denetim kaydına yazılır.
+  Future<Response> _raporDisaAktar(Request istek) async {
+    final k = kimlik(istek);
+    final servis = belgeServisi;
+    if (servis == null) throw const ApiHatasi(503, 'Excel/PDF çıktısı bu kurulumda açık değil.', kod: 'hizmet_yok');
+    final j = await jsonGovde(istek);
+    final baslik = zorunluMetin(j, 'baslik');
+    final pdf = j['bicim'] == 'pdf';
+    final sayfalar = [for (final s in (j['sayfalar'] as List? ?? const [])) (s as Map).cast<String, Object?>()];
+    if (sayfalar.isEmpty) throw const ApiHatasi(400, 'Rapor boş.', kod: 'gecersiz_istek');
+    final icerik = await servis.rapor(baslik, sayfalar, pdf: pdf);
+    await vt.kiraciIcin(k, (tx) => DosyaApi.denetim(tx, k, 'disaAktarma', 'rapor', baslik, pdf ? 'PDF' : 'Excel'));
+    final ad = Uri.encodeComponent('$baslik.${pdf ? 'pdf' : 'xlsx'}');
+    return Response.ok(icerik, headers: {
+      'content-type': pdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'content-disposition': "attachment; filename*=UTF-8''$ad",
+      'cache-control': 'no-store',
     });
   }
 

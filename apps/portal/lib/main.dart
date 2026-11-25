@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'ekranlar/ana_kabuk.dart';
+import 'ekranlar/dis_avukat_portali_ekrani.dart';
 import 'ekranlar/giris_ekrani.dart';
 import 'ekranlar/muvekkil_portali_ekrani.dart';
 import 'ekranlar/sunuculu_kabuk.dart';
@@ -78,7 +79,9 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
               sifirlamaBaglantisi: Uri.base.path.endsWith('/sifre-sifirla') ? Uri.base : null,
               dogrulamaBaglantisi: Uri.base.path.endsWith('/eposta-dogrula') ? Uri.base : null,
             )
-          : oturum.muvekkilPortali
+          : oturum.disAvukatPortali && _sunucuOturumu
+              ? DisAvukatPortaliEkrani(oturum: oturum, api: widget.api!, cikisYap: _cikisYap)
+              : oturum.muvekkilPortali
               ? (_sunucuOturumu
                   ? SunuculuPortal(oturum: oturum, api: widget.api!, cikisYap: _cikisYap)
                   : MuvekkilPortaliEkrani(oturum: oturum, cikisYap: _cikisYap))

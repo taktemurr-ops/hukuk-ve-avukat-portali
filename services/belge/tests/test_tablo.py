@@ -46,3 +46,24 @@ def test_xlsx_olmayan_ve_bozuk():
     assert r.status_code == 422 and ".xlsx" in r.json()["detail"]
     r = istemci.post("/tablo", files={"dosya": ("a.xls", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"0" * 100, "x")})
     assert r.status_code == 422 and ".xls" in r.json()["detail"]
+
+
+def test_rapor_xlsx_sayilar_ve_formul_kacisi():
+    r = istemci.post("/rapor", json={"baslik": "Alacak yaşlandırma", "sayfalar": [
+        {"ad": "Alacak", "basliklar": ["Müvekkil", "0–30 gün", "Toplam"],
+         "satirlar": [["ABC Gıda", "24.000,00 TL", "24.000,00 TL"], ["=HYPERLINK(\"x\")", "-", "1.250,5"]]}]})
+    assert r.status_code == 200, r.text
+    k = openpyxl.load_workbook(io.BytesIO(r.content))
+    s = k["Alacak"]
+    assert s["A1"].value == "Müvekkil" and s["A1"].font.bold
+    assert s["B2"].value == 24000.0  # sayı olarak
+    assert s["A3"].value == "'=HYPERLINK(\"x\")"  # formül çalışmaz
+    assert s["C3"].value == 1250.5
+
+
+def test_rapor_pdf():
+    r = istemci.post("/rapor", json={"baslik": "İş yükü", "bicim": "pdf", "sayfalar": [
+        {"basliklar": ["Kişi", "Dosya"], "satirlar": [["Av. Ayşe Yılmaz", "2"]]}]})
+    assert r.status_code == 200 and r.content.startswith(b"%PDF-")
+    from pypdf import PdfReader
+    assert "Ayşe Yılmaz" in PdfReader(io.BytesIO(r.content)).pages[0].extract_text()

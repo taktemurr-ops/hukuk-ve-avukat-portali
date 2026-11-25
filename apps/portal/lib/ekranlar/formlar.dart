@@ -42,13 +42,22 @@ class _DosyaFormuState extends State<DosyaFormu> {
     super.dispose();
   }
 
-  void _tarafDegisti() {
+  Future<void> _tarafDegisti() async {
     final adaylar = [
       if (_muvekkil != null) AdayTaraf(ad: widget.depo.kisi(_muvekkil!)!.ad, kimlikNo: widget.depo.kisi(_muvekkil!)!.kimlikNo, sifat: TarafSifati.muvekkil),
       if (_karsiTaraf != null)
         AdayTaraf(ad: widget.depo.kisi(_karsiTaraf!)!.ad, kimlikNo: widget.depo.kisi(_karsiTaraf!)!.kimlikNo, sifat: TarafSifati.karsiTaraf),
     ];
-    setState(() => _rapor = adaylar.isEmpty ? null : widget.depo.tarayici.tara(adaylar));
+    if (adaylar.isEmpty) {
+      setState(() => _rapor = null);
+      return;
+    }
+    try {
+      final r = await widget.depo.cikarTara(adaylar);
+      if (mounted) setState(() => _rapor = r);
+    } on Exception catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Çıkar çatışması taranamadı: $e')));
+    }
   }
 
   Future<void> _kaydet() async {

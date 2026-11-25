@@ -34,18 +34,31 @@ Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris'
           if (!baslik.startsWith('Bearer ')) throw ApiHatasi.yetkisiz;
           final ozet = tokenOzeti(baslik.substring(7).trim());
           final satirlar = await vt.genel((tx) => tx.execute(
-                Sql.named('SELECT o.kullanici_id::text, o.kiraci_id::text, hukuk.portal_kisisi(o.kullanici_id)::text '
+                Sql.named('SELECT o.kullanici_id::text, o.kiraci_id::text, hukuk.portal_kisisi(o.kullanici_id)::text, '
+                    'CASE WHEN hukuk.yalniz_dis_avukat(o.kullanici_id) '
+                    "THEN coalesce(hukuk.dis_avukat_kimligi(o.kullanici_id)::text, '') END "
                     'FROM hukuk.oturum_coz(@o) o'),
                 parameters: {'o': ozet},
               ));
           if (satirlar.isEmpty) throw ApiHatasi.yetkisiz;
           final s = satirlar.first;
-          final baglam = KimlikBaglami(kullaniciId: s[0]! as String, kiraciId: s[1]! as String, portalKisiId: s[2] as String?);
+          final baglam = KimlikBaglami(
+              kullaniciId: s[0]! as String,
+              kiraciId: s[1]! as String,
+              portalKisiId: s[2] as String?,
+              disAvukatId: s[3] as String?);
           // Müvekkil oturumu yalnızca portal uçlarını, kendi bilgisini ve çıkışı kullanabilir.
           final yol = istek.url.path;
           if (baglam.portal &&
               !(yol.startsWith('portal/') || yol == 'ben' || yol == 'cikis' || yol == 'ben/sifre' || yol.startsWith('ben/oturumlar'))) {
             throw const ApiHatasi(403, 'Bu işlem müvekkil portalında kullanılamaz.', kod: 'yasak');
+          }
+          // Yalnızca dış avukat rolündeki kullanıcı (bir büroya bağlı olsun olmasın; bağlı değilse kimlik boş)
+          // yalnızca kendi portal uçlarını ve hesap işlemlerini kullanabilir.
+          if (baglam.disAvukat &&
+              !(yol.startsWith('dis-portal/') || yol == 'ben' || yol == 'cikis' || yol == 'ben/sifre' ||
+                  yol.startsWith('ben/oturumlar'))) {
+            throw const ApiHatasi(403, 'Bu işlem dış avukat portalında kullanılamaz.', kod: 'yasak');
           }
           // Askıdaki veya iptal edilmiş hesapta veriler salt okunur (silinmez); abonelik ve çıkış işlemleri serbest.
           if (istek.method != 'GET' && !baglam.portal && !_yazmaKilidiMuaf(yol)) {
@@ -117,6 +130,8 @@ class KimlikApi {
     ..post('/ben/iki-adimli/etkinlestir', _ikiAdimliEtkinlestir)
     ..post('/ben/iki-adimli/kapat', _ikiAdimliKapat)
     ..post('/ben/sifre', _sifreDegistir)
+    ..get('/ben/tercihler', _tercihler)
+    ..put('/ben/tercihler', _tercihKaydet)
     ..get('/ben/oturumlar', _oturumlar)
     ..post('/ben/oturumlar/digerlerini-kapat', _digerOturumlariKapat)
     ..post('/ben/oturumlar/<kimlik>/kapat', _oturumKapat)
@@ -353,6 +368,21 @@ class KimlikApi {
     return jsonYanit({'kapatilan': rs.first[0]});
   }
 
+  Future<Response> _tercihler(Request istek) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(k, (tx) => tx.execute(
+        Sql.named('SELECT haftalik_ozet FROM hukuk.kullanici WHERE id = CAST(@u AS uuid)'), parameters: {'u': k.kullaniciId}));
+    return jsonYanit({'haftalikOzet': rs.isEmpty ? true : rs.first[0] == true});
+  }
+
+  Future<Response> _tercihKaydet(Request istek) async {
+    final k = kimlik(istek);
+    final acik = (await jsonGovde(istek))['haftalikOzet'] != false;
+    await vt.kiraciIcin(
+        k, (tx) => tx.execute(Sql.named('SELECT hukuk.haftalik_ozet_tercihi(@a)'), parameters: {'a': acik}));
+    return jsonYanit({'haftalikOzet': acik});
+  }
+
   /// Ekip yönetimi (yalnızca yöneticiler; kurallar veritabanında: hesap türüne uygun rol, koltuk, son yönetici).
   Future<Response> _rolDegistir(Request istek, String id) async {
     final k = kimlik(istek);
@@ -442,6 +472,7 @@ class KimlikApi {
       'hesapTuru': s[3],
       'ikiAdimli': s[4],
       'roller': [for (final x in r) x[0]],
+      if (k.disAvukat) 'disAvukatId': k.disAvukatId,
     });
   }
 

@@ -48,6 +48,7 @@ class Oturum {
     required this.hesapTuru,
     required this.roller,
     this.muvekkilKisiId,
+    this.disAvukatId,
   });
 
   final String kullaniciId;
@@ -62,6 +63,11 @@ class Oturum {
   final String? muvekkilKisiId;
 
   bool get muvekkilPortali => muvekkilKisiId != null;
+
+  /// Dış avukat portalı oturumunda bağlı dış avukat (anlaşmalı büro) kaydı.
+  final String? disAvukatId;
+
+  bool get disAvukatPortali => disAvukatId != null;
 
   LisansProfili get lisans => LisansProfili.varsayilan(hesapTuru);
 }

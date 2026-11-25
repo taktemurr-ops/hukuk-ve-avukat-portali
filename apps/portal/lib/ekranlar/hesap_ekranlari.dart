@@ -5,6 +5,7 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import '../bilesenler/bicim.dart';
 import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
+import '../servisler/sunucu_senkronu.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
 
@@ -690,7 +691,7 @@ class EkipEkrani extends StatelessWidget {
               Panel(
                 baslik: 'Lisans koltukları',
                 sag: Text('${yonetim.doluKoltuk} / ${yonetim.lisansKoltugu}', key: const Key('koltuk-ozet')),
-                child: const Text('Talep eden çalışan, onaycı, müvekkil ve denetçi rolleri koltuk tüketmez.'),
+                child: const Text('Talep eden çalışan, onaycı, müvekkil, denetçi ve dış avukat rolleri koltuk tüketmez.'),
               ),
               const SizedBox(height: 20),
               Panel(
@@ -937,6 +938,10 @@ class _KullaniciDiyaloguState extends State<_KullaniciDiyalogu> {
               child: const Text('Rolleri kaydet'),
             ),
           ),
+          if (y.oturum.hesapTuru == HesapTuru.kurumsal && y.depo.uzak != null) ...[
+            const Divider(height: 32),
+            _SirketYetkisi(uzak: y.depo.uzak!, kullaniciId: k.id),
+          ],
           const Divider(height: 32),
           if (k.aktif) ...[
             Text('İşten ayrılış', style: Theme.of(context).textTheme.titleSmall),
@@ -1271,5 +1276,96 @@ class _TakvimAbonelikEkraniState extends State<TakvimAbonelikEkrani> {
         ],
       ]),
     );
+  }
+}
+
+/// Kurumsal hesapta kullanıcının görebileceği grup şirketleri. Hiçbiri seçili değilse tüm şirketleri görür;
+/// seçilirse yalnızca o şirketlerin (ve alt şirketlerinin) sözleşme ve taleplerini. Yöneticiler her zaman tümünü görür.
+class _SirketYetkisi extends StatefulWidget {
+  const _SirketYetkisi({required this.uzak, required this.kullaniciId});
+
+  final UzakIslemler uzak;
+  final String kullaniciId;
+
+  @override
+  State<_SirketYetkisi> createState() => _SirketYetkisiState();
+}
+
+class _SirketYetkisiState extends State<_SirketYetkisi> {
+  List<(String, String)>? _sirketler;
+  final Set<String> _secili = {};
+  String? _mesaj;
+  bool _bekliyor = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _yukle();
+  }
+
+  Future<void> _yukle() async {
+    try {
+      final tum = await widget.uzak.sirketListesi();
+      final secili = await widget.uzak.kullaniciSirketleri(widget.kullaniciId);
+      if (!mounted) return;
+      setState(() {
+        _sirketler = tum;
+        _secili
+          ..clear()
+          ..addAll(secili);
+      });
+    } on Exception catch (e) {
+      if (mounted) setState(() => _mesaj = '$e');
+    }
+  }
+
+  Future<void> _kaydet() async {
+    setState(() => _bekliyor = true);
+    String? m;
+    try {
+      await widget.uzak.kullaniciSirketleriAyarla(widget.kullaniciId, _secili.toList());
+      m = _secili.isEmpty ? 'Şirket kısıtı kaldırıldı.' : 'Şirket yetkisi kaydedildi.';
+    } on Exception catch (e) {
+      m = '$e';
+    }
+    if (mounted) {
+      setState(() {
+        _bekliyor = false;
+        _mesaj = m;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final liste = _sirketler;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('Şirket yetkisi', style: Theme.of(context).textTheme.titleSmall),
+      const SizedBox(height: 4),
+      const Text('Seçim yapılmazsa tüm şirketleri görür. Seçilen şirketlerin alt şirketleri de dahildir; '
+          'yöneticiler her zaman tümünü görür.'),
+      const SizedBox(height: 6),
+      if (liste == null && _mesaj == null)
+        const LinearProgressIndicator()
+      else if (liste != null)
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final (id, ad) in liste)
+            FilterChip(
+              key: Key('ekip-sirket-$id'),
+              label: Text(ad),
+              selected: _secili.contains(id),
+              onSelected: (s) => setState(() => s ? _secili.add(id) : _secili.remove(id)),
+            ),
+        ]),
+      if (_mesaj != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_mesaj!)),
+      Align(
+        alignment: Alignment.centerRight,
+        child: FilledButton.tonal(
+          key: const Key('ekip-sirket-kaydet'),
+          onPressed: _bekliyor || liste == null ? null : _kaydet,
+          child: const Text('Şirket yetkisini kaydet'),
+        ),
+      ),
+    ]);
   }
 }

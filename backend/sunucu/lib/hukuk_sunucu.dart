@@ -25,8 +25,10 @@ export 'src/aktarim_api.dart';
 export 'src/belge_api.dart';
 export 'src/belge_metni.dart';
 export 'src/belge_servisi.dart';
+export 'src/cikar_api.dart';
 export 'src/buro_api.dart';
 export 'src/davet_api.dart';
+export 'src/dis_portal_api.dart';
 export 'src/dosya_api.dart';
 export 'src/eposta.dart';
 export 'src/hata.dart';
@@ -92,7 +94,9 @@ Handler uygulama(
       .add(PortalApi(vt, depo).router.call)
       .add(AbonelikApi(vt, odemeSaglayici).router.call)
       .add(AktarimApi(belgeServisi: bs, tarayici: virusTarayici).router.call)
-      .add(TakvimApi(vt, disAdres: disAdres).router.call);
+      .add(TakvimApi(vt, disAdres: disAdres).router.call)
+      .add(CikarApi(vt).router.call)
+      .add(DisPortalApi(vt).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))

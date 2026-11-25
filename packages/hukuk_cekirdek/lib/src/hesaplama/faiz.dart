@@ -58,9 +58,30 @@ class FaizTablosu {
         dayanak: '7589 sayılı Kanun m.10 (TCMB 2025 yıl sonu reeskont oranının %80\'i)'),
   ]);
 
-  /// Ticari temerrüt (avans) faizi; tam geçmiş TCMB tebliğlerinden yüklenecek. ONAY BEKLİYOR.
+  /// Ticari temerrüt (avans) faizi (3095 s.K. m.2/2): TCMB'nin kısa vadeli avans işlemlerine uyguladığı oran,
+  /// tebliğin Resmî Gazete'de yayımı tarihinden itibaren. Kaynak: TCMB reeskont ve avans faiz oranları tablosu.
+  /// 2014 öncesi dönemler yüklenmedi. ONAY BEKLİYOR.
   static final avans = FaizTablosu(tur: FaizTuru.avans, donemler: [
-    FaizDonemi(baslangic: Tarih(2026, 1, 1), yillikOran: 39.75, dayanak: '3095 s.K. m.2 / TCMB (doğrulanacak)'),
+    FaizDonemi(baslangic: Tarih(2014, 12, 14), yillikOran: 10.5, dayanak: 'TCMB tebliği 14.12.2014'),
+    FaizDonemi(baslangic: Tarih(2016, 12, 31), yillikOran: 9.75, dayanak: 'TCMB tebliği 31.12.2016'),
+    FaizDonemi(baslangic: Tarih(2018, 6, 29), yillikOran: 19.5, dayanak: 'TCMB tebliği 29.06.2018'),
+    FaizDonemi(baslangic: Tarih(2019, 10, 11), yillikOran: 18.25, dayanak: 'TCMB tebliği 11.10.2019'),
+    FaizDonemi(baslangic: Tarih(2019, 12, 21), yillikOran: 13.75, dayanak: 'TCMB tebliği 21.12.2019'),
+    FaizDonemi(baslangic: Tarih(2020, 6, 13), yillikOran: 10, dayanak: 'TCMB tebliği 13.06.2020'),
+    FaizDonemi(baslangic: Tarih(2020, 12, 19), yillikOran: 16.75, dayanak: 'TCMB tebliği 19.12.2020'),
+    FaizDonemi(baslangic: Tarih(2022, 1, 2), yillikOran: 15.75, dayanak: 'TCMB tebliği 02.01.2022'),
+    FaizDonemi(baslangic: Tarih(2022, 12, 31), yillikOran: 10.75, dayanak: 'TCMB tebliği 31.12.2022'),
+    FaizDonemi(baslangic: Tarih(2023, 6, 24), yillikOran: 16.75, dayanak: 'TCMB tebliği 24.06.2023'),
+    FaizDonemi(baslangic: Tarih(2023, 9, 1), yillikOran: 26.75, dayanak: 'TCMB tebliği 01.09.2023'),
+    FaizDonemi(baslangic: Tarih(2023, 9, 28), yillikOran: 31.75, dayanak: 'TCMB tebliği 28.09.2023'),
+    FaizDonemi(baslangic: Tarih(2023, 11, 1), yillikOran: 36.75, dayanak: 'TCMB tebliği 01.11.2023'),
+    FaizDonemi(baslangic: Tarih(2023, 12, 1), yillikOran: 41.75, dayanak: 'TCMB tebliği 01.12.2023'),
+    FaizDonemi(baslangic: Tarih(2023, 12, 23), yillikOran: 44.25, dayanak: 'TCMB tebliği 23.12.2023'),
+    FaizDonemi(baslangic: Tarih(2024, 4, 1), yillikOran: 51.75, dayanak: 'TCMB tebliği 01.04.2024'),
+    FaizDonemi(baslangic: Tarih(2024, 12, 28), yillikOran: 49.25, dayanak: 'TCMB tebliği 28.12.2024'),
+    FaizDonemi(baslangic: Tarih(2025, 3, 8), yillikOran: 44.25, dayanak: 'TCMB tebliği 08.03.2025'),
+    FaizDonemi(baslangic: Tarih(2025, 9, 17), yillikOran: 42.25, dayanak: 'TCMB tebliği 17.09.2025'),
+    FaizDonemi(baslangic: Tarih(2025, 12, 20), yillikOran: 39.75, dayanak: 'TCMB tebliği 20.12.2025'),
   ]);
 }
 

@@ -9,6 +9,7 @@ class DisAvukat {
     required this.eposta,
     this.uzmanliklar = const [],
     this.saatlikUcret,
+    this.portalKullaniciId,
   });
 
   final String id;
@@ -17,6 +18,9 @@ class DisAvukat {
   final String eposta;
   final List<String> uzmanliklar;
   final Para? saatlikUcret;
+
+  /// Dış avukat portalına bağlı kullanıcı hesabı (rolü disAvukat); yoksa portal kapalı.
+  final String? portalKullaniciId;
 }
 
 enum FaturaDurumu {

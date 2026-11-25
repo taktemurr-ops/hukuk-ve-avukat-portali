@@ -3,6 +3,7 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/cikar_raporu.dart';
 import '../servisler/kimlik_servisi.dart';
+import '../servisler/sunucu_senkronu.dart';
 import '../servisler/veri_deposu.dart';
 
 /// Yeni iş öncesi çıkar çatışması taraması ve gerekçeli iş kabul kararı.
@@ -48,20 +49,105 @@ class _CikarCatismasiEkraniState extends State<CikarCatismasiEkrani> {
     super.dispose();
   }
 
-  void _tara() {
+  /// Sunucu bağlıyken kararlar sunucudan (yönetici onayı dahil).
+  List<Map<String, dynamic>>? _sunucuKararlari;
+
+  @override
+  void initState() {
+    super.initState();
+    _kararlariYukle();
+  }
+
+  Future<void> _kararlariYukle() async {
+    final u = widget.depo.uzak;
+    if (u == null) return;
+    try {
+      final k = await u.isKabulKararlari();
+      if (mounted) setState(() => _sunucuKararlari = k);
+    } on Exception {
+      // liste gösterilmez; tarama ve karar yine çalışır
+    }
+  }
+
+  Future<void> _tara() async {
     final adaylar = [
       for (final s in _satirlar)
         if (s.ad.text.trim().isNotEmpty)
           AdayTaraf(ad: s.ad.text.trim(), sifat: s.sifat, kimlikNo: s.kimlikNo.text.trim().isEmpty ? null : s.kimlikNo.text.trim()),
     ];
-    setState(() {
-      _hata = adaylar.isEmpty ? 'En az bir taraf adı girin.' : null;
-      _adaylar = adaylar;
-      _rapor = adaylar.isEmpty ? null : widget.depo.tarayici.tara(adaylar);
-    });
+    if (adaylar.isEmpty) {
+      setState(() {
+        _hata = 'En az bir taraf adı girin.';
+        _rapor = null;
+      });
+      return;
+    }
+    try {
+      final r = await widget.depo.cikarTara(adaylar);
+      if (!mounted) return;
+      setState(() {
+        _hata = null;
+        _adaylar = adaylar;
+        _rapor = r;
+      });
+    } on Exception catch (e) {
+      if (mounted) setState(() => _hata = 'Tarama yapılamadı: $e');
+    }
+  }
+
+  void _temizle() {
+    _hata = null;
+    _rapor = null;
+    _gerekce.clear();
+    _kosullar.clear();
+    _yonetici.clear();
+    for (final s in _satirlar) {
+      s.ad.clear();
+      s.kimlikNo.clear();
+    }
+  }
+
+  /// Sunucuda karar, sunucunun kendi taramasına dayanır; çatışmada kabul başka bir yöneticinin onayını bekler.
+  Future<void> _sunucudaKaydet(UzakIslemler u) async {
+    final g = _gerekce.text.trim();
+    if (g.length < 10) {
+      setState(() => _hata = 'Gerekçe en az 10 karakter olmalıdır.');
+      return;
+    }
+    if (_karar == KararTuru.kosulluKabul && _kosullar.text.trim().isEmpty) {
+      setState(() => _hata = 'Koşullu kabulde koşullar yazılmalıdır.');
+      return;
+    }
+    try {
+      final durum = await u.isKabulKarariKaydet(adaylar: _adaylar, tur: _karar, gerekce: g, kosullar: _kosullar.text);
+      if (!mounted) return;
+      setState(_temizle);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(durum == 'onayBekliyor'
+              ? 'Karar kaydedildi; çatışma olduğu için başka bir yöneticinin onayı bekleniyor.'
+              : 'Karar kaydedildi ve denetim kaydına işlendi.')));
+      await _kararlariYukle();
+    } on Exception catch (e) {
+      if (mounted) setState(() => _hata = '$e');
+    }
+  }
+
+  Future<void> _onayla(String id) async {
+    try {
+      await widget.depo.uzak!.isKabulOnayla(id);
+      await _kararlariYukle();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('İş kabulü onaylandı.')));
+    } on Exception catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   void _kararKaydet() {
+    final u = widget.depo.uzak;
+    if (u != null) {
+      _sunucudaKaydet(u);
+      return;
+    }
     final rapor = _rapor!;
     final karar = CikarCatismasiKarari(
       tur: _karar,
@@ -157,7 +243,12 @@ class _CikarCatismasiEkraniState extends State<CikarCatismasiEkrani> {
               ),
             ),
           ],
-          if (rapor.catismaVar && _karar != KararTuru.ret) ...[
+          if (rapor.catismaVar && _karar != KararTuru.ret && widget.depo.uzak != null) ...[
+            const SizedBox(height: 12),
+            const Text('Çatışma var: kabul kararı, karar verenden farklı bir yöneticinin onayından sonra geçerli olur.',
+                key: Key('cikar-onay-bilgi')),
+          ],
+          if (rapor.catismaVar && _karar != KararTuru.ret && widget.depo.uzak == null) ...[
             const SizedBox(height: 12),
             TextField(
               key: const Key('cikar-yonetici'),
@@ -176,7 +267,30 @@ class _CikarCatismasiEkraniState extends State<CikarCatismasiEkrani> {
             child: const Text('Kararı kaydet'),
           ),
         ],
-        if (widget.depo.kararlar.isNotEmpty) ...[
+        if (_sunucuKararlari != null && _sunucuKararlari!.isNotEmpty) ...[
+          const Divider(height: 32),
+          Text('Son kararlar', style: metin.titleMedium),
+          for (final k in _sunucuKararlari!.take(10))
+            ListTile(
+              key: Key('karar-${k['id']}'),
+              dense: true,
+              leading: Icon(k['tur'] == 'ret'
+                  ? Icons.block
+                  : k['durum'] == 'onayBekliyor'
+                      ? Icons.hourglass_top
+                      : Icons.check_circle_outline),
+              title: Text([for (final a in (k['adaylar'] as List? ?? const [])) (a as Map)['ad']].join(', ')),
+              subtitle: Text('${k['tur']} · ${widget.depo.kullaniciAdi('${k['kararVeren']}')} · ${k['gerekce']}'
+                  '${k['durum'] == 'onayBekliyor' ? ' · yönetici onayı bekliyor' : k['onaylayan'] != null ? ' · onaylayan ${widget.depo.kullaniciAdi('${k['onaylayan']}')}' : ''}'),
+              trailing: k['durum'] == 'onayBekliyor' &&
+                      k['kararVeren'] != widget.oturum.kullaniciId &&
+                      widget.oturum.roller.any((r) => const {Rol.buroSahibi, Rol.yoneticiOrtak, Rol.hukukDirektoru}.contains(r))
+                  ? FilledButton(
+                      key: Key('karar-onayla-${k['id']}'), onPressed: () => _onayla('${k['id']}'), child: const Text('Onayla'))
+                  : null,
+            ),
+        ],
+        if (widget.depo.uzak == null && widget.depo.kararlar.isNotEmpty) ...[
           const Divider(height: 32),
           Text('Son kararlar', style: metin.titleMedium),
           for (final k in widget.depo.kararlar.reversed.take(5))

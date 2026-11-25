@@ -716,4 +716,24 @@ void main() {
     expect(adres, endsWith('.ics'));
     expect(webcal, startsWith('webcal://'));
   });
+
+  test('Sunucu çıkar çatışması raporu: korumalı dosya adı ve kimliği gelmez', () {
+    final r = SunucuSenkronu.raporJson({
+      'eslesmeler': [
+        {
+          'aday': {'ad': 'Orman Enerji', 'sifat': 'karsiTaraf', 'kimlikNo': null},
+          'kisiAdi': 'Orman Enerji A.Ş.',
+          'tur': 'tamIsim',
+          'benzerlik': 1,
+          'seviye': 'catisma',
+          'iliski': null,
+          'dosya': {'dosyaId': null, 'dosyaAdi': 'Korumalı dosya', 'sifat': 'muvekkil', 'kapali': false},
+        },
+      ],
+      'enYuksek': 'catisma',
+    });
+    expect(r.catismaVar, isTrue);
+    expect(r.eslesmeler.single.dosya!.dosyaId, isNull);
+    expect(r.eslesmeler.single.dosya!.dosyaAdi, DosyaOzeti.korumaliAd);
+  });
 }

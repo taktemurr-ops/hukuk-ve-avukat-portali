@@ -13,6 +13,7 @@ from .docx_uret import docx_uret, eksik_alanlar
 from .guvenlik import AZAMI_BOYUT, BelgeHatasi
 from .pdf_uret import pdf_uret
 from .tablo import tablo_oku
+from .tablo_uret import pdf_tablo_uret, xlsx_uret
 
 app = FastAPI(title="Hukuk ve Avukat Portalı belge servisi", version="0.1.0")
 
@@ -38,6 +39,33 @@ async def tablo(dosya: UploadFile = File(...)) -> dict:
         return tablo_oku(veri, dosya.filename or "")
     except BelgeHatasi as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+class RaporSayfasi(BaseModel):
+    ad: str = Field(default="Rapor", max_length=100)
+    basliklar: list[str] = Field(max_length=50)
+    satirlar: list[list[str | float | int | None]]
+
+
+class RaporIstegi(BaseModel):
+    baslik: str = Field(min_length=1, max_length=200)
+    sayfalar: list[RaporSayfasi] = Field(min_length=1, max_length=20)
+    bicim: str = Field(default="xlsx", pattern="^(xlsx|pdf)$")
+
+
+@app.post("/rapor")
+def rapor(istek: RaporIstegi) -> Response:
+    sayfalar = [s.model_dump() for s in istek.sayfalar]
+    try:
+        if istek.bicim == "pdf":
+            veri, tur, uzanti = pdf_tablo_uret(istek.baslik, sayfalar), "application/pdf", "pdf"
+        else:
+            veri = xlsx_uret(istek.baslik, sayfalar)
+            tur, uzanti = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
+    except BelgeHatasi as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return Response(content=veri, media_type=tur,
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(istek.baslik + '.' + uzanti)}"})
 
 
 class DocxIstegi(BaseModel):

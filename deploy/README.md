@@ -58,3 +58,15 @@ docker run --rm -v hukuk_belgeler:/kaynak:ro -v /yedek/belgeler:/hedef alpine \
 
 Geri yükleme denemesi en az ayda bir ayrı bir ortamda yapılır; ardından `hukuk.denetim_dogrula(kiraci)` ile denetim
 zincirinin sağlam olduğu ve rastgele belgelerin SHA-256 özetlerinin kayıtlarla eşleştiği kontrol edilir.
+
+## Etik ihbar sayfası (kurumsal hesaplar)
+
+`site/ihbar.html` oturum gerektirmeyen ihbar formudur; tanıtım sitesiyle birlikte yayınlanır.
+
+1. Sayfadaki `<meta name="api" content="...">` değerini uygulama sunucusunun dış adresiyle değiştirin.
+2. Sitenin kökenini (ör. `https://hukukportali.com.tr`) sunucudaki `IZINLI_KOKENLER` değişkenine ekleyin (virgülle ayrılmış).
+3. Uygulamayı `--dart-define=SITE_ADRESI=https://hukukportali.com.tr/` ile derleyin; Uyum ekranında kurumun ihbar
+   bağlantısı (`…/ihbar.html?kurum=<kurum kimliği>`) gösterilir.
+
+Sayfa çerez kullanmaz, `Referrer` göndermez ve IP adresini ihbarla birlikte saklamaz. Kurum başına saatte en çok 30 ihbar
+kabul edilir (veritabanı kuralı).

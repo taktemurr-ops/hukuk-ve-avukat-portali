@@ -7,6 +7,7 @@ import '../bilesenler/tasarim.dart';
 import '../servisler/bildirim_servisi.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/kurumsal_depo.dart';
+import '../servisler/sunucu_senkronu.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
 import 'bildirim_paneli.dart';
@@ -607,6 +608,10 @@ class _AyarlarSayfasi extends StatelessWidget {
                 onTap: () => ac(OturumlarEkrani(yonetim: yonetim)),
               ),
               const Divider(),
+              if (yonetim.depo.uzak != null) ...[
+                _HaftalikOzetAyari(uzak: yonetim.depo.uzak!),
+                const Divider(),
+              ],
               ListTile(
                 key: const Key('ayar-takvim'),
                 contentPadding: EdgeInsets.zero,
@@ -741,4 +746,46 @@ class _KurumSecici extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Haftalık özet e-postası tercihi (sunucu bağlıyken).
+class _HaftalikOzetAyari extends StatefulWidget {
+  const _HaftalikOzetAyari({required this.uzak});
+
+  final UzakIslemler uzak;
+
+  @override
+  State<_HaftalikOzetAyari> createState() => _HaftalikOzetAyariState();
+}
+
+class _HaftalikOzetAyariState extends State<_HaftalikOzetAyari> {
+  bool? _acik;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.uzak.haftalikOzetAcikMi().then((v) {
+      if (mounted) setState(() => _acik = v);
+    }, onError: (Object _) {});
+  }
+
+  @override
+  Widget build(BuildContext context) => SwitchListTile(
+        key: const Key('ayar-haftalik-ozet'),
+        contentPadding: EdgeInsets.zero,
+        secondary: const Icon(Icons.mark_email_unread_outlined),
+        title: const Text('Haftalık özet e-postası'),
+        subtitle: const Text('Pazartesi sabahı süre, görev ve duruşma sayılarınız (müvekkil bilgisi olmadan).'),
+        value: _acik ?? true,
+        onChanged: _acik == null
+            ? null
+            : (v) async {
+                setState(() => _acik = v);
+                try {
+                  await widget.uzak.haftalikOzetAyarla(v);
+                } on Exception {
+                  if (mounted) setState(() => _acik = !v);
+                }
+              },
+      );
 }

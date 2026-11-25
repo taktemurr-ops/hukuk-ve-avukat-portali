@@ -4,7 +4,7 @@ import 'hata.dart';
 
 /// Oturumu doğrulanmış kullanıcının bağlamı.
 class KimlikBaglami {
-  const KimlikBaglami({required this.kullaniciId, required this.kiraciId, this.portalKisiId});
+  const KimlikBaglami({required this.kullaniciId, required this.kiraciId, this.portalKisiId, this.disAvukatId});
 
   final String kullaniciId;
   final String kiraciId;
@@ -13,6 +13,12 @@ class KimlikBaglami {
   final String? portalKisiId;
 
   bool get portal => portalKisiId != null;
+
+  /// Yalnızca dış avukat rolündeki oturumda bağlı dış avukat kaydı ('' : henüz bir büroya bağlanmadı);
+  /// diğer kullanıcılarda null.
+  final String? disAvukatId;
+
+  bool get disAvukat => disAvukatId != null;
 }
 
 /// Veritabanı erişimi. Uygulama `hukuk_uygulama` rolünün üyesi olan bir kullanıcıyla bağlanır;
@@ -48,6 +54,19 @@ class Veritabani {
   Future<T> kiraciIcin<T>(KimlikBaglami k, Future<T> Function(TxSession tx) islem) {
     if (k.portal) throw const ApiHatasi(403, 'Bu işlem müvekkil portalında kullanılamaz.', kod: 'yasak');
     return _kiraciIcin(k, islem);
+  }
+
+  /// Dış avukat portalı işlemi: kiracı ayarlanmaz; erişim yalnızca dis_portal_* fonksiyonlarıyla.
+  Future<T> disPortalIcin<T>(KimlikBaglami k, Future<T> Function(TxSession tx) islem) {
+    if (!k.disAvukat) throw const ApiHatasi(403, 'Bu uç yalnızca dış avukat portalı içindir.', kod: 'yasak');
+    return _hataCevir(() => havuz.runTx((tx) async {
+          await tx.execute(
+            Sql.named("SELECT set_config('app.kiraci_id', '', true), set_config('app.kullanici_id', @u, true), "
+                "set_config('app.portal_kisi', '', true)"),
+            parameters: {'u': k.kullaniciId},
+          );
+          return islem(tx);
+        }));
   }
 
   /// Müvekkil portalı işlemi: kiracı ayarlanmaz (büro tablolarının satır politikaları hiçbir şey döndürmez);

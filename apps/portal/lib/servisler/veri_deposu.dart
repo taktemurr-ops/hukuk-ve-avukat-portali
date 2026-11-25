@@ -226,6 +226,12 @@ class BellekVeriDeposu extends ChangeNotifier {
         .toList();
   }
 
+  /// Tarama: sunucu bağlıyken sunucuda (gizli/etik duvarlı dosyalar dahil, adları maskeli), değilse yerelde.
+  Future<CikarCatismasiRaporu> cikarTara(List<AdayTaraf> adaylar) async {
+    final u = uzak;
+    return u == null ? tarayici.tara(adaylar) : u.cikarTara(adaylar);
+  }
+
   CikarCatismasiTarayici get tarayici =>
       CikarCatismasiTarayici(kisiler: _kisiler, iliskiler: _iliskiler, dosyaKayitlari: _dosyaKayitlari);
 
@@ -1189,6 +1195,36 @@ class BellekVeriDeposu extends ChangeNotifier {
   }
 
   /// Dosyada kişi bazında çalışılan dakika (gelir paylaşımı için).
+  /// Gelir paylaşım oranları; sunucu modunda büro ayarından yüklenir.
+  PaylasimKurali paylasimKurali = PaylasimKurali.varsayilan;
+
+  Future<void> paylasimKuraliYukle() async {
+    final u = uzak;
+    if (u == null) return;
+    paylasimKurali = await u.paylasimKurali();
+    notifyListeners();
+  }
+
+  /// Hata mesajı ya da null.
+  Future<String?> paylasimKuraliAyarla(PaylasimKurali kural) async {
+    final hata = kural.hata();
+    if (hata != null) return hata;
+    final u = uzak;
+    try {
+      if (u != null) await u.paylasimKuraliAyarla(kural);
+    } on Exception catch (e) {
+      return '$e';
+    }
+    final once = paylasimKurali;
+    paylasimKurali = kural;
+    if (u == null) {
+      _kaydet(DenetimIslemi.degisiklik, 'kiraci', 'buro',
+          'Gelir paylaşım oranları: ${once.getiren}/${once.calisan}/${once.buro} -> ${kural.getiren}/${kural.calisan}/${kural.buro}');
+    }
+    notifyListeners();
+    return null;
+  }
+
   Map<String, int> dosyaCalisanDakikalari(String dosyaId) {
     final m = <String, int>{};
     for (final k in zaman.kayitlar.where((k) => k.dosyaId == dosyaId)) {

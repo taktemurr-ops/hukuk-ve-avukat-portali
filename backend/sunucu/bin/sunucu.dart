@@ -58,6 +58,10 @@ Future<void> main() async {
           portalAdresi: portalAdresi.isEmpty ? null : Uri.parse(portalAdresi),
           kaydet: (h) => stderr.writeln('SÜRE BİLDİRİMİ HATASI: $h'))
       .baslat();
+  HaftalikOzetGorevi(vt,
+          portalAdresi: portalAdresi.isEmpty ? null : Uri.parse(portalAdresi),
+          kaydet: (h) => stderr.writeln('HAFTALIK ÖZET HATASI: $h'))
+      .baslat();
   // Zararlı yazılım taraması: CLAMD_ADRESI (ör. clamav:3310). Canlıda zorunlu.
   VirusTarayici? tarayici;
   final clamd = ortam['CLAMD_ADRESI'] ?? '';

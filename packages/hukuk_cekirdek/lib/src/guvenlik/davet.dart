@@ -2,8 +2,8 @@ import 'dart:math';
 
 import '../hesap/hesap_turu.dart';
 
-/// Lisans koltuğu tüketmeyen roller (iş birimi talep edenleri, onaycılar, müvekkiller, denetçiler).
-const Set<Rol> ucretsizRoller = {Rol.talepEden, Rol.onayci, Rol.muvekkil, Rol.denetci};
+/// Lisans koltuğu tüketmeyen roller (iş birimi talep edenleri, onaycılar, müvekkiller, denetçiler, dış avukatlar).
+const Set<Rol> ucretsizRoller = {Rol.talepEden, Rol.onayci, Rol.muvekkil, Rol.denetci, Rol.disAvukat};
 
 /// Ekip üyesi daveti. Davet edilen kişi kendi şifresini belirler; şifre e-postayla gönderilmez.
 class Davet {

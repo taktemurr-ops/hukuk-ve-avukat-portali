@@ -6,14 +6,14 @@ import '../bilesenler/tasarim.dart';
 import '../tema/tema.dart';
 import 'sure_hesaplama_ekrani.dart';
 
-/// Süre, faiz, harç, vekâlet ücreti ve serbest meslek makbuzu hesapları.
+/// Süre, faiz, harç, vekâlet ücreti, serbest meslek makbuzu, işçilik alacakları ve döviz hesapları.
 class HesaplamalarEkrani extends StatelessWidget {
   const HesaplamalarEkrani({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const DefaultTabController(
-      length: 5,
+      length: 7,
       child: Column(
         children: [
           Material(
@@ -27,6 +27,8 @@ class HesaplamalarEkrani extends StatelessWidget {
                 Tab(key: Key('sekme-harc'), text: 'Dava harcı'),
                 Tab(key: Key('sekme-ucret'), text: 'Vekâlet ücreti'),
                 Tab(key: Key('sekme-makbuz'), text: 'Makbuz (SMM)'),
+                Tab(key: Key('sekme-iscilik'), text: 'İşçilik alacakları'),
+                Tab(key: Key('sekme-doviz'), text: 'Döviz'),
               ],
             ),
           ),
@@ -38,6 +40,8 @@ class HesaplamalarEkrani extends StatelessWidget {
                 _HarcHesabi(),
                 _UcretHesabi(),
                 _MakbuzHesabi(),
+                _IscilikHesabi(),
+                _DovizHesabi(),
               ],
             ),
           ),
@@ -455,6 +459,278 @@ class _MakbuzHesabiState extends State<_MakbuzHesabi> {
                 _Satir('Net ücret (KDV hariç)', s.netUcret.bicimli),
               ],
             ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------------- İşçilik alacakları
+
+class _IscilikHesabi extends StatefulWidget {
+  const _IscilikHesabi();
+
+  @override
+  State<_IscilikHesabi> createState() => _IscilikHesabiState();
+}
+
+class _IscilikHesabiState extends State<_IscilikHesabi> {
+  final _form = GlobalKey<FormState>();
+  final _giydirilmis = TextEditingController();
+  final _ciplak = TextEditingController();
+  final _izinGun = TextEditingController(text: '0');
+  Tarih _giris = Tarih.from(DateTime.now()).yilEkle(-5);
+  Tarih _cikis = Tarih.from(DateTime.now());
+  bool _kidemHakki = true;
+  bool _ihbarHakki = true;
+  KidemSonucu? _kidem;
+  IhbarSonucu? _ihbar;
+  IzinSonucu? _izin;
+  HizmetSuresi? _sure;
+  String? _hata;
+
+  @override
+  void dispose() {
+    _giydirilmis.dispose();
+    _ciplak.dispose();
+    _izinGun.dispose();
+    super.dispose();
+  }
+
+  void _hesapla() {
+    if (!_form.currentState!.validate()) return;
+    setState(() {
+      _hata = null;
+      _kidem = null;
+      _ihbar = null;
+      _izin = null;
+      try {
+        final giydirilmis = Para.tl(tutarCoz(_giydirilmis.text)!);
+        final ciplak = tutarCoz(_ciplak.text);
+        _sure = HizmetSuresi.hesapla(_giris, _cikis);
+        if (_kidemHakki && _sure!.yil >= 1) {
+          _kidem = IscilikHesabi.kidem(giris: _giris, cikis: _cikis, giydirilmisBrutUcret: giydirilmis);
+        }
+        if (_ihbarHakki) _ihbar = IscilikHesabi.ihbar(giris: _giris, cikis: _cikis, giydirilmisBrutUcret: giydirilmis);
+        final gun = int.tryParse(_izinGun.text.trim()) ?? 0;
+        if (gun > 0) {
+          _izin = IscilikHesabi.izinUcreti(kullanilmayanGun: gun, ciplakBrutUcret: Para.tl(ciplak ?? giydirilmis.tutar));
+        }
+      } on ArgumentError catch (e) {
+        _hata = '${e.message}';
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sure = _sure;
+    final k = _kidem;
+    final i = _ihbar;
+    final z = _izin;
+    var toplam = Para.sifir;
+    for (final p in [k?.brut, i?.brut, z?.brut]) {
+      if (p != null) toplam = toplam + p;
+    }
+    return Form(
+      key: _form,
+      child: _HesapSayfasi(
+        baslik: 'İşçilik alacakları',
+        aciklama: 'Kıdem (1475 s.K. m.14, çıkış tarihindeki tavanla), ihbar (4857 s.K. m.17) ve kullanılmayan yıllık izin '
+            '(m.59). Tutarlar brüttür; ihbar ve izin ücretinden gelir vergisi bordroya göre ayrıca kesilir. '
+            'Tavan tablosu avukat onayı bekliyor: sonuçlar taslaktır.',
+        form: [
+          TextFormField(
+            key: const Key('iscilik-giydirilmis'),
+            controller: _giydirilmis,
+            decoration: const InputDecoration(labelText: 'Giydirilmiş aylık brüt ücret (TL)'),
+            keyboardType: TextInputType.number,
+            validator: _tutarDogrula,
+          ),
+          TextFormField(
+            key: const Key('iscilik-ciplak'),
+            controller: _ciplak,
+            decoration: const InputDecoration(labelText: 'Çıplak aylık brüt ücret (TL, izin için; boşsa giydirilmiş)'),
+            keyboardType: TextInputType.number,
+            validator: (d) => (d ?? '').trim().isEmpty ? null : _tutarDogrula(d),
+          ),
+          _TarihAlani(etiket: 'İşe giriş', tarih: _giris, degisti: (t) => setState(() => _giris = t)),
+          _TarihAlani(etiket: 'İşten çıkış', tarih: _cikis, degisti: (t) => setState(() => _cikis = t)),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Kıdem tazminatına hak kazanıyor'),
+            value: _kidemHakki,
+            onChanged: (v) => setState(() => _kidemHakki = v),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('İhbar süresine uyulmadan fesih (ihbar tazminatı)'),
+            value: _ihbarHakki,
+            onChanged: (v) => setState(() => _ihbarHakki = v),
+          ),
+          TextFormField(
+            key: const Key('iscilik-izin'),
+            controller: _izinGun,
+            decoration: const InputDecoration(labelText: 'Kullanılmayan yıllık izin (gün)'),
+            keyboardType: TextInputType.number,
+            validator: (d) => int.tryParse((d ?? '').trim()) == null ? 'Gün sayısı girin.' : null,
+          ),
+          const SizedBox(height: 12),
+          FilledButton(key: const Key('iscilik-hesapla'), onPressed: _hesapla, child: const Text('Hesapla')),
+          if (_hata != null) Text(_hata!, style: const TextStyle(color: Renkler.kritik)),
+        ],
+        sonuc: sure == null || _hata != null
+            ? null
+            : Column(
+                key: const Key('iscilik-sonuc'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Satir('Hizmet süresi', '$sure'),
+                  if (k != null) ...[
+                    _Satir('Kıdem esas ücret${k.tavanUygulandi ? ' (tavan)' : ''}', k.esasUcret.bicimli),
+                    _Satir('Kıdem tazminatı (brüt)', k.brut.bicimli),
+                    _Satir('Damga vergisi', '-${k.damgaVergisi.bicimli}'),
+                    _Satir('Kıdem tazminatı (net, GV istisna)', k.net.bicimli),
+                  ] else if (_kidemHakki)
+                    const _Satir('Kıdem tazminatı', 'Bir yıldan az: yok'),
+                  if (i != null) _Satir('İhbar tazminatı (${i.hafta} hafta, brüt)', i.brut.bicimli),
+                  if (z != null) _Satir('Yıllık izin ücreti (${z.gun} gün, brüt)', z.brut.bicimli),
+                  const Divider(),
+                  _Satir('Toplam (brüt)', toplam.bicimli, vurgulu: true),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: DurumRozeti('Taslak: tavan tablosu onay bekliyor', RozetTuru.uyari),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------------- Döviz
+
+class _DovizHesabi extends StatefulWidget {
+  const _DovizHesabi();
+
+  @override
+  State<_DovizHesabi> createState() => _DovizHesabiState();
+}
+
+class _DovizHesabiState extends State<_DovizHesabi> {
+  final _form = GlobalKey<FormState>();
+  final _tutar = TextEditingController();
+  final _vadeKuru = TextEditingController();
+  final _odemeKuru = TextEditingController();
+  final _oran = TextEditingController(text: '0');
+  String _birim = 'USD';
+  bool _temerrut = true;
+  Tarih _vade = Tarih.from(DateTime.now()).gunEkle(-90);
+  Tarih _odeme = Tarih.from(DateTime.now());
+  (Para, String)? _karsilik;
+  Para? _faiz;
+  String? _hata;
+
+  @override
+  void dispose() {
+    _tutar.dispose();
+    _vadeKuru.dispose();
+    _odemeKuru.dispose();
+    _oran.dispose();
+    super.dispose();
+  }
+
+  void _hesapla() {
+    if (!_form.currentState!.validate()) return;
+    setState(() {
+      _hata = null;
+      try {
+        final borc = Para.tl(tutarCoz(_tutar.text)!, birim: _birim);
+        final odemeKuru = tutarCoz(_odemeKuru.text)!;
+        final vadeKuru = tutarCoz(_vadeKuru.text) ?? odemeKuru;
+        _faiz = DovizHesabi.temerrutFaizi(
+            dovizTutari: borc, yillikOran: tutarCoz(_oran.text) ?? 0, baslangic: _vade, bitis: _odeme);
+        _karsilik = DovizHesabi.borcKarsiligi(
+            dovizTutari: borc + _faiz!, vadeKuru: vadeKuru, odemeKuru: odemeKuru, temerrut: _temerrut);
+      } on ArgumentError catch (e) {
+        _karsilik = null;
+        _hata = '${e.message}';
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = _karsilik;
+    final f = _faiz;
+    return Form(
+      key: _form,
+      child: _HesapSayfasi(
+        baslik: 'Yabancı para alacağı',
+        aciklama: 'TBK m.99: borç ödeme günü kuruyla ödenir; temerrütte alacaklı vade ya da ödeme günü kurunu seçebilir. '
+            'Faiz 3095 s.K. m.4/a uyarınca döviz cinsinden işler (devlet bankalarının bir yıllık mevduat faizi; '
+            'oranı siz girersiniz). Kurlar TCMB döviz satış kurundan girilmelidir; uygulama kur çekmez.',
+        form: [
+          Row(children: [
+            Expanded(
+              child: TextFormField(
+                key: const Key('doviz-tutar'),
+                controller: _tutar,
+                decoration: const InputDecoration(labelText: 'Anapara (döviz)'),
+                keyboardType: TextInputType.number,
+                validator: _tutarDogrula,
+              ),
+            ),
+            const SizedBox(width: 12),
+            DropdownButton<String>(
+              key: const Key('doviz-birim'),
+              value: _birim,
+              items: [for (final b in const ['USD', 'EUR', 'GBP', 'CHF']) DropdownMenuItem(value: b, child: Text(b))],
+              onChanged: (v) => setState(() => _birim = v ?? _birim),
+            ),
+          ]),
+          TextFormField(
+            key: const Key('doviz-odeme-kuru'),
+            controller: _odemeKuru,
+            decoration: const InputDecoration(labelText: 'Ödeme (hesap) günü kuru'),
+            keyboardType: TextInputType.number,
+            validator: _tutarDogrula,
+          ),
+          TextFormField(
+            key: const Key('doviz-vade-kuru'),
+            controller: _vadeKuru,
+            decoration: const InputDecoration(labelText: 'Vade günü kuru (boşsa ödeme günü kuru)'),
+            keyboardType: TextInputType.number,
+            validator: (d) => (d ?? '').trim().isEmpty ? null : _tutarDogrula(d),
+          ),
+          TextFormField(
+            key: const Key('doviz-oran'),
+            controller: _oran,
+            decoration: const InputDecoration(labelText: 'Yıllık faiz oranı (%)'),
+            keyboardType: TextInputType.number,
+            validator: _tutarDogrula,
+          ),
+          _TarihAlani(etiket: 'Vade (temerrüt) tarihi', tarih: _vade, degisti: (t) => setState(() => _vade = t)),
+          _TarihAlani(etiket: 'Hesap tarihi', tarih: _odeme, degisti: (t) => setState(() => _odeme = t)),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Borçlu temerrütte'),
+            value: _temerrut,
+            onChanged: (v) => setState(() => _temerrut = v),
+          ),
+          FilledButton(key: const Key('doviz-hesapla'), onPressed: _hesapla, child: const Text('Hesapla')),
+          if (_hata != null) Text(_hata!, style: const TextStyle(color: Renkler.kritik)),
+        ],
+        sonuc: s == null || f == null
+            ? null
+            : Column(
+                key: const Key('doviz-sonuc'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Satir('Faiz (${_vade.farkGun(_odeme)} gün)', f.bicimli),
+                  _Satir('Seçilen kur', s.$2),
+                  _Satir('Türk lirası karşılığı (anapara + faiz)', s.$1.bicimli, vurgulu: true),
+                ],
+              ),
+      ),
     );
   }
 }

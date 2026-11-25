@@ -28,6 +28,8 @@ class KurumsalApi {
   Router get router => Router()
     ..get('/sirketler', _sirketler)
     ..post('/sirketler', _sirketEkle)
+    ..get('/kullanicilar/<id>/sirketler', _kullaniciSirketleri)
+    ..put('/kullanicilar/<id>/sirketler', _kullaniciSirketleriAyarla)
     ..get('/sozlesmeler', _sozlesmeler)
     ..post('/sozlesmeler', _sozlesmeEkle)
     ..post('/sozlesmeler/<id>/durum', _sozlesmeDurum)
@@ -41,6 +43,7 @@ class KurumsalApi {
     ..post('/talepler/<id>/ata', _talepAta)
     ..get('/dis-avukatlar', _disAvukatlar)
     ..post('/dis-avukatlar', _disAvukatEkle)
+    ..post('/dis-avukatlar/<id>/hesap', _disAvukatHesabi)
     ..post('/dis-avukat-isleri', _disIsAc)
     ..post('/dis-avukat-isleri/<id>/fatura', _disFaturaEkle)
     ..post('/dis-avukat-isleri/<id>/butce', _disButceArtir)
@@ -110,6 +113,45 @@ class KurumsalApi {
       return yeni;
     });
     return jsonYanit({'id': id}, durum: 201);
+  }
+
+  /// Kullanıcının yetkili olduğu şirketler; boş liste "tüm şirketler" demektir.
+  Future<Response> _kullaniciSirketleri(Request istek, String id) async {
+    final k = kimlik(istek);
+    final rs = await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute(
+            Sql.named('SELECT sirket_id::text FROM hukuk.kullanici_sirket WHERE kullanici_id = CAST(@u AS uuid) '
+                'ORDER BY sirket_id'),
+            parameters: {'u': id}));
+    return jsonYanit({'sirketler': [for (final r in rs) r[0]]});
+  }
+
+  Future<Response> _kullaniciSirketleriAyarla(Request istek, String id) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final liste = j['sirketler'];
+    if (liste is! List || liste.any((e) => e is! String)) {
+      throw const ApiHatasi(400, 'sirketler bir kimlik listesi olmalı.', kod: 'gecersiz_istek');
+    }
+    await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute(
+            Sql.named('SELECT hukuk.kullanici_sirketleri_ayarla(CAST(@u AS uuid), CAST(@s AS uuid[]))'),
+            parameters: {'u': id, 's': '{${liste.cast<String>().join(',')}}'}));
+    return jsonYanit({'sirketler': liste});
+  }
+
+  /// Dış avukat kaydını portal hesabına bağlar; kullaniciId null ise bağı kaldırır. Kullanıcı önce
+  /// "Dış avukat" rolüyle davet edilmiş olmalıdır.
+  Future<Response> _disAvukatHesabi(Request istek, String id) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute(Sql.named('SELECT hukuk.dis_avukat_hesabi_bagla(CAST(@d AS uuid), CAST(@u AS uuid))'),
+            parameters: {'d': id, 'u': j['kullaniciId'] as String?}));
+    return jsonYanit({'tamam': true});
   }
 
   // ---------------------------------------------------------------------------
@@ -677,7 +719,7 @@ class KurumsalApi {
   Future<Response> _disAvukatlar(Request istek) async {
     final k = kimlik(istek);
     final (avukatlar, isler, faturalar, artislar) = await vt.kiraciIcin(k, (tx) async {
-      final a = await tx.execute('SELECT id::text, buro, sorumlu_avukat, eposta, uzmanliklar, saatlik_kurus FROM hukuk.dis_avukat '
+      final a = await tx.execute('SELECT id::text, buro, sorumlu_avukat, eposta, uzmanliklar, saatlik_kurus, kullanici_id::text FROM hukuk.dis_avukat '
           'WHERE aktif ORDER BY buro');
       final i = await tx.execute('SELECT id::text, dis_avukat_id::text, konu, ilk_butce_kurus, baslangic, dosya_id::text, '
           'talep_id::text, kapali FROM hukuk.dis_avukat_isi ORDER BY baslangic DESC');
@@ -712,7 +754,15 @@ class KurumsalApi {
     return jsonYanit({
       'avukatlar': [
         for (final r in avukatlar)
-          {'id': r[0], 'buro': r[1], 'sorumluAvukat': r[2], 'eposta': r[3], 'uzmanliklar': r[4], 'saatlikKurus': r[5]},
+          {
+            'id': r[0],
+            'buro': r[1],
+            'sorumluAvukat': r[2],
+            'eposta': r[3],
+            'uzmanliklar': r[4],
+            'saatlikKurus': r[5],
+            'kullaniciId': r[6],
+          },
       ],
       'isler': [
         for (final r in isler)

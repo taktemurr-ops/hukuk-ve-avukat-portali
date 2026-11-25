@@ -48,6 +48,19 @@ class ApiIstemcisi {
   Future<Object?> delete(String yol) async =>
       _coz(await _http.delete(_yol(yol), headers: _basliklar).timeout(_zamanAsimi));
 
+  /// İkili yanıt (dosya indirme): hata durumunda JSON hata iletisi okunur.
+  Future<List<int>> postBaytAl(String yol, [Map<String, Object?> govde = const {}]) async =>
+      _bayt(await _http.post(_yol(yol), headers: _basliklar, body: jsonEncode(govde)).timeout(const Duration(minutes: 2)));
+
+  Future<List<int>> getBaytAl(String yol) async =>
+      _bayt(await _http.get(_yol(yol), headers: _basliklar).timeout(const Duration(minutes: 5)));
+
+  List<int> _bayt(http.Response y) {
+    if (y.statusCode >= 200 && y.statusCode < 300) return y.bodyBytes;
+    _coz(y);
+    throw SunucuHatasi(y.statusCode, 'hata', 'Dosya alınamadı (${y.statusCode}).');
+  }
+
   Object? _coz(http.Response y) {
     final metin = utf8.decode(y.bodyBytes);
     Object? j;

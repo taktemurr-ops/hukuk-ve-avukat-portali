@@ -160,3 +160,39 @@ class SureBildirimGorevi {
     );
   }
 }
+
+/// Haftalık özet e-postası: pazartesi Türkiye saatiyle 08:00'den sonra, her kullanıcıya haftada bir kez (sayılar;
+/// müvekkil ve dosya bilgisi yok). Saatlik çalışır; tekillik veritabanında.
+class HaftalikOzetGorevi {
+  HaftalikOzetGorevi(this.vt, {this.portalAdresi, this.aralik = const Duration(hours: 1), this.saat, this.kaydet});
+
+  final Veritabani vt;
+  final Uri? portalAdresi;
+  final Duration aralik;
+  final DateTime Function()? saat;
+  final void Function(Object hata)? kaydet;
+  Timer? _zamanlayici;
+
+  void baslat() {
+    unawaited(birTur());
+    _zamanlayici ??= Timer.periodic(aralik, (_) => birTur());
+  }
+
+  void durdur() {
+    _zamanlayici?.cancel();
+    _zamanlayici = null;
+  }
+
+  Future<int> birTur() async {
+    final tr = (saat?.call() ?? DateTime.now()).toUtc().add(const Duration(hours: 3));
+    if (tr.weekday != DateTime.monday || tr.hour < 8) return 0;
+    try {
+      final rs = await vt.genel((tx) => tx.execute(Sql.named('SELECT hukuk.haftalik_ozetleri_yaz(CAST(@h AS date), @p)'),
+          parameters: {'h': Tarih(tr.year, tr.month, tr.day).isoBicim, 'p': portalAdresi?.toString()}));
+      return rs.first[0]! as int;
+    } on Object catch (e) {
+      kaydet?.call(e);
+      return 0;
+    }
+  }
+}

@@ -58,6 +58,9 @@ abstract class KurumsalUzak {
 
   Future<void> disAvukatEkle({required String buro, required String sorumluAvukat, required String eposta, List<String> uzmanliklar});
 
+  /// Dış avukatı portal hesabına bağlar (null: bağı kaldırır).
+  Future<void> disAvukatHesabiBagla(String disAvukatId, String? kullaniciId);
+
   Future<void> disFaturaEkle(String isiId, {required String no, required Para tutar, required String aciklama});
 
   /// [islem]: onayla, reddet veya finans.
@@ -224,6 +227,7 @@ class KurumsalSenkronu implements KurumsalUzak {
           eposta: a['eposta'] as String,
           uzmanliklar: [for (final x in (a['uzmanliklar'] as List? ?? const [])) '$x'],
           saatlikUcret: a['saatlikKurus'] == null ? null : Para.kurus(a['saatlikKurus'] as int),
+          portalKullaniciId: a['kullaniciId'] as String?,
         ),
     ];
     final isler = <DisAvukatIsi>[];
@@ -483,6 +487,12 @@ class KurumsalSenkronu implements KurumsalUzak {
   }) async {
     await api.post('/dis-avukatlar',
         {'buro': buro.trim(), 'sorumluAvukat': sorumluAvukat.trim(), 'eposta': eposta.trim(), 'uzmanliklar': uzmanliklar});
+    await _disAvukatYenile();
+  }
+
+  @override
+  Future<void> disAvukatHesabiBagla(String disAvukatId, String? kullaniciId) async {
+    await api.post('/dis-avukatlar/$disAvukatId/hesap', {'kullaniciId': kullaniciId});
     await _disAvukatYenile();
   }
 }

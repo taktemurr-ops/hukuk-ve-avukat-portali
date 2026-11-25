@@ -61,6 +61,7 @@ class SunucuKimlikServisi implements KimlikServisi {
         },
         // Müvekkil oturumunda sunucu bağlı kişi kartını döner; uygulama portal görünümünü açar.
         muvekkilKisiId: ben['portalKisiId'] as String?,
+        disAvukatId: ben['disAvukatId'] as String?,
       );
     } on SunucuHatasi catch (e) {
       if (e.kod == 'eposta_dogrulanmadi') throw EpostaDogrulanmadi(e.mesaj);

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// Seçilen dosya: ad ve içerik.
 typedef SecilenDosya = ({String ad, Uint8List icerik});
@@ -18,6 +19,17 @@ Future<SecilenDosya?> _platformdanSec(List<String> uzantilar) async {
 }
 
 DosyaSecici dosyaSecici = _platformdanSec;
+
+/// Dosyayı cihaza kaydeder (web'de indirme, masaüstü ve mobilde konum sorulur). Vazgeçilirse false.
+typedef DosyaKaydedici = Future<bool> Function(String ad, List<int> icerik);
+
+Future<bool> _platformaKaydet(String ad, List<int> icerik) async {
+  final yol = await FilePicker.platform.saveFile(fileName: ad, bytes: Uint8List.fromList(icerik));
+  // Web'de indirme başlatılır ve yol dönmez; diğer platformlarda yol null ise kullanıcı vazgeçmiştir.
+  return yol != null || kIsWeb;
+}
+
+DosyaKaydedici dosyaKaydet = _platformaKaydet;
 
 /// Excel'in Türkçe sürümünün CSV'si çoğunlukla Windows-1254'tür; önce UTF-8 denenir, olmazsa 1254 çözülür.
 String csvCoz(List<int> b) {

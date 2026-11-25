@@ -18,6 +18,8 @@ class BuroApi {
   final Veritabani vt;
 
   Router get router => Router()
+    ..get('/ayarlar/gelir-paylasimi', _paylasimKurali)
+    ..put('/ayarlar/gelir-paylasimi', _paylasimAyarla)
     ..get('/taraflar', _taraflar)
     ..post('/dosyalar/<id>/taraflar', _tarafEkle)
     ..get('/gorev-sablonlari', _sablonlar)
@@ -51,6 +53,32 @@ class BuroApi {
   // ---------------------------------------------------------------------------
 
   /// Görünür dosyaların tarafları (çıkar çatışması taraması ve tebligat eşleştirmesi için).
+  Future<Response> _paylasimKurali(Request istek) async {
+    final k = kimlik(istek);
+    final r = (await vt.kiraciIcin(k, (tx) => tx.execute('SELECT * FROM hukuk.gelir_paylasim_kurali()'))).first;
+    return jsonYanit({'getiren': r[0], 'calisan': r[1], 'buro': r[2]});
+  }
+
+  /// Oranlar çekirdekteki kuralla (toplam %100, negatif yok) doğrulanır; veritabanı da aynısını zorlar.
+  Future<Response> _paylasimAyarla(Request istek) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    int oran(String ad) {
+      final v = j[ad];
+      if (v is! int) throw ApiHatasi(400, '$ad bir tam sayı olmalı.', kod: 'gecersiz_istek');
+      return v;
+    }
+
+    final kural = PaylasimKurali(getiren: oran('getiren'), calisan: oran('calisan'), buro: oran('buro'));
+    final hata = kural.hata();
+    if (hata != null) throw ApiHatasi(400, hata, kod: 'gecersiz_istek');
+    await vt.kiraciIcin(
+        k,
+        (tx) => tx.execute(Sql.named('SELECT hukuk.gelir_paylasim_ayarla(@g, @c, @b)'),
+            parameters: {'g': kural.getiren, 'c': kural.calisan, 'b': kural.buro}));
+    return jsonYanit({'getiren': kural.getiren, 'calisan': kural.calisan, 'buro': kural.buro});
+  }
+
   Future<Response> _taraflar(Request istek) async {
     final k = kimlik(istek);
     final rs = await vt.kiraciIcin(

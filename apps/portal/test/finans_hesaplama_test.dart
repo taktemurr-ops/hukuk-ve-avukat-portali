@@ -78,6 +78,25 @@ void main() {
     expect(find.byKey(const Key('faiz-sonuc')), findsOneWidget);
   });
 
+  testWidgets('İşçilik alacakları hesaplanır (taslak rozetiyle)', (tester) async {
+    await _ac(tester, 'hesaplamalar');
+    await _bas(tester, 'sekme-iscilik');
+    await tester.enterText(find.byKey(const Key('iscilik-giydirilmis')), '30.000');
+    await _bas(tester, 'iscilik-hesapla');
+    expect(find.byKey(const Key('iscilik-sonuc')), findsOneWidget);
+    expect(find.textContaining('Taslak'), findsOneWidget);
+  });
+
+  testWidgets('Döviz alacağı TL karşılığı', (tester) async {
+    await _ac(tester, 'hesaplamalar');
+    await _bas(tester, 'sekme-doviz');
+    await tester.enterText(find.byKey(const Key('doviz-tutar')), '1.000');
+    await tester.enterText(find.byKey(const Key('doviz-odeme-kuru')), '42');
+    await tester.enterText(find.byKey(const Key('doviz-vade-kuru')), '45');
+    await _bas(tester, 'doviz-hesapla');
+    expect(find.text('45.000,00 TL'), findsOneWidget);
+  });
+
   testWidgets('Finans: avans eksiye düşen müvekkil uyarılır, hareket eklenir, emanet uyarısı görünür', (tester) async {
     final depo = await _ac(tester, 'finans');
     expect(find.byKey(const Key('emanet-uyarisi')), findsOneWidget);

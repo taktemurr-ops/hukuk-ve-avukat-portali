@@ -124,14 +124,22 @@ class _KisiFormuEkraniState extends State<KisiFormuEkrani> {
 
   bool get _kesinMukerrer => _mukerrerler?.any((m) => m.tur == MukerrerTuru.kesin) ?? false;
 
-  void _kontrolEt() {
+  Future<void> _kontrolEt() async {
     if (!_form.currentState!.validate()) return;
     final no = _kimlikNo.text.trim().isEmpty ? null : _kimlikNo.text.trim();
+    final CikarCatismasiRaporu rapor;
+    try {
+      rapor = _sifat == TarafSifati.diger
+          ? const CikarCatismasiRaporu([])
+          : await widget.depo.cikarTara([AdayTaraf(ad: _ad.text.trim(), sifat: _sifat, kimlikNo: no)]);
+    } on Exception catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Çıkar çatışması taranamadı: $e')));
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _mukerrerler = MukerrerKontrol.bul(widget.depo.kisiler, ad: _ad.text, kimlikNo: no);
-      _rapor = _sifat == TarafSifati.diger
-          ? const CikarCatismasiRaporu([])
-          : widget.depo.tarayici.tara([AdayTaraf(ad: _ad.text.trim(), sifat: _sifat, kimlikNo: no)]);
+      _rapor = rapor;
     });
   }
 

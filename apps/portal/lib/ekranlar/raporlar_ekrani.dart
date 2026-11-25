@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/tasarim.dart';
+import '../servisler/dosya_secici.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/kurumsal_depo.dart';
 import '../servisler/veri_deposu.dart';
@@ -15,6 +16,29 @@ class RaporlarEkrani extends StatelessWidget {
   final BellekVeriDeposu depo;
   final Oturum oturum;
   final KurumsalDepo? kurumsal;
+
+  /// CSV panoya; Excel/PDF sunucuda üretilip cihaza kaydedilir (dışa aktarma denetim kaydına yazılır).
+  Future<void> _disaAktar(
+      BuildContext context, String ad, List<String> basliklar, Iterable<List<Object?>> satirlar, String bicim) async {
+    if (bicim == 'csv') {
+      _csvKopyala(context, ad, Raporlar.csv(basliklar, satirlar));
+      return;
+    }
+    final mesaj = ScaffoldMessenger.of(context);
+    try {
+      final icerik = await depo.uzak!.raporIndir(ad, [
+        {
+          'ad': ad,
+          'basliklar': basliklar,
+          'satirlar': [for (final s in satirlar) [for (final h in s) '${h ?? ''}']],
+        },
+      ], pdf: bicim == 'pdf');
+      final kaydedildi = await dosyaKaydet('$ad.$bicim', icerik);
+      if (kaydedildi) mesaj.showSnackBar(SnackBar(content: Text('$ad ${bicim == 'pdf' ? 'PDF' : 'Excel'} olarak kaydedildi.')));
+    } on Exception catch (e) {
+      mesaj.showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
 
   void _csvKopyala(BuildContext context, String ad, String csv) {
     Clipboard.setData(ClipboardData(text: csv)).ignore();
@@ -58,16 +82,16 @@ class RaporlarEkrani extends StatelessWidget {
               baslik: 'İş yükü',
               sag: _CsvDugmesi(
                 anahtar: 'csv-is-yuku',
-                onPressed: () => _csvKopyala(
+                sunucu: depo.uzak != null,
+                sec: (bicim) => _disaAktar(
                     context,
                     'İş yükü',
-                    Raporlar.csv(
-                      ['Kişi', 'Açık dosya', 'Açık süre', 'Kritik süre (7 gün)', 'Teyit bekleyen', 'Açık görev', 'Geciken görev', 'Açık talep'],
-                      isYuku.map((s) => [
-                            ad(s.kullanici), s.acikDosya, s.acikSure, s.kritikSure, s.teyitBekleyen,
-                            s.acikGorev, s.gecikenGorev, s.acikTalep,
-                          ]),
-                    )),
+                    ['Kişi', 'Açık dosya', 'Açık süre', 'Kritik süre (7 gün)', 'Teyit bekleyen', 'Açık görev', 'Geciken görev', 'Açık talep'],
+                    isYuku.map((s) => [
+                          ad(s.kullanici), s.acikDosya, s.acikSure, s.kritikSure, s.teyitBekleyen,
+                          s.acikGorev, s.gecikenGorev, s.acikTalep,
+                        ]),
+                    bicim),
               ),
               child: _Tablo(
                 anahtar: 'rapor-is-yuku',
@@ -97,7 +121,7 @@ class RaporlarEkrani extends StatelessWidget {
             ),
             if (finans) ...[
               const SizedBox(height: 20),
-              _AlacakPaneli(depo: depo, bugun: bugun, csvKopyala: (c, a, v) => _csvKopyala(c, a, v)),
+              _AlacakPaneli(depo: depo, bugun: bugun, disaAktar: _disaAktar),
             ],
             if (k != null) ...[
               const SizedBox(height: 20),
@@ -112,19 +136,40 @@ class RaporlarEkrani extends StatelessWidget {
   }
 }
 
+/// Dışa aktarma: CSV panoya; sunucu bağlıyken Excel ya da PDF dosyası olarak indirme.
 class _CsvDugmesi extends StatelessWidget {
-  const _CsvDugmesi({required this.anahtar, required this.onPressed});
+  const _CsvDugmesi({required this.anahtar, required this.sec, this.sunucu = false});
 
   final String anahtar;
-  final VoidCallback onPressed;
+  final void Function(String bicim) sec;
+  final bool sunucu;
 
   @override
-  Widget build(BuildContext context) => TextButton.icon(
-        key: Key(anahtar),
-        onPressed: onPressed,
-        icon: const Icon(Icons.copy_all_outlined, size: 18),
-        label: const Text('CSV kopyala'),
-      );
+  Widget build(BuildContext context) => sunucu
+      ? PopupMenuButton<String>(
+          key: Key(anahtar),
+          tooltip: 'Dışa aktar',
+          onSelected: sec,
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'csv', child: Text('CSV olarak kopyala')),
+            PopupMenuItem(value: 'xlsx', child: Text('Excel olarak indir')),
+            PopupMenuItem(value: 'pdf', child: Text('PDF olarak indir')),
+          ],
+          child: const Padding(
+            padding: EdgeInsets.all(8),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.download_outlined, size: 18),
+              SizedBox(width: 6),
+              Text('Dışa aktar'),
+            ]),
+          ),
+        )
+      : TextButton.icon(
+          key: Key(anahtar),
+          onPressed: () => sec('csv'),
+          icon: const Icon(Icons.copy_all_outlined, size: 18),
+          label: const Text('CSV kopyala'),
+        );
 }
 
 class _Tablo extends StatelessWidget {
@@ -201,11 +246,11 @@ class _Cubuklar extends StatelessWidget {
 }
 
 class _AlacakPaneli extends StatelessWidget {
-  const _AlacakPaneli({required this.depo, required this.bugun, required this.csvKopyala});
+  const _AlacakPaneli({required this.depo, required this.bugun, required this.disaAktar});
 
   final BellekVeriDeposu depo;
   final Tarih bugun;
-  final void Function(BuildContext, String, String) csvKopyala;
+  final Future<void> Function(BuildContext, String, List<String>, Iterable<List<Object?>>, String) disaAktar;
 
   @override
   Widget build(BuildContext context) {
@@ -216,13 +261,13 @@ class _AlacakPaneli extends StatelessWidget {
       baslik: 'Alacak yaşlandırma · toplam ${toplam.bicimli}',
       sag: _CsvDugmesi(
         anahtar: 'csv-alacak',
-        onPressed: () => csvKopyala(
+        sunucu: depo.uzak != null,
+        sec: (bicim) => disaAktar(
             context,
             'Alacak yaşlandırma',
-            Raporlar.csv(
-              ['Müvekkil', ...AlacakYaslandirma.kovaAdlari, 'Masraf alacağı', 'Toplam'],
-              y.map((s) => [ad(s.muvekkilId), ...s.kovalar.map((p) => p.bicimli), s.masrafAlacagi.bicimli, s.toplam.bicimli]),
-            )),
+            ['Müvekkil', ...AlacakYaslandirma.kovaAdlari, 'Masraf alacağı', 'Toplam'],
+            y.map((s) => [ad(s.muvekkilId), ...s.kovalar.map((p) => p.bicimli), s.masrafAlacagi.bicimli, s.toplam.bicimli]),
+            bicim),
       ),
       child: _Tablo(
         anahtar: 'rapor-alacak',

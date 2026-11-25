@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
@@ -10,6 +11,10 @@ String _sureMetni(Duration d) {
   if (d.isNegative) return '${-d.inHours} saat geçti';
   return d.inHours >= 1 ? '${d.inHours} saat ${d.inMinutes % 60} dk kaldı' : '${d.inMinutes} dk kaldı';
 }
+
+/// Tanıtım sitesinin adresi (derlemede `--dart-define=SITE_ADRESI=https://hukukportali.com.tr/`); ihbar sayfası
+/// bunun altında `ihbar.html` olarak yayınlanır.
+const _siteAdresi = String.fromEnvironment('SITE_ADRESI');
 
 class UyumEkrani extends StatelessWidget {
   const UyumEkrani({super.key, required this.kurumsal});
@@ -57,6 +62,27 @@ class _IhbarSekmesi extends StatelessWidget {
         label: const Text('İhbar kaydet'),
       ),
       body: ListView(padding: const EdgeInsets.fromLTRB(24, 24, 24, 96), children: [
+        if (_siteAdresi.isNotEmpty) ...[
+          Panel(
+            baslik: 'Çalışanlar için ihbar bağlantısı',
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Bu bağlantıyı intranet, el kitabı ya da e-posta imzasında paylaşın. Oturum gerektirmez; '
+                  'ihbarcı isterse anonim kalır ve takip koduyla durumu sorgular.'),
+              const SizedBox(height: 8),
+              SelectableText('${_siteAdresi}ihbar.html?kurum=${k.depo.kiraciId}', key: const Key('ihbar-baglanti')),
+              const SizedBox(height: 4),
+              TextButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: '${_siteAdresi}ihbar.html?kurum=${k.depo.kiraciId}')).ignore();
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bağlantı kopyalandı.')));
+                },
+                icon: const Icon(Icons.copy),
+                label: const Text('Kopyala'),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 16),
+        ],
         Text('İhbar içeriği yalnızca soruşturma ekibine açılır. Bu listede kategori, kanal ve durum görünür.',
             style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 12),

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<!-- Uygulama sunucusunun adresi (kurulumda değiştirin). Bu adres sunucuda IZINLI_KOKENLER'e eklenmelidir. -->
+<meta name="api" content="https://api.hukukportali.com.tr/">
+<title>Etik ihbar hattı</title>
+<style>
+@font-face{font-family:Inter;src:url(fonts/Inter-400.ttf) format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:Inter;src:url(fonts/Inter-600.ttf) format("truetype");font-weight:600;font-display:swap}
+@font-face{font-family:Serif4;src:url(fonts/SourceSerif4-700.ttf) format("truetype");font-weight:700;font-display:swap}
+:root{color-scheme:light dark;--lac:#0F1E33;--yesil:light-dark(#0E5A4E,#3FB49C);--altin:#C9A45C;
+--bg:light-dark(#F7F5F0,#0B1524);--kart:light-dark(#fff,#12213A);--ink:light-dark(#14213D,#E9EEF5);--ink2:light-dark(#5B6475,#A7B3C4);
+--kenar:light-dark(#E6E2D9,#24344F);--kritik:light-dark(#B42318,#F49B92);--yesilz:light-dark(#DDF1EC,#123c34)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:var(--lac);color:#fff;padding:18px 20px}
+header .ic{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.logo{width:34px;height:34px;border-radius:8px;background:var(--altin);color:var(--lac);font:700 18px Serif4,serif;display:flex;align-items:center;justify-content:center}
+main{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+h1{font:700 30px/1.2 Serif4,Georgia,serif;margin:0 0 8px}
+h2{font:700 20px/1.3 Serif4,Georgia,serif;margin:0 0 12px}
+.kart{background:var(--kart);border:1px solid var(--kenar);border-radius:12px;padding:22px;margin-top:20px}
+label{display:block;font-weight:600;font-size:14px;margin:14px 0 6px}
+input,select,textarea{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--kenar);border-radius:8px;padding:11px 12px}
+textarea{min-height:180px;resize:vertical}
+.btn{display:inline-flex;align-items:center;min-height:46px;padding:0 20px;border-radius:8px;border:0;font:600 15px Inter,sans-serif;cursor:pointer;background:var(--yesil);color:#fff;margin-top:16px}
+.btn:disabled{opacity:.6;cursor:default}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--altin);outline-offset:2px}
+.not{font-size:14px;color:var(--ink2)}
+.hata{color:var(--kritik);font-weight:600}
+.kod{font:700 26px/1.3 ui-monospace,Menlo,Consolas,monospace;letter-spacing:2px;background:var(--yesilz);border-radius:8px;padding:14px;text-align:center;margin:12px 0;user-select:all}
+ul{padding-left:20px}
+</style>
+</head>
+<body>
+<header><div class="ic"><div class="logo" aria-hidden="true">H</div><strong>Etik ihbar hattı</strong></div></header>
+<main>
+  <h1>Güvenle bildirin</h1>
+  <p>Kurumdaki usulsüzlük, yolsuzluk, taciz ya da kişisel veri ihlali gibi durumları buradan bildirebilirsiniz. İsterseniz adınızı vermeden bildirim yapabilirsiniz.</p>
+  <ul class="not">
+    <li>İhbarınızı yalnızca kurumun yetkili uyum ekibi görür; ihbarın içeriği sistem kayıtlarına yazılmaz.</li>
+    <li>Gönderince size bir <strong>takip kodu</strong> verilir. Bu kod bir kez gösterilir; kaybederseniz durumu öğrenemezsiniz.</li>
+    <li>Bu sayfa çerez kullanmaz ve IP adresinizi ihbarla birlikte saklamaz.</li>
+  </ul>
+
+  <section class="kart" id="formKart" aria-labelledby="formBaslik">
+    <h2 id="formBaslik">Yeni ihbar</h2>
+    <p id="kurumYok" class="hata" hidden>Bu bağlantıda kurum bilgisi eksik. Lütfen kurumunuzun verdiği ihbar bağlantısını kullanın.</p>
+    <form id="form" novalidate>
+      <label for="kategori">Konu</label>
+      <select id="kategori" required>
+        <option value="rusvetYolsuzluk">Rüşvet ve yolsuzluk</option>
+        <option value="dolandiricilik">Dolandırıcılık ve suistimal</option>
+        <option value="cikarCatismasi">Çıkar çatışması</option>
+        <option value="tacizMobbing">Taciz ve mobbing</option>
+        <option value="veriIhlali">Kişisel veri ihlali</option>
+        <option value="rekabet">Rekabet hukuku</option>
+        <option value="isSagligi">İş sağlığı ve güvenliği</option>
+        <option value="diger">Diğer</option>
+      </select>
+      <label for="aciklama">Ne oldu? (en az 20 karakter)</label>
+      <textarea id="aciklama" required minlength="20" maxlength="20000" placeholder="Ne, ne zaman, nerede, kimler; varsa belgeler ve tanıklar."></textarea>
+      <label for="iletisim">İletişim (isteğe bağlı)</label>
+      <input id="iletisim" maxlength="300" placeholder="Size ulaşılmasını istiyorsanız e-posta ya da telefon">
+      <p class="not">Boş bırakırsanız ihbarınız anonim kalır.</p>
+      <p id="formHata" class="hata" role="alert" hidden></p>
+      <button class="btn" id="gonder" type="submit">İhbarı gönder</button>
+    </form>
+    <div id="sonuc" hidden>
+      <h2>İhbarınız alındı</h2>
+      <p>Takip kodunuz:</p>
+      <div class="kod" id="kod"></div>
+      <p><strong>Bu kodu şimdi not edin.</strong> Güvenliğiniz için tekrar gösterilmez. İhbarınızın durumunu aşağıdan bu kodla sorgulayabilirsiniz.</p>
+    </div>
+  </section>
+
+  <section class="kart" aria-labelledby="sorguBaslik">
+    <h2 id="sorguBaslik">İhbarımın durumu</h2>
+    <form id="sorgu" novalidate>
+      <label for="takip">Takip kodu</label>
+      <input id="takip" required autocomplete="off" spellcheck="false" style="text-transform:uppercase">
+      <p id="sorguHata" class="hata" role="alert" hidden></p>
+      <button class="btn" type="submit">Durumu göster</button>
+    </form>
+    <p id="durum" hidden></p>
+  </section>
+</main>
+<script>
+(function () {
+  "use strict";
+  var api = document.querySelector('meta[name="api"]').content;
+  var kurum = new URLSearchParams(location.search).get("kurum") || "";
+  var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  var $ = function (id) { return document.getElementById(id); };
+  if (!uuid.test(kurum)) { $("kurumYok").hidden = false; $("form").hidden = true; }
+
+  function gonder(yol, govde) {
+    return fetch(new URL(yol, api), {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(govde),
+      credentials: "omit", referrerPolicy: "no-referrer"
+    }).then(function (y) {
+      return y.json().catch(function () { return {}; }).then(function (j) {
+        if (!y.ok) throw new Error(j.mesaj || "İşlem yapılamadı. Lütfen biraz sonra tekrar deneyin.");
+        return j;
+      });
+    });
+  }
+
+  $("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var aciklama = $("aciklama").value.trim();
+    var hata = $("formHata");
+    if (aciklama.length < 20) { hata.textContent = "İhbarı en az 20 karakterle açıklayın."; hata.hidden = false; return; }
+    hata.hidden = true;
+    $("gonder").disabled = true;
+    gonder("acik/ihbar/" + encodeURIComponent(kurum), {
+      kategori: $("kategori").value, aciklama: aciklama, iletisim: $("iletisim").value.trim() || null
+    }).then(function (j) {
+      $("form").hidden = true;
+      $("kod").textContent = j.takipKodu;
+      $("sonuc").hidden = false;
+      $("aciklama").value = ""; $("iletisim").value = "";
+    }).catch(function (err) {
+      hata.textContent = err.message; hata.hidden = false; $("gonder").disabled = false;
+    });
+  });
+
+  $("sorgu").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var kod = $("takip").value.trim().toUpperCase();
+    var hata = $("sorguHata");
+    $("durum").hidden = true;
+    if (kod.length < 6) { hata.textContent = "Takip kodunu girin."; hata.hidden = false; return; }
+    hata.hidden = true;
+    gonder("acik/ihbar-durumu", { takipKodu: kod }).then(function (j) {
+      var d = $("durum");
+      d.textContent = "Durum: " + j.durumAdi + (j.geriBildirimVerildi ? " · Size geri bildirim verildi." : "") +
+        " (Alınma: " + new Date(j.alinma).toLocaleDateString("tr-TR") + ")";
+      d.hidden = false;
+    }).catch(function (err) { hata.textContent = err.message; hata.hidden = false; });
+  });
+})();
+</script>
+</body>
+</html>

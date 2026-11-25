@@ -189,7 +189,11 @@ class ZamanEkrani extends StatelessWidget {
               ),
               if (oturum.lisans.modulAcik(Modul.ekipVeGelirPaylasimi)) ...[
                 const SizedBox(height: 20),
-                GelirPaylasimiPaneli(depo: depo, dosyalar: dosyalar),
+                GelirPaylasimiPaneli(
+                  depo: depo,
+                  dosyalar: dosyalar,
+                  yonetici: oturum.roller.any((r) => const {Rol.buroSahibi, Rol.yoneticiOrtak}.contains(r)),
+                ),
               ],
             ],
           );
@@ -418,10 +422,13 @@ class _ZamanDiyaloguState extends State<_ZamanDiyalogu> {
 }
 
 class GelirPaylasimiPaneli extends StatefulWidget {
-  const GelirPaylasimiPaneli({super.key, required this.depo, required this.dosyalar});
+  const GelirPaylasimiPaneli({super.key, required this.depo, required this.dosyalar, this.yonetici = false});
 
   final BellekVeriDeposu depo;
   final List<Dosya> dosyalar;
+
+  /// Oranları düzenleyebilir mi.
+  final bool yonetici;
 
   @override
   State<GelirPaylasimiPaneli> createState() => _GelirPaylasimiPaneliState();
@@ -432,9 +439,69 @@ class _GelirPaylasimiPaneliState extends State<GelirPaylasimiPaneli> {
   String? _dosyaId;
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(widget.depo.paylasimKuraliYukle().catchError((Object _) {}));
+  }
+
+  @override
   void dispose() {
     _tutar.dispose();
     super.dispose();
+  }
+
+  Future<void> _oranlariDuzenle() async {
+    final k = widget.depo.paylasimKurali;
+    final alanlar = [
+      TextEditingController(text: '${k.getiren}'),
+      TextEditingController(text: '${k.calisan}'),
+      TextEditingController(text: '${k.buro}'),
+    ];
+    const etiketler = ['Getiren (%)', 'Çalışanlar (%)', 'Büro (%)'];
+    String? hata;
+    await showDialog<void>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, yenile) => AlertDialog(
+          title: const Text('Gelir paylaşım oranları'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            for (var i = 0; i < 3; i++)
+              TextField(
+                key: Key('paylasim-oran-$i'),
+                controller: alanlar[i],
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: etiketler[i]),
+              ),
+            if (hata != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(hata!)),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(c).pop(), child: const Text('Vazgeç')),
+            FilledButton(
+              key: const Key('paylasim-oran-kaydet'),
+              onPressed: () async {
+                final o = [for (final a in alanlar) int.tryParse(a.text.trim())];
+                if (o.contains(null)) {
+                  yenile(() => hata = 'Oranlar tam sayı olmalıdır.');
+                  return;
+                }
+                final h = await widget.depo
+                    .paylasimKuraliAyarla(PaylasimKurali(getiren: o[0]!, calisan: o[1]!, buro: o[2]!));
+                if (h != null) {
+                  yenile(() => hata = h);
+                } else if (c.mounted) {
+                  Navigator.of(c).pop();
+                }
+              },
+              child: const Text('Kaydet'),
+            ),
+          ],
+        ),
+      ),
+    );
+    for (final a in alanlar) {
+      a.dispose();
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -451,14 +518,21 @@ class _GelirPaylasimiPaneliState extends State<GelirPaylasimiPaneli> {
             tahsilat: Para.tl(tutar),
             getiren: d.sorumlu,
             calisanDakikalari: widget.depo.dosyaCalisanDakikalari(d.id),
+            kural: widget.depo.paylasimKurali,
           );
-    const k = PaylasimKurali.varsayilan;
+    final k = widget.depo.paylasimKurali;
     return Panel(
       baslik: 'Gelir paylaşımı',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Kural: dosyayı getiren %${k.getiren}, dosyada çalışanlar %${k.calisan} (çalıştıkları süre oranında), '
             'büro %${k.buro}. Kuruş farkları büroya yazılır.',
             style: Theme.of(context).textTheme.bodySmall),
+        if (widget.yonetici)
+          TextButton(
+            key: const Key('paylasim-oran-duzenle'),
+            onPressed: _oranlariDuzenle,
+            child: const Text('Oranları düzenle'),
+          ),
         const SizedBox(height: 12),
         Wrap(spacing: 16, runSpacing: 12, children: [
           DropdownMenu<String>(

@@ -426,6 +426,18 @@ class DosyaDetayEkrani extends StatelessWidget {
                     'SHA-256 ${b.guncel.ozet.substring(0, 12)}…'
                     '${b.surumler.length > 1 ? ' · orijinal sürüm 1 korunuyor' : ''}',
                   ),
+                  // Sunucu bağlıyken dokununca güncel sürüm indirilir (bütünlüğü sunucuda doğrulanır, denetime yazılır).
+                  onTap: depo.uzak == null
+                      ? null
+                      : () async {
+                          final mesaj = ScaffoldMessenger.of(context);
+                          try {
+                            final icerik = await depo.uzak!.belgeIndir(b.id, b.guncel.no);
+                            await dosyaKaydet(b.guncel.dosyaAdi, icerik);
+                          } on Exception catch (e) {
+                            mesaj.showSnackBar(SnackBar(content: Text('$e')));
+                          }
+                        },
                   trailing: !depo.portaldaMi(d.id) || b.gizli
                       ? null
                       : IconButton(

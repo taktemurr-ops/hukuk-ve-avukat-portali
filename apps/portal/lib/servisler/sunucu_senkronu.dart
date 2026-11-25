@@ -176,6 +176,39 @@ abstract class UzakIslemler {
   /// [kimlik] null ise bu oturum dışındaki tümü kapatılır.
   Future<int> oturumKapat(String? kimlik);
 
+  Future<bool> haftalikOzetAcikMi();
+
+  Future<void> haftalikOzetAyarla(bool acik);
+
+  /// Kurumsal: grup şirketleri (id, ad) ve kullanıcının şirket yetkisi (boş = tüm şirketler).
+  Future<List<(String, String)>> sirketListesi();
+
+  /// Büronun gelir paylaşım oranları (yalnızca yönetici değiştirir).
+  Future<PaylasimKurali> paylasimKurali();
+
+  Future<void> paylasimKuraliAyarla(PaylasimKurali kural);
+
+  Future<List<String>> kullaniciSirketleri(String kullaniciId);
+
+  Future<void> kullaniciSirketleriAyarla(String kullaniciId, List<String> sirketler);
+
+  /// Rapor tablosu Excel ya da PDF olarak (belge servisinde üretilir).
+  Future<List<int>> raporIndir(String baslik, List<Map<String, Object?>> sayfalar, {bool pdf});
+
+  /// Belge sürümünün içeriği (bütünlüğü sunucuda doğrulanır, indirme denetime yazılır).
+  Future<List<int>> belgeIndir(String belgeId, int surumNo);
+
+  /// Çıkar çatışması taraması sunucuda, kurumun tüm dosyalarında (görülemeyenler "Korumalı dosya").
+  Future<CikarCatismasiRaporu> cikarTara(List<AdayTaraf> adaylar);
+
+  /// İş kabul kararı; sunucu taramayı yeniden yapar. Dönen durum: gecerli | onayBekliyor.
+  Future<String> isKabulKarariKaydet(
+      {required List<AdayTaraf> adaylar, required KararTuru tur, required String gerekce, String? kosullar});
+
+  Future<List<Map<String, dynamic>>> isKabulKararlari();
+
+  Future<void> isKabulOnayla(String kararId);
+
   /// Takvim aboneliği: {var, olusturma, sonOkuma}.
   Future<Map<String, dynamic>> takvimDurumu();
 
@@ -1137,6 +1170,97 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
     final y = await api.post(kimlik == null ? '/ben/oturumlar/digerlerini-kapat' : '/ben/oturumlar/$kimlik/kapat')
         as Map<String, dynamic>;
     return (y['kapatilan'] as num?)?.toInt() ?? 0;
+  }
+
+  static Map<String, Object?> _adayJson(AdayTaraf a) => {'ad': a.ad, 'sifat': a.sifat.name, 'kimlikNo': a.kimlikNo};
+
+  static CikarCatismasiRaporu raporJson(Map<String, dynamic> j) => CikarCatismasiRaporu([
+        for (final e in _liste(j['eslesmeler']))
+          Eslesme(
+            aday: AdayTaraf(
+              ad: (e['aday'] as Map)['ad'] as String,
+              sifat: TarafSifati.values.byName((e['aday'] as Map)['sifat'] as String),
+              kimlikNo: (e['aday'] as Map)['kimlikNo'] as String?,
+            ),
+            kisiAdi: e['kisiAdi'] as String,
+            tur: EslesmeTuru.values.byName(e['tur'] as String),
+            benzerlik: (e['benzerlik'] as num).toDouble(),
+            seviye: RiskSeviyesi.values.byName(e['seviye'] as String),
+            iliski: e['iliski'] == null ? null : IliskiTuru.values.byName(e['iliski'] as String),
+            dosya: e['dosya'] == null
+                ? null
+                : DosyaOzeti(
+                    dosyaId: (e['dosya'] as Map)['dosyaId'] as String?,
+                    dosyaAdi: (e['dosya'] as Map)['dosyaAdi'] as String,
+                    sifat: TarafSifati.values.byName((e['dosya'] as Map)['sifat'] as String),
+                    kapali: (e['dosya'] as Map)['kapali'] == true,
+                  ),
+          ),
+      ]);
+
+  @override
+  Future<bool> haftalikOzetAcikMi() async => (await api.get('/ben/tercihler') as Map)['haftalikOzet'] != false;
+
+  @override
+  Future<void> haftalikOzetAyarla(bool acik) async {
+    await api.put('/ben/tercihler', {'haftalikOzet': acik});
+  }
+
+  @override
+  Future<PaylasimKurali> paylasimKurali() async {
+    final j = await api.get('/ayarlar/gelir-paylasimi') as Map;
+    return PaylasimKurali(getiren: j['getiren'] as int, calisan: j['calisan'] as int, buro: j['buro'] as int);
+  }
+
+  @override
+  Future<void> paylasimKuraliAyarla(PaylasimKurali kural) async {
+    await api.put('/ayarlar/gelir-paylasimi', {'getiren': kural.getiren, 'calisan': kural.calisan, 'buro': kural.buro});
+  }
+
+  @override
+  Future<List<(String, String)>> sirketListesi() async => [
+        for (final s in (await api.get('/sirketler') as List).cast<Map<String, dynamic>>())
+          (s['id'] as String, (s['kisaAd'] as String?) ?? s['unvan'] as String),
+      ];
+
+  @override
+  Future<List<String>> kullaniciSirketleri(String kullaniciId) async =>
+      ((await api.get('/kullanicilar/$kullaniciId/sirketler') as Map)['sirketler'] as List).cast<String>();
+
+  @override
+  Future<void> kullaniciSirketleriAyarla(String kullaniciId, List<String> sirketler) async {
+    await api.put('/kullanicilar/$kullaniciId/sirketler', {'sirketler': sirketler});
+  }
+
+  @override
+  Future<List<int>> raporIndir(String baslik, List<Map<String, Object?>> sayfalar, {bool pdf = false}) =>
+      api.postBaytAl('/raporlar/disa-aktar', {'baslik': baslik, 'sayfalar': sayfalar, 'bicim': pdf ? 'pdf' : 'xlsx'});
+
+  @override
+  Future<List<int>> belgeIndir(String belgeId, int surumNo) => api.getBaytAl('/belgeler/$belgeId/surumler/$surumNo/icerik');
+
+  @override
+  Future<CikarCatismasiRaporu> cikarTara(List<AdayTaraf> adaylar) async =>
+      raporJson((await api.post('/cikar/tara', {'adaylar': [for (final a in adaylar) _adayJson(a)]}) as Map).cast());
+
+  @override
+  Future<String> isKabulKarariKaydet(
+      {required List<AdayTaraf> adaylar, required KararTuru tur, required String gerekce, String? kosullar}) async {
+    final y = await api.post('/cikar/kararlar', {
+      'adaylar': [for (final a in adaylar) _adayJson(a)],
+      'tur': tur.name,
+      'gerekce': gerekce,
+      if (kosullar != null && kosullar.trim().isNotEmpty) 'kosullar': kosullar.trim(),
+    }) as Map<String, dynamic>;
+    return y['durum'] as String;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> isKabulKararlari() async => _liste(await api.get('/cikar/kararlar'));
+
+  @override
+  Future<void> isKabulOnayla(String kararId) async {
+    await api.post('/cikar/kararlar/$kararId/onay');
   }
 
   @override

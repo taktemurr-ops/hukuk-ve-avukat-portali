@@ -65,6 +65,14 @@ class DisAvukatlarEkrani extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text('Harcanan ${o.harcanan.bicimli} / bütçe ${o.butce.bicimli}'),
                       Text('${o.acikIs} açık iş · onay bekleyen ${o.bekleyen.bicimli}', style: metin.bodySmall),
+                      if (k.uzak != null)
+                        TextButton.icon(
+                          key: Key('dis-portal-hesap-${o.avukat.id}'),
+                          onPressed: () => showDialog<void>(
+                              context: context, builder: (_) => _PortalHesabiDiyalogu(kurumsal: k, avukat: o.avukat)),
+                          icon: const Icon(Icons.vpn_key_outlined, size: 18),
+                          label: Text(o.avukat.portalKullaniciId == null ? 'Portal hesabı bağla' : 'Portal hesabı'),
+                        ),
                     ]),
                   ),
                 ),
@@ -479,6 +487,69 @@ class _BuroDiyaloguState extends State<_BuroDiyalogu> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(key: const Key('buro-kaydet'), onPressed: _kaydet, child: const Text('Kaydet')),
+      ],
+    );
+  }
+}
+
+/// Dış avukatın portal hesabı: "Dış avukat" rolüyle davet edilmiş bir kullanıcı seçilir. Bağlı kullanıcı yalnızca
+/// bu büroya açılan işleri görür ve fatura yükler; kurumun dosya ve talepleri görünmez.
+class _PortalHesabiDiyalogu extends StatefulWidget {
+  const _PortalHesabiDiyalogu({required this.kurumsal, required this.avukat});
+
+  final KurumsalDepo kurumsal;
+  final DisAvukat avukat;
+
+  @override
+  State<_PortalHesabiDiyalogu> createState() => _PortalHesabiDiyaloguState();
+}
+
+class _PortalHesabiDiyaloguState extends State<_PortalHesabiDiyalogu> {
+  late String? _secili = widget.avukat.portalKullaniciId;
+  String? _hata;
+
+  Future<void> _kaydet() async {
+    final u = widget.kurumsal.uzak;
+    if (u == null) return;
+    try {
+      await u.disAvukatHesabiBagla(widget.avukat.id, _secili);
+      if (mounted) Navigator.of(context).pop();
+    } on Exception catch (e) {
+      setState(() => _hata = '$e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final adaylar = widget.kurumsal.depo.ekip.where((x) => x.aktif && x.roller.contains(Rol.disAvukat)).toList();
+    return AlertDialog(
+      title: Text('${widget.avukat.buro} · portal hesabı'),
+      content: SizedBox(
+        width: 420,
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Text('Önce Ekip ekranından "Dış avukat" rolüyle davet gönderin; davet kabul edilince kullanıcı burada '
+              'listelenir.'),
+          const SizedBox(height: 12),
+          DropdownMenu<String?>(
+            key: const Key('dis-portal-kullanici'),
+            label: const Text('Kullanıcı'),
+            expandedInsets: EdgeInsets.zero,
+            initialSelection: _secili,
+            onSelected: (v) => setState(() => _secili = v),
+            dropdownMenuEntries: [
+              const DropdownMenuEntry<String?>(value: null, label: 'Bağlı değil (portal kapalı)'),
+              for (final a in adaylar) DropdownMenuEntry<String?>(value: a.id, label: '${a.adSoyad} (${a.eposta ?? ''})'),
+            ],
+          ),
+          if (_hata != null) ...[
+            const SizedBox(height: 8),
+            Text(_hata!, style: const TextStyle(color: Renkler.kritik)),
+          ],
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Vazgeç')),
+        FilledButton(key: const Key('dis-portal-kaydet'), onPressed: _kaydet, child: const Text('Kaydet')),
       ],
     );
   }
