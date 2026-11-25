@@ -33,8 +33,13 @@ Future<void> _bas(WidgetTester tester, String anahtar) async {
 }
 
 void main() {
-  testWidgets('Süre hesaplama ekranı hesap yapar', (tester) async {
+  testWidgets('Dar ekranda çekmece menüyle süre hesaplama açılır ve hesap yapar', (tester) async {
     await tester.pumpWidget(_kabuk());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Menüyü aç'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Süre hesapla'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Deneme sürümü'), findsOneWidget);
@@ -49,7 +54,7 @@ void main() {
     await tester.pumpWidget(_kabuk());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Hesap türleri').last);
+    await tester.tap(find.byKey(const Key('menu-ayarlar')));
     await tester.pumpAndSettle();
 
     expect(find.text('Avukatlık Bürosu'), findsOneWidget);
@@ -120,6 +125,7 @@ void main() {
     expect(servis.oturum?.hesapTuru, HesapTuru.hukukBurosu);
     expect(servis.oturum?.roller, contains(Rol.yoneticiOrtak));
 
+    await _bas(tester, 'profil-menu');
     await _bas(tester, 'cikis-yap');
     expect(find.byKey(const Key('giris-yap')), findsOneWidget);
   });

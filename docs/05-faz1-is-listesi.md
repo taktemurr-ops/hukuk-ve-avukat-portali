@@ -38,11 +38,11 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 
 | Durum | İş |
 | --- | --- |
-| ☐ | Dosya kartı, taraflar, aşamalar, bağlı dosyalar |
-| ☐ | Tebligat kaydı (manuel), eşleşmeyen evrak kuyruğu |
-| ☐ | Süre oluşturma, teyit, asıl/yedek sorumlu, eskalasyon, yeniden hesap |
-| ☐ | Duruşma, çakışma uyarısı, takvim |
-| ☐ | Görev, iş akışı şablonları, kanıtla kapanış |
+| ◐ | Dosya kartı, taraflar, aşamalar, bağlı dosyalar — model, iç numara serisi, liste (yetki filtreli) ve detay ekranı hazır; dosya açma formu bekliyor |
+| ◐ | Tebligat kaydı (manuel), eşleşmeyen evrak kuyruğu — ulaşma/tebliğ ayrımı, mükerrer engeli, esas no + mahkeme + taraf ile eşleştirme, kuyruk ve bağlama ekranı hazır |
+| ◐ | Süre oluşturma, teyit, asıl/yedek sorumlu, eskalasyon, yeniden hesap — kurallar (iki kişi teyidi, kanıtla tamamlama, eski hesabı saklama, eskalasyon, devir listesi) ve ekranlar hazır; bildirim gönderimi sunucu bekliyor |
+| ◐ | Duruşma, çakışma uyarısı, takvim — çakışma (yol süresi dahil) ve takvim görünümü hazır; duruşma ekleme formu ve Google/Outlook senkronu bekliyor |
+| ◐ | Görev, iş akışı şablonları, kanıtla kapanış — model, 2 şablon (iş davası, icra takibi), kanıtla kapanış hazır; şablon düzenleyici bekliyor |
 | ☐ | Bildirim servisi (e-posta, SMS, push sinyali) ve tercihler |
 
 ## Sprint 8–10 — Belge, şablon, finans
@@ -54,6 +54,12 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | ☐ | Hesaplama araçları (faiz, harç, AAÜT, döviz) |
 | ☐ | Cari hesap, emanet hesabı, ücret sözleşmesi, e-SMM |
 | ☐ | Temel sözleşme kaydı ve onayı |
+
+## Arayüz
+
+| Durum | İş |
+| --- | --- |
+| ☑ | Tasarım sistemi (docs/06-tasarim.md): lacivert yan menü, Genel Bakış, durum rozetleri, gömülü fontlar |
 
 ## Sprint 11–12 — Satış ve canlıya hazırlık
 

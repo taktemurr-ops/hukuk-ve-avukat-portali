@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'ekranlar/ana_kabuk.dart';
 import 'ekranlar/giris_ekrani.dart';
 import 'servisler/kimlik_servisi.dart';
+import 'tema/tema.dart';
 
 void main() {
   runApp(PortalUygulamasi(kimlikServisi: BellekKimlikServisi()));
@@ -36,7 +37,7 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
   Widget build(BuildContext context) {
     final oturum = _oturum;
     return MaterialApp(
-      title: 'Hukuk ve Avukat Portalı',
+      title: urunAdi,
       debugShowCheckedModeBanner: false,
       locale: const Locale('tr', 'TR'),
       supportedLocales: const [Locale('tr', 'TR'), Locale('en', 'US')],
@@ -45,17 +46,8 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1F3A5F)),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1F3A5F),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: acikTema(),
+      themeMode: ThemeMode.light,
       home: oturum == null
           ? GirisEkrani(
               servis: widget.kimlikServisi,

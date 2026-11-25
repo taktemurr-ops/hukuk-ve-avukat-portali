@@ -64,6 +64,7 @@ class BellekVeriDeposu extends ChangeNotifier {
         dosyalar: const {'d2'},
       ),
     ]);
+    d._operasyonDemosu(avukatId, Tarih.from(DateTime.now()));
     return d;
   }
 
@@ -129,5 +130,278 @@ class BellekVeriDeposu extends ChangeNotifier {
   void kararKaydet(KayitliKarar karar) {
     _kararlar.add(karar);
     notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dosya, süre, görev, tebligat, duruşma
+  // ---------------------------------------------------------------------------
+
+  final List<Dosya> _dosyalar = [];
+  final List<SureKaydi> _sureler = [];
+  final List<Gorev> _gorevler = [];
+  final List<Tebligat> _tebligatlar = [];
+  final List<Durusma> _durusmalar = [];
+  final Map<String, String> _kullaniciAdlari = {};
+  late final NumaraSerisi _dosyaSerisi = NumaraSerisi(yil: DateTime.now().year);
+
+  /// Geliştirmede taslak süre kuralları kullanılabilir; ekranda uyarı gösterilir.
+  final SureHesaplayici hesaplayici = SureHesaplayici(
+    TurkiyeTatilleri.takvim(TurkiyeTatilleri.diniBayramVerisiOlanYillar),
+    ayarlar: const HesapAyarlari(taslakKuralaIzinVer: true),
+  );
+
+  List<SureKaydi> get sureler => List.unmodifiable(_sureler);
+  List<Gorev> get gorevler => List.unmodifiable(_gorevler);
+  List<Tebligat> get tebligatlar => List.unmodifiable(_tebligatlar);
+  List<Durusma> get durusmalar => List.unmodifiable(_durusmalar);
+
+  String kullaniciAdi(String id) => id.trim().isEmpty ? '(atanmamış)' : _kullaniciAdlari[id] ?? id;
+
+  Dosya? dosya(String id) {
+    for (final d in _dosyalar) {
+      if (d.id == id) return d;
+    }
+    return null;
+  }
+
+  /// Tek kapı: yalnızca kullanıcının görebileceği dosyalar.
+  List<Dosya> gorunurDosyalar(Aktor aktor) => const YetkiDenetcisi()
+      .gorunurOlanlar(aktor, _dosyalar, (d) => KorunanNesne(kiraciId: d.kiraciId, gizli: d.gizli, atananKullanicilar: d.tumEkip))
+      .toList();
+
+  Map<String, List<String>> get dosyaTaraflari {
+    final sonuc = <String, List<String>>{};
+    for (final k in _dosyaKayitlari) {
+      final ad = kisi(k.kisiId)?.ad;
+      if (ad != null) sonuc.putIfAbsent(k.dosyaId, () => []).add(ad);
+    }
+    return sonuc;
+  }
+
+  List<SureKaydi> dosyaSureleri(String dosyaId) => _sureler.where((s) => s.dosyaId == dosyaId).toList()
+    ..sort((a, b) => a.sonGun.compareTo(b.sonGun));
+
+  List<Gorev> dosyaGorevleri(String dosyaId) => _gorevler.where((g) => g.dosyaId == dosyaId).toList();
+
+  List<Tebligat> dosyaTebligatlari(String dosyaId) => _tebligatlar.where((t) => t.dosyaId == dosyaId).toList();
+
+  List<Tebligat> get eslesmeyenTebligatlar =>
+      _tebligatlar.where((t) => t.eslesmeDurumu != EslesmeDurumu.eslesti).toList();
+
+  List<SureUyarisi> uyarilar(Tarih bugun) => const EskalasyonMotoru().degerlendir(_sureler, bugun);
+
+  List<Cakisma> get cakismalar => CakismaKontrolu.bul(_durusmalar);
+
+  /// Tebligatı kaydeder. Aynı evrak ikinci kez gelirse çoğaltmaz, mevcut kaydı döner.
+  ({Tebligat tebligat, bool mukerrer}) tebligatEkle(Tebligat yeni) {
+    for (final t in _tebligatlar) {
+      if (t.tekillikAnahtari == yeni.tekillikAnahtari) return (tebligat: t, mukerrer: true);
+    }
+    final oneriler = TebligatEslestirici.oner(yeni, _dosyalar, dosyaTaraflari: dosyaTaraflari);
+    final otomatik = TebligatEslestirici.otomatikEslesme(oneriler);
+    final kayit = otomatik != null
+        ? yeni.dosyayaBagla(otomatik.id)
+        : Tebligat(
+            id: yeni.id,
+            kiraciId: yeni.kiraciId,
+            kanal: yeni.kanal,
+            ulasmaTarihi: yeni.ulasmaTarihi,
+            tebligTarihi: yeni.tebligTarihi,
+            gonderen: yeni.gonderen,
+            konu: yeni.konu,
+            esasNo: yeni.esasNo,
+            taraflar: yeni.taraflar,
+            belgeOzeti: yeni.belgeOzeti,
+            eslesmeDurumu: oneriler.isEmpty ? EslesmeDurumu.eslesmedi : EslesmeDurumu.onerildi,
+          );
+    _tebligatlar.add(kayit);
+    notifyListeners();
+    return (tebligat: kayit, mukerrer: false);
+  }
+
+  List<EslesmeOnerisi> tebligatOnerileri(Tebligat t) =>
+      TebligatEslestirici.oner(t, _dosyalar, dosyaTaraflari: dosyaTaraflari);
+
+  void tebligatBagla(String tebligatId, String dosyaId) {
+    final i = _tebligatlar.indexWhere((t) => t.id == tebligatId);
+    if (i < 0) return;
+    _tebligatlar[i] = _tebligatlar[i].dosyayaBagla(dosyaId);
+    notifyListeners();
+  }
+
+  String yeniId(String onek) => '$onek${++_sayac}';
+
+  /// Tebliğ tarihinden süre hesaplar; asıl ve yedek sorumlu dosyadan gelir.
+  SureKaydi sureOlustur({
+    required String dosyaId,
+    required SureKurali kural,
+    required Tarih baslangic,
+    required String olusturan,
+    String? aciklama,
+    String? tebligatId,
+  }) {
+    final d = dosya(dosyaId)!;
+    final kayit = SureKaydi(
+      id: yeniId('s'),
+      dosyaId: dosyaId,
+      aciklama: aciklama ?? '${kural.ad} · ${d.baslik}',
+      sonuc: hesaplayici.hesapla(kural: kural, baslangic: baslangic),
+      olusturan: olusturan,
+      olusturmaTarihi: Tarih.from(DateTime.now()),
+      asilSorumlu: d.sorumlu,
+      yedekSorumlu: d.yedekSorumlu,
+      tetikleyenTebligatId: tebligatId,
+    );
+    _sureler.add(kayit);
+    _gorevler.add(Gorev(
+      id: yeniId('g'),
+      baslik: kural.ad,
+      atanan: d.sorumlu,
+      yedek: d.yedekSorumlu,
+      dosyaId: dosyaId,
+      sonTarih: kayit.sonGun,
+      oncelik: GorevOnceligi.kritik,
+      kaynakSureId: kayit.id,
+    ));
+    notifyListeners();
+    return kayit;
+  }
+
+  void sureGuncelle(SureKaydi yeni) {
+    final i = _sureler.indexWhere((s) => s.id == yeni.id);
+    if (i >= 0) {
+      _sureler[i] = yeni;
+      notifyListeners();
+    }
+  }
+
+  void gorevGuncelle(Gorev yeni) {
+    final i = _gorevler.indexWhere((g) => g.id == yeni.id);
+    if (i >= 0) {
+      _gorevler[i] = yeni;
+      notifyListeners();
+    }
+  }
+
+  void _operasyonDemosu(String av1, Tarih bugun) {
+    const av2 = 'demo-av2';
+    const stj = 'demo-stj';
+    _kullaniciAdlari.addAll({av1: 'Siz', av2: 'Av. Mert Şahin', stj: 'Stj. Av. Elif Koç'});
+
+    Dosya dosyaOlustur(String id, DosyaTuru tur, String baslik, String sorumlu, String? yedek,
+            {String? mahkeme, String? esas, bool gizli = false, DosyaAsamasi asama = DosyaAsamasi.ilkDerece}) =>
+        Dosya(
+          id: id,
+          kiraciId: kiraciId,
+          icNo: _dosyaSerisi.sonraki(),
+          tur: tur,
+          baslik: baslik,
+          sorumlu: sorumlu,
+          yedekSorumlu: yedek,
+          ekip: {stj},
+          mahkeme: mahkeme,
+          esasNo: esas,
+          gizli: gizli,
+          asama: asama,
+          acilisTarihi: bugun.gunEkle(-60),
+        );
+
+    _dosyalar.addAll([
+      dosyaOlustur('d1', DosyaTuru.hukuk, 'ABC Gıda - Tedarik alacağı', av1, av2,
+          mahkeme: 'İstanbul 5. Asliye Ticaret Mahkemesi', esas: '2026/123 E.'),
+      dosyaOlustur('d2', DosyaTuru.hukuk, 'Kara - İşe iade', av1, av2,
+          mahkeme: 'İstanbul 12. İş Mahkemesi', esas: '2026/456 E.'),
+      dosyaOlustur('d3', DosyaTuru.danismanlik, 'Holding birleşme danışmanlığı', av2, av1,
+          asama: DosyaAsamasi.onDegerlendirme),
+      dosyaOlustur('d4', DosyaTuru.danismanlik, 'Orman Enerji iç soruşturma', av2, null,
+          gizli: true, asama: DosyaAsamasi.onDegerlendirme),
+    ]);
+
+    SureKurali kural(String kod) => KuralKatalogu.bul(kod)!;
+    SureKaydi sure(String id, String dosyaId, String kod, Tarih son, String asil, String? yedek,
+            {SureDurumu durum = SureDurumu.teyitli, Tarih? olusturma, String olusturan = stj}) =>
+        SureKaydi(
+          id: id,
+          dosyaId: dosyaId,
+          aciklama: '${kural(kod).ad} · ${dosya(dosyaId)!.baslik}',
+          sonuc: SureSonucu(
+            kural: kural(kod),
+            baslangic: son.gunEkle(-14),
+            sonGun: son,
+            adimlar: [HesapAdimi(son, 'Demo verisi')],
+            uyarilar: const [],
+          ),
+          olusturan: olusturan,
+          olusturmaTarihi: olusturma ?? bugun.gunEkle(-3),
+          asilSorumlu: asil,
+          yedekSorumlu: yedek,
+          durum: durum,
+          teyitEden: durum == SureDurumu.teyitli ? av1 : null,
+        );
+
+    _sureler.addAll([
+      sure('s1', 'd1', 'HMK_ISTINAF', bugun.gunEkle(1), av1, av2),
+      sure('s2', 'd2', 'HMK_CEVAP_DILEKCESI', bugun.gunEkle(9), av1, av2,
+          durum: SureDurumu.teyitBekliyor, olusturma: bugun.gunEkle(-2)),
+      sure('s3', 'd3', 'IIK_ODEME_EMRINE_ITIRAZ', bugun.gunEkle(7), av2, av1),
+    ]);
+
+    var n = 0;
+    _gorevler.addAll(GorevSablonu.isDavasiAcilisi.uygula(
+      dosyaId: 'd2',
+      baslangic: bugun.gunEkle(-6),
+      roller: {'sorumlu': av1, 'yedek': av2, 'stajyer': stj},
+      idUret: () => 'dg${++n}',
+    ));
+
+    final ikiGunSonra = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 2);
+    _durusmalar.addAll([
+      Durusma(
+        id: 'du1',
+        dosyaId: 'd1',
+        baslangic: ikiGunSonra.add(const Duration(hours: 10)),
+        yer: 'Çağlayan Adliyesi',
+        katilan: av1,
+      ),
+      Durusma(
+        id: 'du2',
+        dosyaId: 'd2',
+        baslangic: ikiGunSonra.add(const Duration(hours: 10, minutes: 30)),
+        yer: 'Çağlayan Adliyesi',
+        katilan: av1,
+      ),
+      Durusma(
+        id: 'du3',
+        dosyaId: 'd2',
+        baslangic: ikiGunSonra.add(const Duration(days: 3, hours: 14)),
+        yer: 'Kartal Adliyesi',
+        katilan: av1,
+        tur: 'Bilirkişi incelemesi',
+      ),
+    ]);
+
+    _tebligatlar.addAll([
+      Tebligat(
+        id: 't1',
+        kiraciId: kiraciId,
+        kanal: TebligatKanali.uyap,
+        ulasmaTarihi: bugun.gunEkle(-10),
+        gonderen: 'İstanbul 5. Asliye Ticaret Mahkemesi',
+        konu: 'Gerekçeli karar',
+        esasNo: '2026/123 E.',
+        dosyaId: 'd1',
+        eslesmeDurumu: EslesmeDurumu.eslesti,
+      ),
+      Tebligat(
+        id: 't2',
+        kiraciId: kiraciId,
+        kanal: TebligatKanali.uets,
+        ulasmaTarihi: bugun.gunEkle(-1),
+        gonderen: 'İstanbul 12. İş Mahkemesi',
+        konu: 'Bilirkişi raporu',
+        taraflar: const ['Mehmet Demirci'],
+        eslesmeDurumu: EslesmeDurumu.onerildi,
+      ),
+    ]);
   }
 }

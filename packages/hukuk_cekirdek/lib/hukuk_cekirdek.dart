@@ -19,3 +19,7 @@ export 'src/taraf/isim_eslestirme.dart';
 export 'src/taraf/kisi.dart';
 export 'src/taraf/cikar_catismasi.dart';
 export 'src/vekalet/vekaletname.dart';
+export 'src/dosya/dosya.dart';
+export 'src/dosya/tebligat.dart';
+export 'src/dosya/gorev.dart';
+export 'src/sure/sure_takibi.dart';

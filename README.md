@@ -21,7 +21,7 @@ Tam ürün kapsamı: [Kapsam dokümanı](https://claude.ai/artifact/776tAqTrSio4
 | Veri konumu | Tüm veri yalnızca Türkiye'de (yedek, log, hata takibi, yapay zekâ dahil) |
 | Kurulum | SaaS, ayrılmış ortam ve müşteri sunucusuna kurulum; konteyner olarak paketlenir |
 
-Ayrıntı: [docs/01-mimari.md](docs/01-mimari.md)
+Ayrıntı: [docs/01-mimari.md](docs/01-mimari.md) · Tasarım: [docs/06-tasarim.md](docs/06-tasarim.md)
 
 ## Depo yapısı
 

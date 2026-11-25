@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
+import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
+import '../tema/tema.dart';
 import 'kayit_sihirbazi.dart';
 
 /// Kullanıcı adı (e-posta) ve şifre ile giriş.
@@ -84,8 +86,19 @@ class _GirisEkraniState extends State<GirisEkrani> {
   @override
   Widget build(BuildContext context) {
     final metin = Theme.of(context).textTheme;
+    final genis = MediaQuery.sizeOf(context).width >= 1000;
     return Scaffold(
-      body: Center(
+      body: Row(
+        children: [
+          if (genis) const Expanded(flex: 5, child: _TanitimPaneli()),
+          Expanded(flex: 4, child: _form0(metin)),
+        ],
+      ),
+    );
+  }
+
+  Widget _form0(TextTheme metin) {
+    return Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
@@ -95,11 +108,11 @@ class _GirisEkraniState extends State<GirisEkrani> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.balance, size: 48, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(height: 12),
-                  Text('Hukuk ve Avukat Portalı', textAlign: TextAlign.center, style: metin.headlineSmall),
+                  const Center(child: Logo(acikZemin: true)),
+                  const SizedBox(height: 32),
+                  Text('Giriş yap', style: metin.headlineMedium),
                   const SizedBox(height: 4),
-                  Text('Hesabınıza giriş yapın', textAlign: TextAlign.center, style: metin.bodyMedium),
+                  Text('Hesabınıza e-posta ve şifrenizle girin.', style: metin.bodyMedium),
                   const SizedBox(height: 24),
                   TextFormField(
                     key: const Key('giris-eposta'),
@@ -165,6 +178,37 @@ class _GirisEkraniState extends State<GirisEkrani> {
             ),
           ),
         ),
+    );
+  }
+}
+
+/// Geniş ekranda giriş formunun solunda duran lacivert tanıtım paneli.
+class _TanitimPaneli extends StatelessWidget {
+  const _TanitimPaneli();
+
+  @override
+  Widget build(BuildContext context) {
+    const acik = TextStyle(color: Color(0xFFE3E8EF), fontSize: 16, height: 1.5);
+    return Container(
+      color: Renkler.lacivert,
+      padding: const EdgeInsets.all(56),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Logo(),
+          Spacer(),
+          Text(
+            'Hiçbir süreyi kaçırmayın.\nHer işi kayıt altında, kanıtla kapatın.',
+            style: TextStyle(fontFamily: 'SourceSerif4', fontWeight: FontWeight.w700, fontSize: 34, color: Colors.white, height: 1.2),
+          ),
+          SizedBox(height: 24),
+          Text('• Kritik süreler için asıl ve yedek sorumlu, teyit ve eskalasyon', style: acik),
+          Text('• Tebligattan süreye, süreden göreve otomatik akış', style: acik),
+          Text('• Çıkar çatışması ve vekâlet kontrolü işlemden önce', style: acik),
+          Text('• Tüm veriler yalnızca Türkiye\'deki sunucularda', style: acik),
+          Spacer(),
+          Text('Avukatlık büroları, hukuk büroları ve şirket hukuk birimleri için', style: TextStyle(color: Renkler.altin)),
+        ],
       ),
     );
   }
