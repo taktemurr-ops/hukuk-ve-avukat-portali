@@ -16,7 +16,7 @@ Tam ürün kapsamı: [Kapsam dokümanı](https://claude.ai/artifact/776tAqTrSio4
 | --- | --- |
 | Arayüz | Flutter (web, iOS, Android, Windows, macOS) |
 | Tanıtım sitesi | Ayrı statik site (arama motoru uyumu için Flutter değil) |
-| Sunucu | Serverpod (Dart) + PostgreSQL + Redis |
+| Sunucu | Dart (shelf + postgres) + PostgreSQL 16 (satır düzeyi güvenlik) + Python belge servisi |
 | Belge, OCR, yapay zekâ | Ayrı Python servisi |
 | Veri konumu | Tüm veri yalnızca Türkiye'de (yedek, log, hata takibi, yapay zekâ dahil) |
 | Kurulum | SaaS, ayrılmış ortam ve müşteri sunucusuna kurulum; konteyner olarak paketlenir |

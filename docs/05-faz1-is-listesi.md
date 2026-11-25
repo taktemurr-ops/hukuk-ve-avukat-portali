@@ -12,7 +12,7 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | ☐ | Avukatın yazacağı 100+ süre senaryosu → otomatik test | A + C |
 | ☐ | Türkiye'de sunucu sağlayıcısı seçimi | K |
 | ☐ | Ödeme kuruluşu seçimi ve üye işyeri başvurusu | K |
-| ☐ | Serverpod projesinin üretilmesi (`backend/README.md`) | K + C |
+| ☑ | Sunucu iskeleti: Serverpod yerine shelf + postgres, SQL göçleri (`backend/README.md`) | C |
 | ☐ | Flutter web prototipi: büyük tablo, editör, klavye ölçümü | C + K |
 | ☐ | Şirket kuruluşu ve ortaklık sözleşmesi; Av. K. m.11 kontrolü | K + A |
 

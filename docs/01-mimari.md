@@ -4,9 +4,9 @@
 
 ```
 [Flutter uygulaması]  web · iOS · Android · Windows · macOS
-        │  (Serverpod istemcisi, tip güvenli)
+        │  (HTTPS + JSON, oturum token'ı)
         ▼
-[Serverpod sunucusu]  modüler monolit (Dart)
+[Uygulama sunucusu]  modüler monolit (Dart, shelf + postgres)
    ├─ PostgreSQL      ana veri, satır düzeyinde müşteri izolasyonu
    ├─ Redis           önbellek, oturum, kuyruk
    ├─ Nesne depolama  belgeler (S3 uyumlu, ör. MinIO), şifreli
@@ -25,7 +25,7 @@
 | # | Karar | Gerekçe |
 | --- | --- | --- |
 | K1 | Flutter tek kod tabanı | Küçük ekip; web, mobil, masaüstü aynı kod |
-| K2 | Serverpod (Dart) sunucu | Uygulama ile aynı dil, istemci kodu otomatik üretilir, kendi sunucumuzda/müşteri sunucusunda çalışır |
+| K2 | Dart sunucu (shelf + postgres), SQL göçleri | Uygulama ile aynı dil ve aynı çekirdek; veri güvenliği veritabanında da (RLS, tetikleyici) zorlanır. Serverpod'un ORM/göç sistemi bu yapıyla çakıştığı için 25.11.2026'da bırakıldı |
 | K3 | Modüler monolit | Üç kişilik ekip için mikroservis gereksiz yük; modül sınırları kodda korunur |
 | K4 | PostgreSQL + her tabloda `kiraci_id` | Çok kiracılı izolasyon; ayrılmış ortamda aynı şema |
 | K5 | Saf Dart çekirdek paket (`hukuk_cekirdek`) | Süre hesabı gibi kritik kurallar hem istemcide hem sunucuda aynı kodla, kolay test |
