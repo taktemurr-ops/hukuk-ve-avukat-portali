@@ -21,8 +21,8 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | Durum | İş |
 | --- | --- |
 | ◐ | Kayıt, hesap türü seçimi, e-posta doğrulama, aktivasyon, şifre belirleme — arayüz ve doğrulama kuralları hazır (TCKN/VKN, şifre, telefon); sunucu bağlantısı bekliyor |
-| ◐ | Giriş, iki adımlı doğrulama, şifre sıfırlama, oturum yönetimi — giriş, şifremi unuttum, 5 hatalı denemede kilit, TOTP çekirdeği (RFC 6238 vektörleriyle doğrulandı) hazır; 2FA ekranı ve sunucu bekliyor |
-| ◐ | Kiracı, tüzel kişilik, birim, kullanıcı, rol, davet — davet kodu, 72 saat geçerlilik, ücretsiz roller ve koltuk kontrolü çekirdekte hazır; ekran ve sunucu bekliyor |
+| ◐ | Giriş, iki adımlı doğrulama, şifre sıfırlama, oturum yönetimi — giriş, şifremi unuttum, 5 hatalı denemede kilit, TOTP (RFC 6238 vektörleriyle doğrulandı) ve 2FA kurulum ekranı hazır; girişte kod sorma ve sunucu bekliyor |
+| ◐ | Kiracı, tüzel kişilik, birim, kullanıcı, rol, davet — davet kodu, 72 saat geçerlilik, ücretsiz roller ve koltuk kontrolü ve Ekip ve davetler ekranı hazır; davet e-postası ve sunucu bekliyor |
 | ◐ | Yetki fonksiyonu (tek kapı) + denetim kaydı — yetki denetçisi ve rol/işlem matrisi hazır; zincirli (SHA-256) denetim kaydı, doğrulama ve Denetim Kaydı ekranı hazır; sunucuda kalıcı saklama bekliyor |
 | ☐ | Lisans profili ve modül açma-kapama |
 
@@ -66,7 +66,7 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 | Durum | İş |
 | --- | --- |
 | ◐ | Tanıtım sitesi, demo hesabı ve örnek veri — statik site (site/), üç hesap türü için demo girişi ve örnek veri hazır; form gönderimi ve fiyatların kesinleşmesi bekliyor |
-| ☐ | Ödeme, abonelik, e-fatura, başarısız ödeme akışı |
+| ◐ | Ödeme, abonelik, e-fatura, başarısız ödeme akışı — abonelik yaşam döngüsü (14 gün deneme, aylık/yıllık, 1-3-7. gün tekrar deneme, askı, dönem sonu iptal, kıst koltuk farkı, KDV) ve ekranı hazır; yurt içi ödeme kuruluşu ve e-Arşiv entegrasyonu bekliyor |
 | ◐ | Veri aktarım sihirbazı (Excel/CSV, DavaTek/UYAP çıktıları) — CSV müvekkil aktarımı (sütun tahmini, TCKN/VKN, mükerrer, mutabakat) hazır; Excel ve UYAP çıktıları bekliyor |
 | ☐ | Kabul testleri, sızma testi, yedekten geri dönüş testi |
 | ☐ | 5–10 pilot büro |

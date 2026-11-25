@@ -9,6 +9,7 @@ import '../tema/tema.dart';
 import 'cikar_catismasi_ekrani.dart';
 import 'dosyalar_ekrani.dart';
 import 'genel_bakis_ekrani.dart';
+import 'hesap_ekranlari.dart';
 import 'hesap_turleri_ekrani.dart';
 import 'muvekkiller_ekrani.dart';
 import 'finans_ekrani.dart';
@@ -63,6 +64,14 @@ class _AnaKabukState extends State<AnaKabuk> {
   _B _secili = _B.genelBakis;
   late final BellekVeriDeposu _depo =
       widget.depo ?? BellekVeriDeposu.demo(kiraciId: widget.oturum.kiraciId, avukatId: widget.oturum.kullaniciId);
+
+  late final HesapYonetimi _yonetim = HesapYonetimi(oturum: widget.oturum, depo: _depo);
+
+  @override
+  void dispose() {
+    _yonetim.dispose();
+    super.dispose();
+  }
 
   static const _tumBolumler = [
     _Bolum(_B.genelBakis, 'Genel Bakış', Icons.grid_view_rounded),
@@ -144,7 +153,7 @@ class _AnaKabukState extends State<AnaKabuk> {
             ikon: Icons.bar_chart_rounded,
             aciklama: 'Açık dosya, kritik süre, tahsilat, iş yükü ve çevrim süresi göstergeleri.',
           ),
-        _B.ayarlar => _AyarlarSayfasi(depo: _depo),
+        _B.ayarlar => _AyarlarSayfasi(depo: _depo, yonetim: _yonetim),
       };
 
   @override
@@ -480,9 +489,10 @@ class _AramaBasligi extends StatelessWidget {
 }
 
 class _AyarlarSayfasi extends StatelessWidget {
-  const _AyarlarSayfasi({required this.depo});
+  const _AyarlarSayfasi({required this.depo, required this.yonetim});
 
   final BellekVeriDeposu depo;
+  final HesapYonetimi yonetim;
 
   @override
   Widget build(BuildContext context) {
@@ -490,6 +500,43 @@ class _AyarlarSayfasi extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
+        Panel(
+          baslik: 'Hesap',
+          child: Column(
+            children: [
+              ListTile(
+                key: const Key('ayar-abonelik'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.workspace_premium_outlined),
+                title: const Text('Abonelik ve ödeme'),
+                subtitle: Text('${yonetim.abonelik.paket.hesapTuru.ad} · ${yonetim.abonelik.durum.ad}'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ac(AbonelikEkrani(yonetim: yonetim)),
+              ),
+              const Divider(),
+              ListTile(
+                key: const Key('ayar-ekip'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.group_outlined),
+                title: const Text('Ekip ve davetler'),
+                subtitle: const Text('Kullanıcı davet edin, rol verin, lisans koltuklarını izleyin.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ac(EkipEkrani(yonetim: yonetim)),
+              ),
+              const Divider(),
+              ListTile(
+                key: const Key('ayar-2fa'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.phonelink_lock_outlined),
+                title: const Text('İki adımlı doğrulama'),
+                subtitle: const Text('Girişte doğrulayıcı uygulamadan 6 haneli kod istenir.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => ac(IkiAdimliEkrani(yonetim: yonetim)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
         Panel(
           baslik: 'Veri ve güvenlik',
           child: Column(
