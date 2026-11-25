@@ -21,7 +21,7 @@ void main() {
     expect(politika.adimlar(s(bedel: const Para.kurus(100, birim: 'USD'), tarama: const TaramaSonucu())).last.neden,
         'Döviz cinsinden bedel');
     const yuksek = TaramaSonucu(bulgular: [
-      TaramaBulgusu(kod: 'x', baslik: 'x', seviye: RiskSeviyesi.yuksek, aciklama: 'x'),
+      TaramaBulgusu(kod: 'x', baslik: 'x', seviye: SozlesmeRiski.yuksek, aciklama: 'x'),
     ]);
     expect(politika.adimlar(s(tarama: yuksek)).map((a) => a.kod), ['hukuk', 'direktor']);
   });

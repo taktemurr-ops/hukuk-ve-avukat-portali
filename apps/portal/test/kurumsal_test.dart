@@ -50,7 +50,7 @@ void main() {
       expect(kira.tur, SozlesmeTuru.kira);
       expect(kira.bitis, Tarih(2027, 3, 31));
       expect(kira.bedel, Para.tl(480000));
-      expect(k.sozlesmeler.where((s) => s.tarama!.genelSeviye == RiskSeviyesi.yuksek).length, 2);
+      expect(k.sozlesmeler.where((s) => s.tarama!.genelSeviye == SozlesmeRiski.yuksek).length, 2);
       expect(k.uyarilar().map((u) => u.$2.tur),
           [SozlesmeUyariTuru.yukumlulukYaklasiyor, SozlesmeUyariTuru.ihbarYaklasiyor]);
 

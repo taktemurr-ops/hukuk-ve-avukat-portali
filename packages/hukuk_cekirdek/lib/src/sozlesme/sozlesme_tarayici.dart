@@ -2,12 +2,12 @@ import '../hesaplama/para.dart';
 import '../takvim/tarih.dart';
 import 'sozlesme.dart';
 
-enum RiskSeviyesi {
+enum SozlesmeRiski {
   dusuk('Düşük'),
   orta('Orta'),
   yuksek('Yüksek');
 
-  const RiskSeviyesi(this.ad);
+  const SozlesmeRiski(this.ad);
   final String ad;
 
   int get puan => switch (this) { dusuk => 4, orta => 12, yuksek => 30 };
@@ -25,7 +25,7 @@ class TaramaBulgusu {
 
   final String kod;
   final String baslik;
-  final RiskSeviyesi seviye;
+  final SozlesmeRiski seviye;
   final String aciklama;
   final String alinti;
 }
@@ -70,11 +70,11 @@ class TaramaSonucu {
     return t > 100 ? 100 : t;
   }
 
-  RiskSeviyesi get genelSeviye => bulgular.any((b) => b.seviye == RiskSeviyesi.yuksek) || riskPuani >= 60
-      ? RiskSeviyesi.yuksek
+  SozlesmeRiski get genelSeviye => bulgular.any((b) => b.seviye == SozlesmeRiski.yuksek) || riskPuani >= 60
+      ? SozlesmeRiski.yuksek
       : riskPuani >= 25
-          ? RiskSeviyesi.orta
-          : RiskSeviyesi.dusuk;
+          ? SozlesmeRiski.orta
+          : SozlesmeRiski.dusuk;
 
   static const uyari = 'Otomatik tarama sonucudur; hukukçu kontrolünden geçmeden kesin kabul edilmemelidir.';
 }
@@ -311,69 +311,69 @@ class SozlesmeTarayici {
 
     final tur = _turTahmin(tamKucuk);
     final b = <TaramaBulgusu>[];
-    void ekle(String kod, String baslik, RiskSeviyesi seviye, String aciklama, [String? alintiKodu]) =>
+    void ekle(String kod, String baslik, SozlesmeRiski seviye, String aciklama, [String? alintiKodu]) =>
         b.add(TaramaBulgusu(
             kod: kod, baslik: baslik, seviye: seviye, aciklama: aciklama, alinti: alinti[alintiKodu ?? kod] ?? ''));
 
     if (hukuk != null && hukuk != 'Türk hukuku') {
-      ekle('yabanciHukuk', 'Yabancı hukuk seçilmiş', RiskSeviyesi.yuksek,
+      ekle('yabanciHukuk', 'Yabancı hukuk seçilmiş', SozlesmeRiski.yuksek,
           '$hukuk uygulanacak. Uyuşmazlıkta yabancı hukuk danışmanlığı ve maliyet gerekir.', 'hukuk');
     }
     if (yurtdisiTahkim) {
-      ekle('yurtdisiTahkim', 'Yurt dışı tahkim', RiskSeviyesi.yuksek,
+      ekle('yurtdisiTahkim', 'Yurt dışı tahkim', SozlesmeRiski.yuksek,
           'Uyuşmazlık yurt dışında tahkimle çözülecek; masraf ve süre yüksek olabilir.');
     }
     if (bulunan.contains('sinirsizSorumluluk')) {
-      ekle('sinirsizSorumluluk', 'Sınırsız sorumluluk', RiskSeviyesi.yuksek,
+      ekle('sinirsizSorumluluk', 'Sınırsız sorumluluk', SozlesmeRiski.yuksek,
           'Sorumluluk için üst sınır yok. Tarafın kim olduğunu kontrol edin; bizse sınır önerin.');
     } else if (!bulunan.contains('sorumlulukSiniri') && tur != SozlesmeTuru.gizlilik) {
-      ekle('sorumlulukSiniriYok', 'Sorumluluk sınırı yok', RiskSeviyesi.orta,
+      ekle('sorumlulukSiniriYok', 'Sorumluluk sınırı yok', SozlesmeRiski.orta,
           'Sorumluluğu sözleşme bedeliyle sınırlayan bir madde bulunamadı.');
     }
     if (yenileme) {
       ekle(
           'otomatikYenileme',
           'Otomatik yenileme',
-          ihbarGun == null ? RiskSeviyesi.orta : RiskSeviyesi.dusuk,
+          ihbarGun == null ? SozlesmeRiski.orta : SozlesmeRiski.dusuk,
           ihbarGun == null
               ? 'Sözleşme kendiliğinden uzuyor ancak ihbar süresi bulunamadı.'
               : 'Sözleşme kendiliğinden uzuyor; bitişten $ihbarGun gün önce ihbar edilmezse yenilenir. Hatırlatma kurulacak.',
           'yenileme');
     }
     if (bulunan.contains('cezaiSart')) {
-      ekle('cezaiSart', 'Cezai şart', RiskSeviyesi.orta,
+      ekle('cezaiSart', 'Cezai şart', SozlesmeRiski.orta,
           'Cezai şart var. Tutarını, hangi tarafa yüklendiğini ve ifayla birlikte istenip istenemeyeceğini kontrol edin.');
     }
     if (bulunan.contains('tekTarafliFesih')) {
-      ekle('tekTarafliFesih', 'Tek taraflı fesih hakkı', RiskSeviyesi.orta,
+      ekle('tekTarafliFesih', 'Tek taraflı fesih hakkı', SozlesmeRiski.orta,
           'Bir taraf gerekçe göstermeden feshedebiliyor. Hakkın kime tanındığını ve ihbar süresini kontrol edin.');
     }
     if (bulunan.contains('tekTarafliFiyat')) {
-      ekle('tekTarafliFiyat', 'Tek taraflı fiyat değişikliği', RiskSeviyesi.orta,
+      ekle('tekTarafliFiyat', 'Tek taraflı fiyat değişikliği', SozlesmeRiski.orta,
           'Bedel tek taraflı değiştirilebiliyor; üst sınır veya endeks önerin.');
     }
     if (bulunan.contains('rekabetYasagi')) {
-      ekle('rekabetYasagi', 'Rekabet yasağı', RiskSeviyesi.orta,
+      ekle('rekabetYasagi', 'Rekabet yasağı', SozlesmeRiski.orta,
           'Rekabet yasağının süresi, yeri ve konusu makul ölçüde sınırlı olmalıdır.');
     }
     if (!bulunan.contains('mucbirSebep') && tur != SozlesmeTuru.gizlilik) {
-      ekle('mucbirSebepYok', 'Mücbir sebep maddesi yok', RiskSeviyesi.dusuk,
+      ekle('mucbirSebepYok', 'Mücbir sebep maddesi yok', SozlesmeRiski.dusuk,
           'Mücbir sebep hâlinde yükümlülüklerin askıya alınmasını düzenleyen madde bulunamadı.');
     }
     if (!bulunan.contains('gizlilik') && tur != SozlesmeTuru.kira) {
-      ekle('gizlilikYok', 'Gizlilik maddesi yok', RiskSeviyesi.dusuk, 'Ticari bilgilerin korunmasına ilişkin madde bulunamadı.');
+      ekle('gizlilikYok', 'Gizlilik maddesi yok', SozlesmeRiski.dusuk, 'Ticari bilgilerin korunmasına ilişkin madde bulunamadı.');
     }
     if (!bulunan.contains('kvkk') &&
         {SozlesmeTuru.hizmet, SozlesmeTuru.lisans, SozlesmeTuru.isSozlesmesi}.contains(tur)) {
-      ekle('kvkkYok', 'KVKK maddesi yok', RiskSeviyesi.orta,
+      ekle('kvkkYok', 'KVKK maddesi yok', SozlesmeRiski.orta,
           'Kişisel veri aktarılacaksa 6698 sayılı Kanun kapsamında veri işleme hükümleri eklenmelidir.');
     }
     if (yetkiliYer == null && !bulunan.contains('tahkim')) {
-      ekle('yetkiYok', 'Yetkili mahkeme belirtilmemiş', RiskSeviyesi.dusuk,
+      ekle('yetkiYok', 'Yetkili mahkeme belirtilmemiş', SozlesmeRiski.dusuk,
           'Uyuşmazlıkta yetkili mahkeme veya tahkim belirlenmemiş.');
     }
     if (bitis == null && sureAy == null && tur != SozlesmeTuru.isSozlesmesi) {
-      ekle('sureYok', 'Süre bulunamadı', RiskSeviyesi.dusuk, 'Sözleşmenin bitiş tarihi veya süresi tespit edilemedi.');
+      ekle('sureYok', 'Süre bulunamadı', SozlesmeRiski.dusuk, 'Sözleşmenin bitiş tarihi veya süresi tespit edilemedi.');
     }
 
     return TaramaSonucu(

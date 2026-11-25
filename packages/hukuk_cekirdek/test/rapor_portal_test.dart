@@ -110,7 +110,7 @@ void main() {
       final o = Raporlar.sozlesmeOzeti([s1, s2], _bugun);
       expect(o.bitisAylari, {'2027-03': 1});
       expect(o.taranmamis, 1);
-      expect(o.risk[RiskSeviyesi.dusuk], 1);
+      expect(o.risk[SozlesmeRiski.dusuk], 1);
       expect(o.durum[SozlesmeDurumu.taslak], 1);
     });
 

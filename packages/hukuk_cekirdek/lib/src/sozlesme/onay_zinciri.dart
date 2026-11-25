@@ -42,7 +42,7 @@ class OnayPolitikasi {
       OnayAdimi(kod: 'hukuk', ad: 'Hukuk incelemesi', onaycilar: hukukEkibi, neden: 'Her sözleşme'),
     ];
     final risk = s.tarama?.genelSeviye;
-    if (risk == RiskSeviyesi.yuksek || s.tarama == null) {
+    if (risk == SozlesmeRiski.yuksek || s.tarama == null) {
       l.add(OnayAdimi(
           kod: 'direktor',
           ad: 'Hukuk direktörü',

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
@@ -128,8 +130,8 @@ class DosyaApi {
         k,
         (tx) => tx.execute(
               Sql.named('SELECT id::text, aciklama, kural_kodu, son_gun, durum, olusturan::text, asil_sorumlu::text, '
-                  'yedek_sorumlu::text, teyit_eden::text FROM hukuk.sure_kaydi WHERE dosya_id = CAST(@d AS uuid) '
-                  'ORDER BY son_gun'),
+                  'yedek_sorumlu::text, teyit_eden::text, baslangic, hesap_adimlari::text, kanit '
+                  'FROM hukuk.sure_kaydi WHERE dosya_id = CAST(@d AS uuid) ORDER BY son_gun'),
               parameters: {'d': id},
             ));
     return jsonYanit([
@@ -144,6 +146,9 @@ class DosyaApi {
           'asilSorumlu': r[6],
           'yedekSorumlu': r[7],
           'teyitEden': r[8],
+          'baslangic': r[9] == null ? null : _tarih(r[9]),
+          'adimlar': jsonDecode(r[10]! as String),
+          'kanit': r[11],
         },
     ]);
   }
@@ -184,8 +189,9 @@ class DosyaApi {
       final aciklama = (j['aciklama'] as String?)?.trim().isNotEmpty == true ? j['aciklama'] as String : kural.ad;
       final rs = await tx.execute(
         Sql.named('INSERT INTO hukuk.sure_kaydi (kiraci_id, dosya_id, aciklama, kural_kodu, son_gun, olusturan, '
-            'asil_sorumlu, yedek_sorumlu) VALUES (CAST(@k AS uuid), CAST(@d AS uuid), @a, @kod, CAST(@s AS date), '
-            'CAST(@o AS uuid), CAST(@asil AS uuid), CAST(@y AS uuid)) RETURNING id::text'),
+            'asil_sorumlu, yedek_sorumlu, baslangic, hesap_adimlari) VALUES (CAST(@k AS uuid), CAST(@d AS uuid), @a, @kod, '
+            'CAST(@s AS date), CAST(@o AS uuid), CAST(@asil AS uuid), CAST(@y AS uuid), CAST(@b AS date), CAST(@adim AS jsonb)) '
+            'RETURNING id::text'),
         parameters: {
           'k': k.kiraciId,
           'd': dosyaId,
@@ -195,6 +201,10 @@ class DosyaApi {
           'o': k.kullaniciId,
           'asil': d.first[0],
           'y': d.first[1],
+          'b': sonuc.baslangic.isoBicim,
+          'adim': jsonEncode([
+            for (final a in sonuc.adimlar) {'tarih': a.tarih.isoBicim, 'aciklama': a.aciklama},
+          ]),
         },
       );
       final sureId = rs.first[0]! as String;

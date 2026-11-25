@@ -67,7 +67,7 @@ class TalepPerformansi {
 }
 
 class SozlesmeOzeti {
-  final Map<RiskSeviyesi, int> risk = {for (final r in RiskSeviyesi.values) r: 0};
+  final Map<SozlesmeRiski, int> risk = {for (final r in SozlesmeRiski.values) r: 0};
   final Map<SozlesmeDurumu, int> durum = {for (final d in SozlesmeDurumu.values) d: 0};
   int taranmamis = 0;
 
@@ -91,12 +91,12 @@ class Raporlar {
       s(d.sorumlu).acikDosya++;
     }
     for (final x in sureler.where((x) => x.acik && !x.sahipsiz)) {
-      final satir = s(x.asilSorumlu)..acikSure++;
+      final satir = s(x.asilSorumlu)..acikSure += 1;
       if (bugun.farkGun(x.sonGun) <= 7) satir.kritikSure++;
       if (x.durum == SureDurumu.teyitBekliyor) satir.teyitBekleyen++;
     }
     for (final g in gorevler.where((g) => g.durum == GorevDurumu.acik && g.atanan.isNotEmpty)) {
-      final satir = s(g.atanan)..acikGorev++;
+      final satir = s(g.atanan)..acikGorev += 1;
       final son = g.sonTarih;
       if (son != null && bugun.isAfter(son)) satir.gecikenGorev++;
     }

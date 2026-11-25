@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -23,7 +24,7 @@ KimlikBaglami kimlik(Request istek) {
 
 /// `Authorization: Bearer <token>` başlığını veritabanındaki oturumla doğrular.
 /// Açık yollar (giriş, sağlık) dışında her istek oturum ister.
-Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris', 'saglik'}}) =>
+Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris', 'kayit', 'saglik'}}) =>
     (ic) => (istek) async {
           if (acikYollar.contains(istek.url.path)) return ic(istek);
           final baslik = istek.headers['authorization'] ?? '';
@@ -53,6 +54,7 @@ class KimlikApi {
 
   Router get router => Router()
     ..post('/giris', _giris)
+    ..post('/kayit', _kayit)
     ..post('/cikis', _cikis)
     ..get('/ben', _ben);
 
@@ -118,6 +120,26 @@ class KimlikApi {
       'kiraciId': baglam.kiraciId,
       'gecerlilikSaniye': oturumSuresi.inSeconds,
     });
+  }
+
+  /// Kendi kendine hesap açma: kiracı, kurucu kullanıcı ve 14 günlük deneme.
+  Future<Response> _kayit(Request istek) async {
+    final j = await jsonGovde(istek);
+    final kurum = zorunluMetin(j, 'kurumAdi');
+    final tur = zorunluMetin(j, 'hesapTuru');
+    if (!HesapTuru.values.any((t) => t.name == tur)) throw const ApiHatasi(400, 'Geçersiz hesap türü.');
+    final eposta = zorunluMetin(j, 'eposta').toLowerCase();
+    final epostaHatasi = Dogrulayicilar.eposta(eposta);
+    if (epostaHatasi != null) throw ApiHatasi(400, epostaHatasi, kod: 'gecersiz_istek');
+    final sifre = zorunluMetin(j, 'sifre');
+    final sifreHatasi = Dogrulayicilar.sifre(sifre, eposta: eposta);
+    if (sifreHatasi != null) throw ApiHatasi(400, sifreHatasi, kod: 'zayif_sifre');
+    final ad = zorunluMetin(j, 'adSoyad');
+    final rs = await vt.genel((tx) => tx.execute(
+          Sql.named('SELECT kiraci_id::text, kullanici_id::text FROM hukuk.hesap_ac(@k, @t, @e, @a, @s)'),
+          parameters: {'k': kurum, 't': tur, 'e': eposta, 'a': ad, 's': SifreOzeti.olustur(sifre)},
+        ));
+    return jsonYanit({'kiraciId': rs.first[0], 'kullaniciId': rs.first[1]}, durum: 201);
   }
 
   Future<Response> _cikis(Request istek) async {

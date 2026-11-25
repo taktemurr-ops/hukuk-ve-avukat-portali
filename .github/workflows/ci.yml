@@ -6,6 +6,19 @@ on:
   pull_request:
 
 jobs:
+  statik:
+    name: Statik denetim (sözdizimi, isim çakışması, bağlantılar)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install tree-sitter-language-pack
+      - run: python araclar/dart_sozdizimi.py | tee /tmp/s && grep -q 'hatali dosya: 0' /tmp/s
+      - run: python araclar/dart_cakisma.py | tee /tmp/c && grep -q 'sorun: 0' /tmp/c
+      - run: python araclar/dart_baglanti.py | tee /tmp/b && grep -q 'sorun: 0' /tmp/b
+
   cekirdek:
     name: Çekirdek paket (Dart)
     runs-on: ubuntu-latest

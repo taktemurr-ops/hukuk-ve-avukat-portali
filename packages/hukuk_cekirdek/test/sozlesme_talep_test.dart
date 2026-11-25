@@ -58,7 +58,7 @@ void main() {
       expect(kodlar, isNot(contains('yetkiYok')));
       expect(t.bulgular.first.alinti, contains('sınırsız olarak sorumludur'));
       expect(t.riskPuani, 86);
-      expect(t.genelSeviye, RiskSeviyesi.yuksek);
+      expect(t.genelSeviye, SozlesmeRiski.yuksek);
     });
 
     test('yabancı hukuk, yurt dışı tahkim, kelimeyle yazılmış süreler', () {
@@ -77,7 +77,7 @@ void main() {
       final s = tarayici.tara('Kira Sözleşmesi\nSözleşme 31.02.2026 tarihinde başlar. '
           'Süre sonunda sözleşme otomatik olarak yenilenir.');
       expect(s.baslangic, isNull);
-      expect(s.bulgular.firstWhere((b) => b.kod == 'otomatikYenileme').seviye, RiskSeviyesi.orta);
+      expect(s.bulgular.firstWhere((b) => b.kod == 'otomatikYenileme').seviye, SozlesmeRiski.orta);
       expect(s.bulgular.map((b) => b.kod), isNot(contains('gizlilikYok')));
     });
 

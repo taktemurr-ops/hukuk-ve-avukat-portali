@@ -7,10 +7,10 @@ import '../servisler/kurumsal_depo.dart';
 import '../servisler/ornek_sozlesmeler.dart';
 import '../tema/tema.dart';
 
-RozetTuru riskRozeti(RiskSeviyesi s) => switch (s) {
-      RiskSeviyesi.yuksek => RozetTuru.kritik,
-      RiskSeviyesi.orta => RozetTuru.uyari,
-      RiskSeviyesi.dusuk => RozetTuru.onay,
+RozetTuru riskRozeti(SozlesmeRiski s) => switch (s) {
+      SozlesmeRiski.yuksek => RozetTuru.kritik,
+      SozlesmeRiski.orta => RozetTuru.uyari,
+      SozlesmeRiski.dusuk => RozetTuru.onay,
     };
 
 RozetTuru sozlesmeDurumRozeti(SozlesmeDurumu d) => switch (d) {
@@ -80,7 +80,7 @@ class _SozlesmelerEkraniState extends State<SozlesmelerEkrani> {
                   arama.isEmpty ||
                   '${s.no} ${s.baslik} ${s.karsiTaraf} ${s.birim}'.toLowerCase().contains(arama))
               .toList();
-          final yuksek = k.gorunurSozlesmeler.where((s) => s.tarama?.genelSeviye == RiskSeviyesi.yuksek).length;
+          final yuksek = k.gorunurSozlesmeler.where((s) => s.tarama?.genelSeviye == SozlesmeRiski.yuksek).length;
           return ListView(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
             children: [

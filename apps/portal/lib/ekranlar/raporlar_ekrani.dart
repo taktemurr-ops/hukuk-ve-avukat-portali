@@ -286,7 +286,7 @@ class _SozlesmePaneli extends StatelessWidget {
       baslik: 'Sözleşmeler',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final r in RiskSeviyesi.values.reversed)
+          for (final r in SozlesmeRiski.values.reversed)
             DurumRozeti('${o.risk[r]} ${r.ad.toLowerCase()} risk', riskRozeti(r)),
           if (o.taranmamis > 0) DurumRozeti('${o.taranmamis} taranmamış', RozetTuru.notr),
         ]),
