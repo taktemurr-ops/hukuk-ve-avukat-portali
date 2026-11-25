@@ -48,6 +48,8 @@ class SunucuKimlikServisi implements KimlikServisi {
           for (final r in (ben['roller'] as List).cast<String>())
             if (Rol.values.any((x) => x.name == r)) Rol.values.byName(r),
         },
+        // Müvekkil oturumunda sunucu bağlı kişi kartını döner; uygulama portal görünümünü açar.
+        muvekkilKisiId: ben['portalKisiId'] as String?,
       );
     } on SunucuHatasi catch (e) {
       throw KimlikHatasi(e.mesaj);

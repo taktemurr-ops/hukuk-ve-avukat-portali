@@ -33,14 +33,19 @@ Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris'
           if (!baslik.startsWith('Bearer ')) throw ApiHatasi.yetkisiz;
           final ozet = tokenOzeti(baslik.substring(7).trim());
           final satirlar = await vt.genel((tx) => tx.execute(
-                Sql.named('SELECT kullanici_id::text, kiraci_id::text FROM hukuk.oturum_coz(@o)'),
+                Sql.named('SELECT o.kullanici_id::text, o.kiraci_id::text, hukuk.portal_kisisi(o.kullanici_id)::text '
+                    'FROM hukuk.oturum_coz(@o) o'),
                 parameters: {'o': ozet},
               ));
           if (satirlar.isEmpty) throw ApiHatasi.yetkisiz;
           final s = satirlar.first;
-          return ic(istek.change(context: {
-            _kimlikAnahtari: KimlikBaglami(kullaniciId: s[0]! as String, kiraciId: s[1]! as String),
-          }));
+          final baglam = KimlikBaglami(kullaniciId: s[0]! as String, kiraciId: s[1]! as String, portalKisiId: s[2] as String?);
+          // Müvekkil oturumu yalnızca portal uçlarını, kendi bilgisini ve çıkışı kullanabilir.
+          final yol = istek.url.path;
+          if (baglam.portal && !(yol.startsWith('portal/') || yol == 'ben' || yol == 'cikis')) {
+            throw const ApiHatasi(403, 'Bu işlem müvekkil portalında kullanılamaz.', kod: 'yasak');
+          }
+          return ic(istek.change(context: {_kimlikAnahtari: baglam}));
         };
 
 class KimlikApi {
@@ -167,6 +172,23 @@ class KimlikApi {
 
   Future<Response> _ben(Request istek) async {
     final k = kimlik(istek);
+    if (k.portal) {
+      final rs = await vt.portalIcin(
+          k, (tx) => tx.execute('SELECT ad_soyad, eposta, kurum, hesap_turu, kisi_adi FROM hukuk.portal_ben()'));
+      if (rs.isEmpty) throw ApiHatasi.yetkisiz;
+      final p = rs.first;
+      return jsonYanit({
+        'kullaniciId': k.kullaniciId,
+        'kiraciId': k.kiraciId,
+        'adSoyad': p[0],
+        'eposta': p[1],
+        'kurumAdi': p[2],
+        'hesapTuru': p[3],
+        'roller': ['muvekkil'],
+        'portalKisiId': k.portalKisiId,
+        'portalKisiAdi': p[4],
+      });
+    }
     final sonuc = await vt.kiraciIcin(k, (tx) async {
       final u = await tx.execute(
         Sql.named('SELECT u.ad_soyad, u.eposta, k.ad, k.hesap_turu FROM hukuk.kullanici u '

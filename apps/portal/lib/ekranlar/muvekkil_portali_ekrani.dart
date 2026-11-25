@@ -144,7 +144,16 @@ class _MuvekkilDosyaEkraniState extends State<MuvekkilDosyaEkrani> {
     super.initState();
     widget.depo.okumaKaydet(DenetimIslemi.goruntuleme, 'dosya', widget.dosyaId, 'Müvekkil portalından');
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.depo.mesajlariOku(widget.dosyaId, muvekkilOkuyor: true);
+      if (!mounted) return;
+      final okunmamisVar = widget.depo.dosyaMesajlari(widget.dosyaId).any((m) => !m.muvekkildenMi && !m.okundu);
+      if (!okunmamisVar) return;
+      widget.depo.mesajIslemi(
+        sunucuda: (u) => u.mesajlariOku(widget.dosyaId),
+        yerelde: () {
+          widget.depo.mesajlariOku(widget.dosyaId, muvekkilOkuyor: true);
+          return null;
+        },
+      );
     });
   }
 
@@ -261,13 +270,19 @@ class _MesajAkisiState extends State<MesajAkisi> {
     super.dispose();
   }
 
-  void _gonder() {
-    final hata = widget.depo.mesajGonder(
-      dosyaId: widget.dosyaId,
-      metin: _metin.text,
-      muvekkildenMi: widget.muvekkilTarafi,
-      muvekkilKisiId: widget.muvekkilKisiId,
-    );
+  Future<void> _gonder() async {
+    final metin = _metin.text;
+    final hata = PortalMesaji.dogrula(metin) ??
+        await widget.depo.mesajIslemi(
+          sunucuda: (u) => u.mesajGonder(widget.dosyaId, metin),
+          yerelde: () => widget.depo.mesajGonder(
+            dosyaId: widget.dosyaId,
+            metin: metin,
+            muvekkildenMi: widget.muvekkilTarafi,
+            muvekkilKisiId: widget.muvekkilKisiId,
+          ),
+        );
+    if (!mounted) return;
     setState(() {
       _hata = hata;
       if (hata == null) _metin.clear();
@@ -353,7 +368,16 @@ class PortalYonetimBolumu extends StatelessWidget {
           key: const Key('portal-paylas'),
           contentPadding: EdgeInsets.zero,
           value: paylasildi,
-          onChanged: (v) => depo.portalPaylas(dosyaId, v),
+          onChanged: (v) async {
+            final h = await depo.sunucudaVeyaYerelde(
+              sunucuda: (u) => u.portalPaylas(dosyaId, v),
+              yerelde: () {
+                depo.portalPaylas(dosyaId, v);
+                return null;
+              },
+            );
+            if (h != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+          },
           title: const Text('Bu dosyayı müvekkil portalında paylaş'),
           subtitle: const Text('Müvekkil dosya özetini, duruşma tarihini, paylaştığınız belgeleri ve yazışmaları görür. '
               'Süreler, görevler ve iç notlar görünmez.'),
@@ -365,7 +389,13 @@ class PortalYonetimBolumu extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: TextButton(
                 key: const Key('portal-okundu'),
-                onPressed: () => depo.mesajlariOku(dosyaId, muvekkilOkuyor: false),
+                onPressed: () => depo.mesajIslemi(
+                  sunucuda: (u) => u.mesajlariOku(dosyaId),
+                  yerelde: () {
+                    depo.mesajlariOku(dosyaId, muvekkilOkuyor: false);
+                    return null;
+                  },
+                ),
                 child: const Text('Okundu olarak işaretle'),
               ),
             ),

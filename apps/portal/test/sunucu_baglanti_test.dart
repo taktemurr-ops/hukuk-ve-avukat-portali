@@ -17,6 +17,8 @@ class SahteSunucu {
   var sureDurumu = 'teyitBekliyor';
   var ikiKurum = false;
   var kurumsal = false;
+  var muvekkil = false;
+  final portalMesajlari = <Map<String, Object?>>[];
   final tahsilatlar = <Map<String, Object?>>[];
 
   http.Response _json(Object? o, [int d = 200]) =>
@@ -42,6 +44,13 @@ class SahteSunucu {
         return _json({'token': 'tkn', 'kullaniciId': 'u1', 'kiraciId': j['kiraciId'] ?? 'k1', 'gecerlilikSaniye': 28800});
       case 'GET /ben':
         if (!yetkili) return _json({'hata': 'yetkisiz', 'mesaj': 'Oturum açmanız gerekiyor.'}, 401);
+        if (muvekkil) {
+          return _json({
+            'kullaniciId': 'mu1', 'kiraciId': 'k1', 'adSoyad': 'Ali Veli', 'eposta': 'ali@abc.com.tr',
+            'kurumAdi': 'Yılmaz Hukuk', 'hesapTuru': 'hukukBurosu', 'roller': ['muvekkil'],
+            'portalKisiId': 'm1', 'portalKisiAdi': 'ABC Gıda A.Ş.',
+          });
+        }
         return _json({
           'kullaniciId': 'u1',
           'kiraciId': 'k1',
@@ -112,6 +121,29 @@ class SahteSunucu {
         tahsilatlar.add({'id': 't${tahsilatlar.length + 1}', 'tarih': j['tarih'], 'tutarKurus': j['tutarKurus'],
           'aciklama': j['aciklama']});
         return _json({'id': 't${tahsilatlar.length}'}, 201);
+      case 'GET /portal/dosyalar':
+        return _json([
+          {
+            'id': 'pd1', 'icNo': '2026/0007', 'tur': 'hukuk', 'baslik': 'Portaldaki alacak davası', 'asama': 'ilkDerece',
+            'asamaAdi': 'İlk derece', 'acilis': '2026-10-01', 'kapali': false, 'sorumluAvukat': 'Av. Mert Şahin',
+            'sonrakiDurusma': '2026-12-03T07:30:00.000Z', 'sonrakiDurusmaYeri': 'İstanbul 3. Asliye Ticaret',
+            'okunmamisMesaj': 0,
+          },
+        ]);
+      case 'GET /portal/dosyalar/pd1/belgeler':
+        return _json([
+          {'id': 'pb1', 'ad': 'Dava dilekçesi', 'tur': 'dilekce', 'surum': 1, 'sha256': 'a' * 64, 'boyut': 10,
+            'dosyaAdi': 'dilekce.pdf', 'zaman': '2026-10-02T09:00:00.000Z'},
+        ]);
+      case 'GET /portal/dosyalar/pd1/mesajlar':
+        return _json(portalMesajlari);
+      case 'POST /portal/dosyalar/pd1/mesajlar':
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        portalMesajlari.add({'id': portalMesajlari.length + 1, 'muvekkilden': true, 'gonderen': 'Ali Veli',
+          'metin': j['metin'], 'zaman': '2026-11-25T10:00:00.000Z', 'okundu': null});
+        return _json({'id': portalMesajlari.length}, 201);
+      case 'GET /portal-paylasimlari':
+        return _json({'dosyalar': [], 'belgeler': []});
       case 'GET /taraflar':
         return _json([
           {'dosyaId': 'd1', 'kisiId': 'm1', 'sifat': 'muvekkil', 'dosyaAdi': '2026/0001 · Sunucudaki dosya', 'gizli': false, 'kapali': false},
@@ -211,13 +243,15 @@ Future<void> _bas(WidgetTester tester, String anahtar) async {
   await tester.pumpAndSettle();
 }
 
-Future<(SahteSunucu, ApiIstemcisi)> _uygulama(WidgetTester tester, {bool ikiKurum = false, bool kurumsal = false}) async {
+Future<(SahteSunucu, ApiIstemcisi)> _uygulama(WidgetTester tester,
+    {bool ikiKurum = false, bool kurumsal = false, bool muvekkil = false}) async {
   tester.view.physicalSize = const Size(1500, 2600);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   final sunucu = SahteSunucu()
     ..ikiKurum = ikiKurum
-    ..kurumsal = kurumsal;
+    ..kurumsal = kurumsal
+    ..muvekkil = muvekkil;
   final api = ApiIstemcisi(Uri.parse('https://api.ornek.test/'), istemci: MockClient(sunucu.yanit));
   await tester.pumpWidget(PortalUygulamasi(kimlikServisi: SunucuKimlikServisi(api), api: api));
   await tester.pumpAndSettle();
@@ -393,6 +427,17 @@ void main() {
     }, 'k1');
     expect(v.ozelYetkiler, {OzelYetki.sulh});
     expect(v.durum, VekaletDurumu.azil);
+  });
+
+  testWidgets('Müvekkil oturumu yalnızca portal uçlarını kullanır', (tester) async {
+    final (sunucu, _) = await _uygulama(tester, muvekkil: true);
+    await tester.enterText(find.byKey(const Key('giris-eposta')), 'ali@abc.com.tr');
+    await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
+    await _bas(tester, 'giris-yap');
+    expect(find.textContaining('Portaldaki alacak davası'), findsWidgets);
+    expect(sunucu.istekler, contains('GET /portal/dosyalar'));
+    // Büro uçlarına hiç gidilmez.
+    expect(sunucu.istekler.where((i) => const ['GET /dosyalar', 'GET /kisiler', 'GET /kullanicilar'].contains(i)), isEmpty);
   });
 
   testWidgets('Birden çok kurumda hesap varsa kurum seçilir', (tester) async {

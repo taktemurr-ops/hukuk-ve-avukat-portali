@@ -3,6 +3,14 @@ import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import 'api_istemcisi.dart';
 import 'veri_deposu.dart';
 
+/// Müvekkil portalı yazışmaları için kanca (büro tarafında SunucuSenkronu, müvekkil tarafında PortalSenkronu).
+abstract class MesajUzak {
+  Future<void> mesajGonder(String dosyaId, String metin);
+
+  /// Karşı taraftan gelen mesajları okundu işaretler.
+  Future<void> mesajlariOku(String dosyaId);
+}
+
 /// Depodaki bazı işlemlerin sunucuda yapılması için kanca. Sunucu bağlıyken ekranlar bu yolu kullanır;
 /// sonuç her işlemden sonra sunucudan yeniden yüklenir (sunucu tek doğru kaynaktır).
 abstract class UzakIslemler {
@@ -57,6 +65,10 @@ abstract class UzakIslemler {
 
   Future<void> etikDuvarKur(String dosyaId, String kullanici, String gerekce);
 
+  Future<void> portalPaylas(String dosyaId, bool paylas);
+
+  Future<void> belgePaylas(String belgeId, bool paylas);
+
   /// Belgeyi yükler (sürüm 1); SHA-256 özeti sunucuda hesaplanır.
   Future<void> belgeYukle({
     required String dosyaId,
@@ -95,9 +107,10 @@ abstract class UzakIslemler {
   });
 }
 
-class SunucuSenkronu implements UzakIslemler {
+class SunucuSenkronu implements UzakIslemler, MesajUzak {
   SunucuSenkronu(this.api, this.depo) {
     depo.uzak = this;
+    depo.mesajUzak = this;
   }
 
   final ApiIstemcisi api;
@@ -261,6 +274,17 @@ class SunucuSenkronu implements UzakIslemler {
     return b;
   }
 
+  /// Gönderen adı sunucudan gelir; ekranda kullanıcı adı yerine doğrudan gösterilir.
+  static PortalMesaji mesajJson(Map<String, dynamic> j, String dosyaId) => PortalMesaji(
+        id: '${j['id']}',
+        dosyaId: dosyaId,
+        gonderen: j['gonderen'] as String,
+        muvekkildenMi: j['muvekkilden'] == true,
+        metin: j['metin'] as String,
+        zaman: DateTime.parse(j['zaman'] as String).toLocal(),
+        okundu: j['okundu'] != null,
+      );
+
   static Gorev gorevJson(Map<String, dynamic> j) => Gorev(
         id: j['id'] as String,
         baslik: j['baslik'] as String,
@@ -337,6 +361,19 @@ class SunucuSenkronu implements UzakIslemler {
     final tebligatlar = _liste(await api.get('/tebligatlar'));
     final vekaletnameler = _liste(await api.get('/vekaletnameler'));
     final duvarlar = _liste(await api.get('/etik-duvarlar'));
+    final paylasim = await api.get('/portal-paylasimlari') as Map<String, dynamic>;
+    final portalDosyalari = {for (final x in (paylasim['dosyalar'] as List? ?? const [])) '$x'};
+    final mesajlar = <PortalMesaji>[];
+    for (final d in portalDosyalari) {
+      for (final m in _liste(await api.get('/dosyalar/$d/mesajlar'))) {
+        mesajlar.add(mesajJson(m, d));
+      }
+    }
+    depo.sunucuPortalVerisiniYukle(
+      portalDosyalari: portalDosyalari,
+      paylasilanBelgeler: {for (final x in (paylasim['belgeler'] as List? ?? const [])) '$x'},
+      mesajlar: mesajlar,
+    );
     depo.etikDuvar.yukle([
       for (final j in duvarlar)
         EtikDuvarKaydi(
@@ -661,5 +698,29 @@ class SunucuSenkronu implements UzakIslemler {
       'x-belge-turu': tur.name,
     });
     await yenile();
+  }
+
+  @override
+  Future<void> portalPaylas(String dosyaId, bool paylas) async {
+    await api.post('/dosyalar/$dosyaId/portal', {'paylas': paylas});
+    await _buroVerisiniYenile();
+  }
+
+  @override
+  Future<void> belgePaylas(String belgeId, bool paylas) async {
+    await api.post('/belgeler/$belgeId/portal', {'paylas': paylas});
+    await _buroVerisiniYenile();
+  }
+
+  @override
+  Future<void> mesajGonder(String dosyaId, String metin) async {
+    await api.post('/dosyalar/$dosyaId/mesajlar', {'metin': metin.trim()});
+    await _buroVerisiniYenile();
+  }
+
+  @override
+  Future<void> mesajlariOku(String dosyaId) async {
+    await api.post('/dosyalar/$dosyaId/mesajlar/okundu');
+    await _buroVerisiniYenile();
   }
 }

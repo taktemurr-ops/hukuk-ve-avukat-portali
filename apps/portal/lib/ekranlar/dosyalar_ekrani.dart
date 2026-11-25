@@ -316,7 +316,17 @@ class DosyaDetayEkrani extends StatelessWidget {
                       : IconButton(
                           key: Key('belge-paylas-${b.id}'),
                           tooltip: depo.belgePaylasildiMi(b.id) ? 'Müvekkil paylaşımını kaldır' : 'Müvekkille paylaş',
-                          onPressed: () => depo.belgePaylas(b.id, !depo.belgePaylasildiMi(b.id)),
+                          onPressed: () async {
+                            final paylas = !depo.belgePaylasildiMi(b.id);
+                            final h = await depo.sunucudaVeyaYerelde(
+                              sunucuda: (u) => u.belgePaylas(b.id, paylas),
+                              yerelde: () {
+                                depo.belgePaylas(b.id, paylas);
+                                return null;
+                              },
+                            );
+                            if (h != null && context.mounted) _mesaj(context, h);
+                          },
                           icon: Icon(
                             depo.belgePaylasildiMi(b.id) ? Icons.visibility : Icons.visibility_off_outlined,
                             color: depo.belgePaylasildiMi(b.id) ? Renkler.yesil : Renkler.metinIkincil,

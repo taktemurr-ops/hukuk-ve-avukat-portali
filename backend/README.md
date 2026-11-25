@@ -53,6 +53,13 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET/POST | `/dosyalar/{id}/belgeler` | Belgeler ve sürümleri / yükleme (ham gövde; `X-Dosya-Adi`, `X-Belge-Adi`, `X-Belge-Turu` başlıkları) |
 | POST | `/belgeler/{id}/surumler` | Yeni sürüm (aynı içerik ikinci kez eklenmez) |
 | GET | `/belgeler/{id}/surumler/{no}/icerik` | İndirme: içerik kayıtlı SHA-256 ile yeniden doğrulanır, her indirme denetime yazılır |
+| GET | `/koltuklar` | Lisans koltuğu: kullanılan / toplam (ücretsiz roller sayılmaz) |
+| GET/POST | `/davetler` · POST `/davetler/{id}/iptal` | Ekip veya müvekkil daveti (yalnızca yöneticiler; koltuk kontrolü kilit altında; kod bir kez döner) |
+| POST | `/acik/davet-kabul` | **Oturumsuz** davet kabulü: kod + e-posta + ad + şifre → hesap |
+| GET | `/portal/dosyalar` · `/portal/dosyalar/{id}/belgeler` · `/portal/belgeler/{id}/icerik` | **Müvekkil oturumu**: paylaşılan dosyalar, paylaşılan belgeler, indirme |
+| GET/POST | `/portal/dosyalar/{id}/mesajlar` · POST `/portal/dosyalar/{id}/okundu` | Müvekkil yazışması (dosya başına saatte en çok 30 mesaj) |
+| GET | `/portal-paylasimlari` · POST `/dosyalar/{id}/portal` · `/belgeler/{id}/portal` | Büro: portal paylaşımı (gizli belge paylaşılamaz) |
+| GET/POST | `/dosyalar/{id}/mesajlar` · POST `/dosyalar/{id}/mesajlar/okundu` | Büro: müvekkille yazışma |
 | GET/POST | `/kisiler` | Kişiler / yeni kişi (TCKN/VKN ve e-posta doğrulanır) |
 | GET | `/kisiler/{id}/cari` | Müvekkil carisi: avans bakiyesi, masraf, ücret alacağı ve hareketler |
 | GET/POST | `/cari` | Tüm cari hareketler / yeni hareket (avans, masraf, iade, ücret tahakkuku/tahsilatı) |
@@ -83,6 +90,9 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 Belge yüklemede uzantı listesi, boyut sınırı (`BELGE_AZAMI_MB`, varsayılan 50) ve içerik imzası denetlenir; uzantısı
 değiştirilmiş ve çalıştırılabilir dosyalar reddedilir. İçerikler `BELGE_KLASORU` altında saklanır (Türkiye'de, şifreli
 kalıcı disk; S3 uyumlu yurt içi nesne deposu sonra). Virüs taraması (ClamAV) henüz bağlı değil.
+
+Müvekkil oturumunda sunucu kiracı bağlamını hiç ayarlamaz: büro tablolarının satır politikaları boş döner ve müvekkil
+yalnızca `portal/` uçlarını (SECURITY DEFINER portal fonksiyonları) kullanabilir; başka bir uca giden istek 403 alır.
 
 Tutarlar istemciyle sunucu arasında kuruş cinsinden tam sayı olarak taşınır. Sunucudaki tüm SQL metinleri CI'da
 şemaya karşı `PREPARE` edilir (`araclar/sql_denetim.py`).

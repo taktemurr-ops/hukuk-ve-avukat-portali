@@ -539,6 +539,41 @@ class BellekVeriDeposu extends ChangeNotifier {
   final List<PortalMesaji> _mesajlar = [];
 
   bool portaldaMi(String dosyaId) => _portalDosyalari.contains(dosyaId);
+
+  /// Sunucuya bağlıyken yazışmalar bu kancadan geçer.
+  MesajUzak? mesajUzak;
+
+  /// Yazışma işlemi: sunucu bağlıysa sunucuda, değilse yerelde. Hata varsa mesajı döner.
+  Future<String?> mesajIslemi({
+    required Future<void> Function(MesajUzak uzak) sunucuda,
+    required String? Function() yerelde,
+  }) async {
+    final u = mesajUzak;
+    if (u == null) return yerelde();
+    try {
+      await sunucuda(u);
+      return null;
+    } on Exception catch (e) {
+      return '$e';
+    }
+  }
+
+  void sunucuPortalVerisiniYukle({
+    required Set<String> portalDosyalari,
+    required Set<String> paylasilanBelgeler,
+    required List<PortalMesaji> mesajlar,
+  }) {
+    _portalDosyalari
+      ..clear()
+      ..addAll(portalDosyalari);
+    _paylasilanBelgeler
+      ..clear()
+      ..addAll(paylasilanBelgeler);
+    _mesajlar
+      ..clear()
+      ..addAll(mesajlar);
+    notifyListeners();
+  }
   bool belgePaylasildiMi(String belgeId) => _paylasilanBelgeler.contains(belgeId);
 
   void portalPaylas(String dosyaId, bool paylas) {

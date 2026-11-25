@@ -5,23 +5,27 @@ import 'package:shelf/shelf.dart';
 
 import 'src/belge_api.dart';
 import 'src/buro_api.dart';
+import 'src/davet_api.dart';
 import 'src/dosya_api.dart';
 import 'src/hata.dart';
 import 'src/is_api.dart';
 import 'src/kimlik_api.dart';
 import 'src/kurumsal_api.dart';
 import 'src/nesne_deposu.dart';
+import 'src/portal_api.dart';
 import 'src/uyum_api.dart';
 import 'src/veritabani.dart';
 
 export 'src/belge_api.dart';
 export 'src/buro_api.dart';
+export 'src/davet_api.dart';
 export 'src/dosya_api.dart';
 export 'src/hata.dart';
 export 'src/is_api.dart';
 export 'src/kimlik_api.dart';
 export 'src/kurumsal_api.dart';
 export 'src/nesne_deposu.dart';
+export 'src/portal_api.dart';
 export 'src/sifre.dart';
 export 'src/uyum_api.dart';
 export 'src/veritabani.dart';
@@ -60,7 +64,9 @@ Handler uygulama(
       .add(KurumsalApi(vt).router.call)
       .add(UyumApi(vt).router.call)
       .add(BuroApi(vt).router.call)
-      .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut).router.call);
+      .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut).router.call)
+      .add(DavetApi(vt).router.call)
+      .add(PortalApi(vt, depo).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))

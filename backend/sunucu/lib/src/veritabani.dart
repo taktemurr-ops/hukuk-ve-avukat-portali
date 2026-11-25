@@ -4,10 +4,15 @@ import 'hata.dart';
 
 /// Oturumu doğrulanmış kullanıcının bağlamı.
 class KimlikBaglami {
-  const KimlikBaglami({required this.kullaniciId, required this.kiraciId});
+  const KimlikBaglami({required this.kullaniciId, required this.kiraciId, this.portalKisiId});
 
   final String kullaniciId;
   final String kiraciId;
+
+  /// Müvekkil portalı oturumunda bağlı kişi kartı; büro kullanıcılarında boş.
+  final String? portalKisiId;
+
+  bool get portal => portalKisiId != null;
 }
 
 /// Veritabanı erişimi. Uygulama `hukuk_uygulama` rolünün üyesi olan bir kullanıcıyla bağlanır;
@@ -38,9 +43,32 @@ class Veritabani {
 
   /// Kullanıcı adına işlem. Kiracı ve kullanıcı yalnızca bu işlem için ayarlanır (`set_config(..., true)`),
   /// böylece havuzdaki bağlantı başka bir isteğe bağlam taşımaz.
-  Future<T> kiraciIcin<T>(KimlikBaglami k, Future<T> Function(TxSession tx) islem) => _hataCevir(() => havuz.runTx((tx) async {
+  ///
+  /// Portal (müvekkil) oturumları büro verisine bu yoldan hiç erişemez.
+  Future<T> kiraciIcin<T>(KimlikBaglami k, Future<T> Function(TxSession tx) islem) {
+    if (k.portal) throw const ApiHatasi(403, 'Bu işlem müvekkil portalında kullanılamaz.', kod: 'yasak');
+    return _kiraciIcin(k, islem);
+  }
+
+  /// Müvekkil portalı işlemi: kiracı ayarlanmaz (büro tablolarının satır politikaları hiçbir şey döndürmez);
+  /// yalnızca portal kişisi ve kullanıcısı ayarlanır, erişim SECURITY DEFINER portal fonksiyonlarıyla yapılır.
+  Future<T> portalIcin<T>(KimlikBaglami k, Future<T> Function(TxSession tx) islem) {
+    final kisi = k.portalKisiId;
+    if (kisi == null) throw const ApiHatasi(403, 'Bu uç yalnızca müvekkil portalı içindir.', kod: 'yasak');
+    return _hataCevir(() => havuz.runTx((tx) async {
+          await tx.execute(
+            Sql.named("SELECT set_config('app.kiraci_id', '', true), set_config('app.kullanici_id', @u, true), "
+                "set_config('app.portal_kisi', @p, true)"),
+            parameters: {'u': k.kullaniciId, 'p': kisi},
+          );
+          return islem(tx);
+        }));
+  }
+
+  Future<T> _kiraciIcin<T>(KimlikBaglami k, Future<T> Function(TxSession tx) islem) => _hataCevir(() => havuz.runTx((tx) async {
             await tx.execute(
-              Sql.named("SELECT set_config('app.kiraci_id', @k, true), set_config('app.kullanici_id', @u, true)"),
+              Sql.named("SELECT set_config('app.kiraci_id', @k, true), set_config('app.kullanici_id', @u, true), "
+                  "set_config('app.portal_kisi', '', true)"),
               parameters: {'k': k.kiraciId, 'u': k.kullaniciId},
             );
             return islem(tx);

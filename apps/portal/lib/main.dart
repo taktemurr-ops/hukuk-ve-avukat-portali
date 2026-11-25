@@ -75,7 +75,9 @@ class _PortalUygulamasiState extends State<PortalUygulamasi> {
               girisYapildi: (o) => setState(() => _oturum = o),
             )
           : oturum.muvekkilPortali
-              ? MuvekkilPortaliEkrani(oturum: oturum, cikisYap: _cikisYap)
+              ? (_sunucuOturumu
+                  ? SunuculuPortal(oturum: oturum, api: widget.api!, cikisYap: _cikisYap)
+                  : MuvekkilPortaliEkrani(oturum: oturum, cikisYap: _cikisYap))
               : _sunucuOturumu
                   ? SunuculuKabuk(oturum: oturum, api: widget.api!, cikisYap: _cikisYap)
                   : AnaKabuk(oturum: oturum, cikisYap: _cikisYap),

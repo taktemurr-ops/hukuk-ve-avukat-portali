@@ -125,7 +125,9 @@ def argumanlar(kaynak, i):
             derin -= 1
             if derin == 0:
                 args.append(kaynak[bas:j])
-                return j, [a.strip() for a in args if a.strip()]
+                # Argümanın önündeki satır yorumları (// …) ad tespitini bozmasın.
+                temiz = [re.sub(r'^(\s*//[^\n]*\n)+', '', a) for a in args]
+                return j, [a.strip() for a in temiz if a.strip()]
         elif ch == ',' and derin == 1:
             args.append(kaynak[bas:j])
             bas = j + 1
