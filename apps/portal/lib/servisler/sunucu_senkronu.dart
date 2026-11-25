@@ -57,6 +57,15 @@ abstract class UzakIslemler {
 
   Future<void> etikDuvarKur(String dosyaId, String kullanici, String gerekce);
 
+  /// Belgeyi yükler (sürüm 1); SHA-256 özeti sunucuda hesaplanır.
+  Future<void> belgeYukle({
+    required String dosyaId,
+    required String ad,
+    required String dosyaAdi,
+    required List<int> icerik,
+    BelgeTuru tur,
+  });
+
   Future<void> etikDuvarKaldir(String dosyaId, String kullanici, String gerekce);
 
   /// Kaydeder; varsa çakışma nedenlerini döner.
@@ -225,6 +234,33 @@ class SunucuSenkronu implements UzakIslemler {
 
   static List<Map<String, dynamic>> _liste(Object? v) => (v! as List).cast<Map<String, dynamic>>();
 
+  static Belge? belgeJson(Map<String, dynamic> j, String dosyaId, String kiraciId) {
+    BelgeSurumu surum(Map<String, dynamic> s) => BelgeSurumu(
+          no: s['no'] as int,
+          ozet: s['sha256'] as String,
+          boyut: s['boyut'] as int,
+          yukleyen: s['yukleyen'] as String,
+          tarih: Tarih.from(DateTime.parse(s['zaman'] as String).toLocal()),
+          dosyaAdi: s['dosyaAdi'] as String,
+        );
+    final surumler = _liste(j['surumler'] ?? const []);
+    if (surumler.isEmpty) return null;
+    final b = Belge(
+      id: j['id'] as String,
+      kiraciId: kiraciId,
+      ad: j['ad'] as String,
+      tur: BelgeTuru.values.firstWhere((t) => t.name == j['tur'], orElse: () => BelgeTuru.diger),
+      dosyaId: dosyaId,
+      gizli: j['gizli'] == true,
+      ilkSurum: surum(surumler.first),
+    );
+    for (final s in surumler.skip(1)) {
+      final x = surum(s);
+      b.yeniSurum(ozet: x.ozet, boyut: x.boyut, yukleyen: x.yukleyen, tarih: x.tarih, dosyaAdi: x.dosyaAdi);
+    }
+    return b;
+  }
+
   static Gorev gorevJson(Map<String, dynamic> j) => Gorev(
         id: j['id'] as String,
         baslik: j['baslik'] as String,
@@ -347,14 +383,19 @@ class SunucuSenkronu implements UzakIslemler {
     final liste = (await api.get('/dosyalar') as List).cast<Map<String, dynamic>>();
     final dosyalar = [for (final j in liste) dosyaJson(j, depo.kiraciId)];
     final sureler = <SureKaydi>[];
+    final belgeler = <Belge>[];
     for (final d in dosyalar) {
+      for (final j in _liste(await api.get('/dosyalar/${d.id}/belgeler'))) {
+        final b = belgeJson(j, d.id, depo.kiraciId);
+        if (b != null) belgeler.add(b);
+      }
       final sj = (await api.get('/dosyalar/${d.id}/sureler') as List).cast<Map<String, dynamic>>();
       for (final j in sj) {
         final s = sureJson(j, d.id);
         if (s != null) sureler.add(s);
       }
     }
-    depo.sunucuVerisiniYukle(dosyalar: dosyalar, sureler: sureler);
+    depo.sunucuVerisiniYukle(dosyalar: dosyalar, sureler: sureler, belgeler: belgeler);
     await _isVerisiniYenile();
     await _buroVerisiniYenile();
   }
@@ -603,6 +644,22 @@ class SunucuSenkronu implements UzakIslemler {
   @override
   Future<void> etikDuvarKaldir(String dosyaId, String kullanici, String gerekce) async {
     await api.post('/dosyalar/$dosyaId/etik-duvar/kaldir', {'kullaniciId': kullanici, 'gerekce': gerekce.trim()});
+    await yenile();
+  }
+
+  @override
+  Future<void> belgeYukle({
+    required String dosyaId,
+    required String ad,
+    required String dosyaAdi,
+    required List<int> icerik,
+    BelgeTuru tur = BelgeTuru.diger,
+  }) async {
+    await api.postBayt('/dosyalar/$dosyaId/belgeler', icerik, {
+      'x-dosya-adi': Uri.encodeComponent(dosyaAdi),
+      'x-belge-adi': Uri.encodeComponent(ad),
+      'x-belge-turu': tur.name,
+    });
     await yenile();
   }
 }

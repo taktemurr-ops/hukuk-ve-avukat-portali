@@ -50,6 +50,9 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | GET/POST | `/tebligatlar` · POST `/tebligatlar/{id}/bagla` | Tebligatlar (tebliğ tarihi sunucuda, mükerrer kayıt engellenir) / dosyaya bağlama |
 | GET/POST | `/vekaletnameler` · POST `/vekaletnameler/{id}/durum` | Vekâletnameler / azil, istifa, süre dolması (sona eren kilitlenir) |
 | GET | `/etik-duvarlar` · POST `/dosyalar/{id}/etik-duvar` · `/etik-duvar/kaldir` | Etik duvar (yalnızca yöneticiler; ekip üyesine kurulamaz, engellenen kişi kaydı göremez) |
+| GET/POST | `/dosyalar/{id}/belgeler` | Belgeler ve sürümleri / yükleme (ham gövde; `X-Dosya-Adi`, `X-Belge-Adi`, `X-Belge-Turu` başlıkları) |
+| POST | `/belgeler/{id}/surumler` | Yeni sürüm (aynı içerik ikinci kez eklenmez) |
+| GET | `/belgeler/{id}/surumler/{no}/icerik` | İndirme: içerik kayıtlı SHA-256 ile yeniden doğrulanır, her indirme denetime yazılır |
 | GET/POST | `/kisiler` | Kişiler / yeni kişi (TCKN/VKN ve e-posta doğrulanır) |
 | GET | `/kisiler/{id}/cari` | Müvekkil carisi: avans bakiyesi, masraf, ücret alacağı ve hareketler |
 | GET/POST | `/cari` | Tüm cari hareketler / yeni hareket (avans, masraf, iade, ücret tahakkuku/tahsilatı) |
@@ -76,6 +79,10 @@ PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=degistirin PG_SSL=kapali dar
 | POST | `/sorusturmalar/{id}/ekip` · `/not` · `/geri-bildirim` · `/durum` | Ekip, not, ihbarcıya geri bildirim, aşama (soruşturmaya al, raporla, reddet, kapat) |
 | GET/POST | `/veri-ihlalleri` | Kişisel veri ihlalleri (72 saat sayacıyla) / yeni kayıt |
 | POST | `/veri-ihlalleri/{id}/bildirim` | Kurul'a veya ilgililere bildirim zamanı (bir kez yazılır) |
+
+Belge yüklemede uzantı listesi, boyut sınırı (`BELGE_AZAMI_MB`, varsayılan 50) ve içerik imzası denetlenir; uzantısı
+değiştirilmiş ve çalıştırılabilir dosyalar reddedilir. İçerikler `BELGE_KLASORU` altında saklanır (Türkiye'de, şifreli
+kalıcı disk; S3 uyumlu yurt içi nesne deposu sonra). Virüs taraması (ClamAV) henüz bağlı değil.
 
 Tutarlar istemciyle sunucu arasında kuruş cinsinden tam sayı olarak taşınır. Sunucudaki tüm SQL metinleri CI'da
 şemaya karşı `PREPARE` edilir (`araclar/sql_denetim.py`).

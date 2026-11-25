@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
@@ -446,13 +448,28 @@ class _SablondanBelgeEkraniState extends State<SablondanBelgeEkrani> {
                   key: const Key('belge-kaydet'),
                   onPressed: kalanEksik > 0
                       ? null
-                      : () {
-                          widget.depo.belgeOlustur(
-                            dosyaId: widget.dosyaId,
-                            ad: _sablon!.ad,
-                            metin: _metin.text,
-                            yukleyen: widget.oturum.kullaniciId,
+                      : () async {
+                          final ad = _sablon!.ad;
+                          final metin = _metin.text;
+                          final hata = await widget.depo.sunucudaVeyaYerelde(
+                            sunucuda: (u) => u.belgeYukle(
+                              dosyaId: widget.dosyaId,
+                              ad: ad,
+                              dosyaAdi: '$ad.txt',
+                              icerik: utf8.encode(metin),
+                              tur: BelgeTuru.dilekce,
+                            ),
+                            yerelde: () {
+                              widget.depo.belgeOlustur(
+                                  dosyaId: widget.dosyaId, ad: ad, metin: metin, yukleyen: widget.oturum.kullaniciId);
+                              return null;
+                            },
                           );
+                          if (!mounted) return;
+                          if (hata != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
+                            return;
+                          }
                           Navigator.of(context).pop();
                         },
                   child: const Text('Belge olarak kaydet'),

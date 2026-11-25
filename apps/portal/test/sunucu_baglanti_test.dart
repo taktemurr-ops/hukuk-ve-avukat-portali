@@ -135,6 +135,7 @@ class SahteSunucu {
         ]);
       case 'GET /vekaletnameler':
       case 'GET /etik-duvarlar':
+      case 'GET /dosyalar/d1/belgeler':
         return _json([]);
       case 'GET /sirketler':
         return _json([

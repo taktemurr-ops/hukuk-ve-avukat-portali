@@ -626,10 +626,13 @@ class BellekVeriDeposu extends ChangeNotifier {
   }
 
   /// Sunucudan gelen dosya ve süreleri yerel önbelleğe yazar (öncekilerin yerine).
-  void sunucuVerisiniYukle({required List<Dosya> dosyalar, required List<SureKaydi> sureler}) {
+  void sunucuVerisiniYukle({required List<Dosya> dosyalar, required List<SureKaydi> sureler, List<Belge> belgeler = const []}) {
     _dosyalar
       ..clear()
       ..addAll(dosyalar);
+    _belgeler
+      ..clear()
+      ..addAll(belgeler);
     _sureler
       ..clear()
       ..addAll(sureler);

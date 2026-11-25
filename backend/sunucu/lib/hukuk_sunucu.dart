@@ -3,21 +3,25 @@ library;
 
 import 'package:shelf/shelf.dart';
 
+import 'src/belge_api.dart';
 import 'src/buro_api.dart';
 import 'src/dosya_api.dart';
 import 'src/hata.dart';
 import 'src/is_api.dart';
 import 'src/kimlik_api.dart';
 import 'src/kurumsal_api.dart';
+import 'src/nesne_deposu.dart';
 import 'src/uyum_api.dart';
 import 'src/veritabani.dart';
 
+export 'src/belge_api.dart';
 export 'src/buro_api.dart';
 export 'src/dosya_api.dart';
 export 'src/hata.dart';
 export 'src/is_api.dart';
 export 'src/kimlik_api.dart';
 export 'src/kurumsal_api.dart';
+export 'src/nesne_deposu.dart';
 export 'src/sifre.dart';
 export 'src/uyum_api.dart';
 export 'src/veritabani.dart';
@@ -29,7 +33,8 @@ Middleware cors(Set<String> izinliKokenler) => (ic) => (istek) async {
       final basliklar = izinli
           ? {
               'access-control-allow-origin': koken,
-              'access-control-allow-headers': 'authorization, content-type',
+              'access-control-allow-headers': 'authorization, content-type, x-dosya-adi, x-belge-adi, x-belge-turu',
+              'access-control-expose-headers': 'content-disposition, x-sha256',
               'access-control-allow-methods': 'GET, POST, PUT, DELETE',
               'vary': 'origin',
             }
@@ -39,7 +44,14 @@ Middleware cors(Set<String> izinliKokenler) => (ic) => (istek) async {
       return yanit.change(headers: basliklar);
     };
 
-Handler uygulama(Veritabani vt, {Set<String> izinliKokenler = const {}, void Function(Object, StackTrace)? kaydet}) {
+/// [depo]: belge içeriklerinin saklandığı nesne deposu (Türkiye'de).
+Handler uygulama(
+  Veritabani vt, {
+  required NesneDeposu depo,
+  Set<String> izinliKokenler = const {},
+  int belgeAzamiBoyut = 50 * 1024 * 1024,
+  void Function(Object, StackTrace)? kaydet,
+}) {
   final cascade = Cascade()
       .add((Request r) => r.url.path == 'saglik' ? jsonYanit({'durum': 'ok'}) : Response.notFound(null))
       .add(KimlikApi(vt).router.call)
@@ -47,7 +59,8 @@ Handler uygulama(Veritabani vt, {Set<String> izinliKokenler = const {}, void Fun
       .add(IsApi(vt).router.call)
       .add(KurumsalApi(vt).router.call)
       .add(UyumApi(vt).router.call)
-      .add(BuroApi(vt).router.call);
+      .add(BuroApi(vt).router.call)
+      .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut).router.call);
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))
