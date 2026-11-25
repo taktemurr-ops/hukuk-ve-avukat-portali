@@ -16,6 +16,10 @@ abstract class MesajUzak {
 abstract class UzakIslemler {
   Future<void> yenile();
 
+  Future<void> imhaTutanagiHazirla(Set<String> dosyaIdleri, ImhaYontemi yontem);
+
+  Future<void> imhaTutanagiOnayla(String tutanakId);
+
   Future<void> dosyaAc({
     required DosyaTuru tur,
     required String baslik,
@@ -474,6 +478,56 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
     depo.sunucuVerisiniYukle(dosyalar: dosyalar, sureler: sureler, belgeler: belgeler);
     await _isVerisiniYenile();
     await _buroVerisiniYenile();
+    await _saklamaVerisiniYenile();
+  }
+
+  Future<void> _saklamaVerisiniYenile() async {
+    final Map<String, dynamic> j;
+    try {
+      j = (await api.get('/kvkk/saklama') as Map).cast<String, dynamic>();
+    } on Exception {
+      return; // yetkisi olmayan ya da eski sunucu: yerel görünüm kalır
+    }
+    final son = j['sonPeriyodikImha'] as String?;
+    depo.sunucuSaklamaVerisiniYukle(
+      sonPeriyodikImha: son == null ? null : Tarih.parse(son),
+      kayitlar: [for (final k in _liste(j['kayitlar'])) saklamaKaydiJson(k)],
+      tutanaklar: [
+        for (final t in _liste(j['tutanaklar']))
+          (
+            t['id'] as String,
+            ImhaTutanagi(
+              no: t['no'] as String,
+              tarih: Tarih.parse(t['tarih'] as String),
+              kayitIdleri: [for (final d in (t['dosyalar'] as List? ?? const [])) '$d'],
+              yontem: ImhaYontemi.values.byName(t['yontem'] as String),
+              hazirlayan: t['hazirlayan'] as String,
+            )
+              ..onaylayan = t['onaylayan'] as String?
+              ..onayTarihi = t['onayTarihi'] == null ? null : Tarih.parse(t['onayTarihi'] as String),
+          ),
+      ],
+    );
+  }
+
+  static SaklamaKaydi saklamaKaydiJson(Map<String, dynamic> j) => SaklamaKaydi(
+        id: j['id'] as String,
+        ad: j['ad'] as String,
+        kategori: VeriKategorisi.values.byName(j['kategori'] as String),
+        kapanis: j['kapanis'] == null ? null : Tarih.parse(j['kapanis'] as String),
+        yasalSaklamaEngeli: j['saklamaEngeli'] as String?,
+      );
+
+  @override
+  Future<void> imhaTutanagiHazirla(Set<String> dosyaIdleri, ImhaYontemi yontem) async {
+    await api.post('/kvkk/imha-tutanagi', {'dosyalar': dosyaIdleri.toList(), 'yontem': yontem.name});
+    await _saklamaVerisiniYenile();
+  }
+
+  @override
+  Future<void> imhaTutanagiOnayla(String tutanakId) async {
+    await api.post('/kvkk/imha-tutanagi/$tutanakId/onay', const {});
+    await _saklamaVerisiniYenile();
   }
 
   @override

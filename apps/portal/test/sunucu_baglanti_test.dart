@@ -261,6 +261,19 @@ class SahteSunucu {
             'etkilenenKisiSayisi': 3, 'kurulaBildirim': null, 'ilgililereBildirim': null,
           },
         ]);
+      case 'GET /kvkk/saklama':
+        return _json({
+          'sonPeriyodikImha': '2026-05-01',
+          'kayitlar': [
+            {'id': 'd9', 'ad': '2010/0003 · Eski dava', 'kategori': 'davaDosyasi', 'kapanis': '2010-02-01', 'saklamaEngeli': null},
+          ],
+          'tutanaklar': [
+            {'id': 't1', 'no': 'IT-2026-001', 'tarih': '2026-11-20', 'dosyalar': ['d9'], 'yontem': 'yokEtme',
+              'hazirlayan': 'u1', 'onaylayan': null, 'onayTarihi': null},
+          ],
+        });
+      case 'POST /kvkk/imha-tutanagi/t1/onay':
+        return _json({'onaylandi': true});
       case 'POST /sozlesmeler/sz1/onay':
         return _json({'tur': 1, 'durum': 'devam'});
       case 'POST /cikis':
@@ -549,5 +562,27 @@ void main() {
       'olusturan': 'u2', 'asilSorumlu': 'u2',
     }, 'd1');
     expect(s, isNull);
+  });
+
+  test('Sunucu JSON\'undan saklama kaydı', () {
+    final k = SunucuSenkronu.saklamaKaydiJson(
+        {'id': 'd9', 'ad': 'x', 'kategori': 'danismanlik', 'kapanis': null, 'saklamaEngeli': 'Devam eden dava'});
+    expect(k.kategori, VeriKategorisi.danismanlik);
+    expect(k.kapanis, isNull);
+    expect(k.yasalSaklamaEngeli, 'Devam eden dava');
+  });
+
+  test('KVKK saklama verisi sunucudan yüklenir; onay sunucu kimliğiyle gider', () async {
+    final sunucu = SahteSunucu();
+    final api = ApiIstemcisi(Uri.parse('https://api.ornek.test/'), istemci: MockClient(sunucu.yanit))..token = 'tkn';
+    final depo = BellekVeriDeposu('k1');
+    final senkron = SunucuSenkronu(api, depo);
+    await senkron.yenile();
+    expect(depo.saklamaKayitlari.map((k) => k.id), ['d9']);
+    expect(depo.saklama.sonPeriyodikImha, Tarih(2026, 5, 1));
+    final t = depo.saklama.tutanaklar.single;
+    expect(t.no, 'IT-2026-001');
+    expect(await depo.imhaTutanagiOnayla(t), isNull);
+    expect(sunucu.istekler, contains('POST /kvkk/imha-tutanagi/t1/onay'));
   });
 }

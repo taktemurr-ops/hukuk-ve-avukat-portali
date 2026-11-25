@@ -33,7 +33,11 @@ class BuroApi {
     ..post('/vekaletnameler/<id>/durum', _vekaletDurum)
     ..get('/etik-duvarlar', _etikDuvarlar)
     ..post('/dosyalar/<id>/etik-duvar', _etikDuvarKur)
-    ..post('/dosyalar/<id>/etik-duvar/kaldir', _etikDuvarKaldir);
+    ..post('/dosyalar/<id>/etik-duvar/kaldir', _etikDuvarKaldir)
+    ..get('/kvkk/saklama', _saklama)
+    ..post('/kvkk/imha-tutanagi', _imhaTutanagi)
+    ..post('/kvkk/imha-tutanagi/<id>/onay', _imhaOnay)
+    ..post('/dosyalar/<id>/saklama-engeli', _saklamaEngeli);
 
   // ---------------------------------------------------------------------------
   // Taraflar
@@ -546,5 +550,139 @@ class BuroApi {
     // Yetkisiz kullanıcı için RLS satırı gizler; yanıt da "bulunamadı" olur.
     if (n == 0) throw const ApiHatasi(404, 'Etkin etik duvar bulunamadı veya kaldırma yetkiniz yok.', kod: 'bulunamadi');
     return jsonYanit({'durum': 'kaldirildi'});
+  }
+
+  // ---------------------------------------------------------------------------
+  // KVKK saklama ve imha (süreler çekirdekteki taslak politikadan; avukat onayıyla kesinleşir)
+  // ---------------------------------------------------------------------------
+
+  static final _saklamaPolitikasi = SaklamaVeImha();
+
+  static SaklamaKaydi _saklamaKaydi(List<Object?> r) => SaklamaKaydi(
+        id: r[0]! as String,
+        ad: '${r[1]} · ${r[2]}',
+        kategori: r[3] == 'danismanlik' ? VeriKategorisi.danismanlik : VeriKategorisi.davaDosyasi,
+        kapanis: r[4] == null ? null : tarihDegeri(r[4]),
+        yasalSaklamaEngeli: r[5] as String?,
+      );
+
+  static const _saklamaSutunlari = 'id::text, ic_no, baslik, tur, kapanis, saklama_engeli, imha_tutanagi';
+
+  Future<Response> _saklama(Request istek) async {
+    final k = kimlik(istek);
+    final (dosyalar, tutanaklar, son) = await vt.kiraciIcin(k, (tx) async {
+      final d = await tx.execute('SELECT $_saklamaSutunlari FROM hukuk.dosya WHERE imha_tarihi IS NULL ORDER BY kapanis NULLS LAST');
+      final t = await tx.execute('SELECT id::text, no, tarih, CAST(dosyalar AS text[]), yontem, hazirlayan::text, onaylayan::text, '
+          'onay_tarihi FROM hukuk.imha_tutanagi ORDER BY tarih DESC');
+      final s = await tx.execute('SELECT hukuk.son_periyodik_imha()');
+      return (d, t, s.first[0]);
+    });
+    final bugun = Tarih.from(DateTime.now());
+    final sonImha = son == null ? null : tarihDegeri(son);
+    final sonraki = sonImha?.ayEkle(SaklamaVeImha.periyodikImhaAyi);
+    return jsonYanit({
+      'sonPeriyodikImha': sonImha?.isoBicim,
+      'sonrakiPeriyodikImha': sonraki?.isoBicim,
+      'periyodikImhaGecikti': sonraki != null && bugun.isAfter(sonraki),
+      'kurallar': [
+        for (final r in _saklamaPolitikasi.kurallar)
+          {'kategori': r.kategori.name, 'sureYil': r.sureYil, 'dayanak': r.dayanak, 'onayDurumu': r.onayDurumu.name},
+      ],
+      'kayitlar': [
+        for (final r in dosyalar)
+          () {
+            final d = _saklamaPolitikasi.degerlendir(_saklamaKaydi(r), bugun);
+            return {
+              'id': d.kayit.id,
+              'ad': d.kayit.ad,
+              'kategori': d.kayit.kategori.name,
+              'kapanis': d.kayit.kapanis?.isoBicim,
+              'saklamaEngeli': d.kayit.yasalSaklamaEngeli,
+              'durum': d.durum.name,
+              'imhaTarihi': d.imhaTarihi?.isoBicim,
+            };
+          }(),
+      ],
+      'tutanaklar': [
+        for (final r in tutanaklar)
+          {
+            'id': r[0],
+            'no': r[1],
+            'tarih': tarihMetni(r[2]),
+            'dosyalar': r[3],
+            'yontem': r[4],
+            'hazirlayan': r[5],
+            'onaylayan': r[6],
+            'onayTarihi': r[7] == null ? null : tarihMetni(r[7]),
+          },
+      ],
+    });
+  }
+
+  /// Tutanak taslağı: yalnızca saklama süresi dolmuş, kapalı ve engelsiz dosyalar (süre kontrolü sunucuda, çekirdek
+  /// politikasıyla; kapalılık ve engel veritabanında da). Onay başka bir yöneticiden gelir.
+  Future<Response> _imhaTutanagi(Request istek) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final yontem = enumAlani(j, 'yontem', ImhaYontemi.values);
+    final idler = {for (final x in (j['dosyalar'] as List? ?? const [])) '$x'};
+    if (idler.isEmpty) throw const ApiHatasi(400, 'İmha edilecek kayıt seçilmedi.', kod: 'eksik_alan');
+    final bugun = Tarih.from(DateTime.now());
+    final sonuc = await vt.kiraciIcin(k, (tx) async {
+      final rs = await tx.execute(
+        Sql.named('SELECT $_saklamaSutunlari FROM hukuk.dosya WHERE id = ANY(CAST(@i AS uuid[]))'),
+        parameters: {'i': '{${idler.join(',')}}'},
+      );
+      if (rs.length != idler.length) throw const ApiHatasi(400, 'Seçilen dosyalardan bazıları bulunamadı.', kod: 'gecersiz_istek');
+      for (final r in rs) {
+        if (r[6] != null) throw ApiHatasi(409, '${r[1]}: zaten imha edilmiş.', kod: 'kural');
+        final d = _saklamaPolitikasi.degerlendir(_saklamaKaydi(r), bugun);
+        if (d.durum != ImhaDurumu.imhayaHazir) {
+          throw ApiHatasi(409, '${d.kayit.ad}: ${d.durum.ad.toLowerCase()}; imha edilemez.', kod: 'kural');
+        }
+      }
+      await tx.execute(Sql.named("SELECT pg_advisory_xact_lock(hashtextextended('imha' || @k, 0))"), parameters: {'k': k.kiraciId});
+      final sira = await tx.execute(
+        Sql.named("SELECT count(*) + 1 FROM hukuk.imha_tutanagi WHERE no LIKE @o"),
+        parameters: {'o': 'IT-${bugun.yil}-%'},
+      );
+      final no = 'IT-${bugun.yil}-${(sira.first[0]! as int).toString().padLeft(3, '0')}';
+      final t = await tx.execute(
+        Sql.named('INSERT INTO hukuk.imha_tutanagi (kiraci_id, no, dosyalar, yontem) '
+            'VALUES (CAST(@k AS uuid), @n, CAST(@d AS uuid[]), @y) RETURNING id::text'),
+        parameters: {'k': k.kiraciId, 'n': no, 'd': '{${idler.join(',')}}', 'y': yontem.name},
+      );
+      await DosyaApi.denetim(tx, k, 'olusturma', 'imha_tutanagi', no, '${idler.length} kayıt · ${yontem.ad}');
+      return {'id': t.first[0], 'no': no};
+    });
+    return jsonYanit(sonuc, durum: 201);
+  }
+
+  Future<Response> _imhaOnay(Request istek, String id) async {
+    final k = kimlik(istek);
+    await vt.kiraciIcin(
+        k, (tx) => tx.execute(Sql.named('SELECT hukuk.imha_tutanagi_onayla(CAST(@i AS uuid))'), parameters: {'i': id}));
+    return jsonYanit({'onaylandi': true});
+  }
+
+  /// Yasal saklama engeli (dava, denetim, resmî talep); boş gönderilirse kaldırılır. Yalnızca yöneticiler.
+  Future<Response> _saklamaEngeli(Request istek, String dosyaId) async {
+    final k = kimlik(istek);
+    final engel = ((await jsonGovde(istek))['engel'] as String?)?.trim();
+    final n = await vt.kiraciIcin(k, (tx) async {
+      final y = await tx.execute('SELECT hukuk.tum_yetkili()');
+      if (y.first[0] != true) throw const ApiHatasi(403, 'Saklama engelini yalnızca yöneticiler değiştirebilir.', kod: 'yasak');
+      final rs = await tx.execute(
+        Sql.named('UPDATE hukuk.dosya SET saklama_engeli = @e WHERE id = CAST(@d AS uuid)'),
+        parameters: {'e': engel == null || engel.isEmpty ? null : engel, 'd': dosyaId},
+      );
+      if (rs.affectedRows == 1) {
+        await DosyaApi.denetim(tx, k, 'degisiklik', 'dosya', dosyaId,
+            engel == null || engel.isEmpty ? 'Saklama engeli kaldırıldı' : 'Saklama engeli: $engel');
+      }
+      return rs.affectedRows;
+    });
+    if (n == 0) throw ApiHatasi.bulunamadi;
+    return jsonYanit({'saklamaEngeli': engel});
   }
 }

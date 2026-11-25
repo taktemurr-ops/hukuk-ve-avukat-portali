@@ -108,8 +108,9 @@ class _KvkkEkraniState extends State<KvkkEkrani> {
                     key: const Key('kvkk-tutanak'),
                     onPressed: _secilen.isEmpty
                         ? null
-                        : () {
-                            final h = depo.imhaTutanagiHazirla({..._secilen}, _yontem);
+                        : () async {
+                            final h = await depo.imhaTutanagiHazirla({..._secilen}, _yontem);
+                            if (!mounted) return;
                             if (h == null) setState(_secilen.clear);
                             _mesaj(h, 'İmha tutanağı hazırlandı; ikinci bir yetkilinin onayı bekleniyor.');
                           },
@@ -137,7 +138,10 @@ class _KvkkEkraniState extends State<KvkkEkrani> {
                                   ? const DurumRozeti('İkinci onay bekliyor', RozetTuru.uyari)
                                   : FilledButton(
                                       key: Key('kvkk-onayla-${t.no}'),
-                                      onPressed: () => _mesaj(depo.imhaTutanagiOnayla(t), 'İmha onaylandı.'),
+                                      onPressed: () async {
+                                        final h = await depo.imhaTutanagiOnayla(t);
+                                        if (mounted) _mesaj(h, 'İmha onaylandı.');
+                                      },
                                       child: const Text('Onayla ve imha et'),
                                     ),
                         ),

@@ -874,7 +874,27 @@ class BellekVeriDeposu extends ChangeNotifier {
   ];
   final Set<String> _imhaEdilen = {};
 
-  List<SaklamaKaydi> get saklamaKayitlari => [
+  /// Sunucu bağlıyken kayıtlar ve tutanaklar sunucudan gelir; tutanak no → sunucu kimliği.
+  List<SaklamaKaydi>? _sunucuSaklama;
+  final Map<String, String> _tutanakIdleri = {};
+
+  void sunucuSaklamaVerisiniYukle({
+    required List<SaklamaKaydi> kayitlar,
+    required List<(String, ImhaTutanagi)> tutanaklar,
+    Tarih? sonPeriyodikImha,
+  }) {
+    _sunucuSaklama = kayitlar;
+    _tutanakIdleri
+      ..clear()
+      ..addEntries(tutanaklar.map((t) => MapEntry(t.$2.no, t.$1)));
+    saklama.tutanaklar
+      ..clear()
+      ..addAll(tutanaklar.map((t) => t.$2).toList().reversed);
+    saklama.sonPeriyodikImha = sonPeriyodikImha;
+    notifyListeners();
+  }
+
+  List<SaklamaKaydi> get saklamaKayitlari => _sunucuSaklama ?? [
         for (final k in _arsiv)
           if (!_imhaEdilen.contains(k.id)) k,
         for (final d in _dosyalar)
@@ -886,8 +906,13 @@ class BellekVeriDeposu extends ChangeNotifier {
           ),
       ];
 
-  /// Hata varsa mesajı döner.
-  String? imhaTutanagiHazirla(Set<String> idler, ImhaYontemi yontem) {
+  /// Hata varsa mesajı döner. Sunucuda süre, kapalılık ve engel yeniden denetlenir.
+  Future<String?> imhaTutanagiHazirla(Set<String> idler, ImhaYontemi yontem) => sunucudaVeyaYerelde(
+        sunucuda: (u) => u.imhaTutanagiHazirla(idler, yontem),
+        yerelde: () => _imhaTutanagiHazirlaYerel(idler, yontem),
+      );
+
+  String? _imhaTutanagiHazirlaYerel(Set<String> idler, ImhaYontemi yontem) {
     try {
       final t = saklama.tutanakHazirla(
         secilen: saklamaKayitlari.where((k) => idler.contains(k.id)),
@@ -905,8 +930,17 @@ class BellekVeriDeposu extends ChangeNotifier {
     }
   }
 
-  /// Onaylanan tutanaktaki kayıtlar imha edilmiş sayılır (gerçekte belge servisi siler ve kanıt üretir).
-  String? imhaTutanagiOnayla(ImhaTutanagi t) {
+  /// Onaylanan tutanaktaki kayıtlar imha edilmiş sayılır. Sunucuda dört göz kuralı veritabanında uygulanır;
+  /// fiziksel silme avukat onaylı politika kesinleşene kadar yapılmaz, kayıt yalnızca işaretlenir.
+  Future<String?> imhaTutanagiOnayla(ImhaTutanagi t) {
+    final id = _tutanakIdleri[t.no];
+    return sunucudaVeyaYerelde(
+      sunucuda: (u) => id == null ? Future.error(Exception('Tutanak sunucuda bulunamadı.')) : u.imhaTutanagiOnayla(id),
+      yerelde: () => _imhaTutanagiOnaylaYerel(t),
+    );
+  }
+
+  String? _imhaTutanagiOnaylaYerel(ImhaTutanagi t) {
     try {
       saklama.tutanakOnayla(t, aktifKullanici, Tarih.from(DateTime.now()));
       _imhaEdilen.addAll(t.kayitIdleri);
