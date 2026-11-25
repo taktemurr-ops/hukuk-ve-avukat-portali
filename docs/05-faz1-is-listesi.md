@@ -49,10 +49,10 @@ Durum: ☐ başlamadı · ◐ sürüyor · ☑ bitti. Sorumlu: K = kurucu, A = a
 
 | Durum | İş |
 | --- | --- |
-| ☐ | Belge yükleme, sürüm, hash, zararlı dosya taraması, OCR, arama |
-| ☐ | Şablon motoru, DOCX/PDF/UDF çıktı |
-| ☐ | Hesaplama araçları (faiz, harç, AAÜT, döviz) |
-| ☐ | Cari hesap, emanet hesabı, ücret sözleşmesi, e-SMM |
+| ◐ | Belge yükleme, sürüm, hash, zararlı dosya taraması, OCR, arama — sürüm ve SHA-256 bütünlük, izinli dosya türleri, dosyada belge listesi hazır; gerçek dosya yükleme, zararlı dosya taraması ve OCR sunucu bekliyor |
+| ◐ | Şablon motoru, DOCX/PDF/UDF çıktı — alan birleştirme, koşullu blok, eksik alan raporu ve 3 taslak şablon (mazeret, ihtarname, ücret sözleşmesi) hazır; DOCX/PDF/UDF dönüşümü Python servisi bekliyor; şablon metinleri avukat onayı bekliyor |
+| ◐ | Hesaplama araçları (faiz, harç, AAÜT, döviz) — dönemsel yasal faiz (%9/%24/%31), avans faizi, 2026 harçları, AAÜT 2025-26 ve 2026-27, makbuz hesabı hazır; avans faizi geçmişi, döviz ve işçilik alacakları bekliyor; tüm tarifeler avukat onayı bekliyor |
+| ◐ | Cari hesap, emanet hesabı, ücret sözleşmesi, e-SMM — cari (avans/masraf/ücret), emanet (eksiye düşmeme, onaylı mahsup, bekleme uyarısı) ve Finans ekranı hazır; e-SMM entegratör bağlantısı bekliyor |
 | ☐ | Temel sözleşme kaydı ve onayı |
 
 ## Arayüz

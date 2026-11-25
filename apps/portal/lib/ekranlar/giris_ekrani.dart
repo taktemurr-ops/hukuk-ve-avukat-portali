@@ -51,25 +51,17 @@ class _GirisEkraniState extends State<GirisEkrani> {
   }
 
   Future<void> _sifremiUnuttum() async {
-    final eposta = TextEditingController(text: _eposta.text);
-    final gonder = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Şifre sıfırlama'),
-        content: TextField(
-          controller: eposta,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'E-posta'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Gönder')),
-        ],
+    final adres = await MetinGirisDiyalogu.goster(
+      context,
+      MetinGirisDiyalogu(
+        baslik: 'Şifre sıfırlama',
+        etiket: 'E-posta',
+        ilkDeger: _eposta.text,
+        onayMetni: 'Gönder',
+        klavye: TextInputType.emailAddress,
       ),
     );
-    final adres = eposta.text;
-    eposta.dispose();
-    if (gonder != true) return;
+    if (adres == null) return;
     await widget.servis.sifreSifirlamaIste(adres);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

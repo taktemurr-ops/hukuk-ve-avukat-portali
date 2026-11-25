@@ -154,3 +154,63 @@ class YakindaSayfasi extends StatelessWidget {
     );
   }
 }
+
+/// Tek alanlı metin girişi diyaloğu; denetleyiciyi kendi yönetir (kapanma animasyonunda güvenli).
+class MetinGirisDiyalogu extends StatefulWidget {
+  const MetinGirisDiyalogu({
+    super.key,
+    required this.baslik,
+    required this.etiket,
+    this.ilkDeger = '',
+    this.onayMetni = 'Kaydet',
+    this.alanAnahtari,
+    this.onayAnahtari,
+    this.klavye,
+  });
+
+  final String baslik;
+  final String etiket;
+  final String ilkDeger;
+  final String onayMetni;
+  final Key? alanAnahtari;
+  final Key? onayAnahtari;
+  final TextInputType? klavye;
+
+  static Future<String?> goster(BuildContext context, MetinGirisDiyalogu d) =>
+      showDialog<String>(context: context, builder: (_) => d);
+
+  @override
+  State<MetinGirisDiyalogu> createState() => _MetinGirisDiyaloguState();
+}
+
+class _MetinGirisDiyaloguState extends State<MetinGirisDiyalogu> {
+  late final _c = TextEditingController(text: widget.ilkDeger);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.baslik),
+      content: TextField(
+        key: widget.alanAnahtari,
+        controller: _c,
+        autofocus: true,
+        keyboardType: widget.klavye,
+        decoration: InputDecoration(labelText: widget.etiket),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
+        FilledButton(
+          key: widget.onayAnahtari,
+          onPressed: () => Navigator.pop(context, _c.text),
+          child: Text(widget.onayMetni),
+        ),
+      ],
+    );
+  }
+}

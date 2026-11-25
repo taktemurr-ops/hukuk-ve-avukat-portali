@@ -11,7 +11,8 @@ import 'dosyalar_ekrani.dart';
 import 'genel_bakis_ekrani.dart';
 import 'hesap_turleri_ekrani.dart';
 import 'muvekkiller_ekrani.dart';
-import 'sure_hesaplama_ekrani.dart';
+import 'finans_ekrani.dart';
+import 'hesaplamalar_ekrani.dart';
 import 'takvim_ekrani.dart';
 import 'tebligatlar_ekrani.dart';
 import 'vekaletler_ekrani.dart';
@@ -26,7 +27,8 @@ enum _B {
   muvekkiller,
   cikarCatismasi,
   vekaletler,
-  sureHesapla,
+  finans,
+  hesaplamalar,
   raporlar,
   ayarlar,
 }
@@ -71,7 +73,9 @@ class _AnaKabukState extends State<AnaKabuk> {
     _Bolum(_B.muvekkiller, 'Müvekkiller', Icons.people_outline),
     _Bolum(_B.cikarCatismasi, 'Çıkar çatışması', Icons.gpp_maybe_outlined),
     _Bolum(_B.vekaletler, 'Vekâletler', Icons.assignment_ind_outlined),
-    _Bolum(_B.sureHesapla, 'Süre hesapla', Icons.event_available_outlined),
+    _Bolum(_B.finans, 'Finans', Icons.account_balance_wallet_outlined,
+        yalnizca: {HesapTuru.avukatlikBurosu, HesapTuru.hukukBurosu}),
+    _Bolum(_B.hesaplamalar, 'Hesaplamalar', Icons.calculate_outlined),
     _Bolum(_B.raporlar, 'Raporlar', Icons.bar_chart_rounded),
   ];
 
@@ -99,7 +103,7 @@ class _AnaKabukState extends State<AnaKabuk> {
         HizliIslem.tebligat => _B.tebligatlar,
         HizliIslem.kisi => _B.muvekkiller,
         HizliIslem.cikarCatismasi => _B.cikarCatismasi,
-        HizliIslem.sureHesapla => _B.sureHesapla,
+        HizliIslem.sureHesapla => _B.hesaplamalar,
       });
 
   Widget _sayfa() => switch (_secili) {
@@ -124,7 +128,8 @@ class _AnaKabukState extends State<AnaKabuk> {
         _B.muvekkiller => MuvekkillerEkrani(depo: _depo),
         _B.cikarCatismasi => CikarCatismasiEkrani(depo: _depo, oturum: widget.oturum),
         _B.vekaletler => VekaletlerEkrani(depo: _depo, oturum: widget.oturum),
-        _B.sureHesapla => const SureHesaplamaEkrani(),
+        _B.finans => FinansEkrani(depo: _depo),
+        _B.hesaplamalar => const HesaplamalarEkrani(),
         _B.raporlar => const YakindaSayfasi(
             baslik: 'Raporlar',
             faz: 'Faz 2',

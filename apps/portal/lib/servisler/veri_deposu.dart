@@ -65,6 +65,7 @@ class BellekVeriDeposu extends ChangeNotifier {
       ),
     ]);
     d._operasyonDemosu(avukatId, Tarih.from(DateTime.now()));
+    d._finansVeBelgeDemosu(avukatId, Tarih.from(DateTime.now()));
     return d;
   }
 
@@ -403,5 +404,172 @@ class BellekVeriDeposu extends ChangeNotifier {
         eslesmeDurumu: EslesmeDurumu.onerildi,
       ),
     ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Finans ve belgeler
+  // ---------------------------------------------------------------------------
+
+  final List<CariHareket> _cari = [];
+  final EmanetHesabi emanet = EmanetHesabi();
+  final List<Belge> _belgeler = [];
+  final Map<String, String> _belgeMetinleri = {};
+
+  List<CariHareket> cariHareketler(String muvekkilId) =>
+      _cari.where((h) => h.muvekkilId == muvekkilId).toList()..sort((a, b) => b.tarih.compareTo(a.tarih));
+
+  CariOzet cariOzet(String muvekkilId) => CariOzet(_cari.where((h) => h.muvekkilId == muvekkilId));
+
+  /// Cari veya emanet hareketi olan müvekkiller.
+  List<Kisi> get finansMuvekkilleri {
+    final idler = {..._cari.map((h) => h.muvekkilId), ...emanet.hareketler.map((h) => h.muvekkilId)};
+    return [for (final id in idler) if (kisi(id) != null) kisi(id)!]..sort((a, b) => a.ad.compareTo(b.ad));
+  }
+
+  void cariEkle({required String muvekkilId, required CariHareketTuru tur, required Para tutar, required String aciklama, String? dosyaId}) {
+    _cari.add(CariHareket(
+      id: yeniId('c'),
+      muvekkilId: muvekkilId,
+      dosyaId: dosyaId,
+      tur: tur,
+      tutar: tutar,
+      tarih: Tarih.from(DateTime.now()),
+      aciklama: aciklama,
+    ));
+    notifyListeners();
+  }
+
+  /// Hata varsa mesajı döner.
+  String? emanetEkle(EmanetHareketi h) {
+    try {
+      emanet.ekle(h);
+      notifyListeners();
+      return null;
+    } on StateError catch (e) {
+      return e.message;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    }
+  }
+
+  String? dosyaMuvekkili(String dosyaId) {
+    for (final k in _dosyaKayitlari) {
+      if (k.dosyaId == dosyaId && k.sifat == TarafSifati.muvekkil) return k.kisiId;
+    }
+    return null;
+  }
+
+  String? dosyaKarsiTarafi(String dosyaId) {
+    for (final k in _dosyaKayitlari) {
+      if (k.dosyaId == dosyaId && k.sifat == TarafSifati.karsiTaraf) return k.kisiId;
+    }
+    return null;
+  }
+
+  List<Belge> dosyaBelgeleri(String dosyaId) => _belgeler.where((b) => b.dosyaId == dosyaId).toList();
+
+  String? belgeMetni(String belgeId) => _belgeMetinleri[belgeId];
+
+  Belge belgeOlustur({required String dosyaId, required String ad, required String metin, required String yukleyen, BelgeTuru tur = BelgeTuru.dilekce}) {
+    final b = Belge(
+      id: yeniId('b'),
+      kiraciId: kiraciId,
+      ad: ad,
+      tur: tur,
+      dosyaId: dosyaId,
+      ilkSurum: BelgeSurumu(
+        no: 1,
+        ozet: metinOzeti(metin),
+        boyut: metin.length,
+        yukleyen: yukleyen,
+        tarih: Tarih.from(DateTime.now()),
+        dosyaAdi: '$ad.txt',
+      ),
+    );
+    _belgeler.add(b);
+    _belgeMetinleri[b.id] = metin;
+    notifyListeners();
+    return b;
+  }
+
+  /// Şablon alanları için dosya, müvekkil, karşı taraf ve kullanıcı bilgileri.
+  Map<String, String?> sablonVerisi({required String dosyaId, required String avukatAdi, required String buroAdi}) {
+    final d = dosya(dosyaId);
+    final m = kisi(dosyaMuvekkili(dosyaId) ?? '');
+    final k = kisi(dosyaKarsiTarafi(dosyaId) ?? '');
+    final bugun = Tarih.from(DateTime.now());
+    Durusma? siradaki;
+    for (final du in _durusmalar.where((x) => x.dosyaId == dosyaId && x.baslangic.isAfter(DateTime.now()))) {
+      if (siradaki == null || du.baslangic.isBefore(siradaki.baslangic)) siradaki = du;
+    }
+    String? durusmaTarihi;
+    if (siradaki != null) {
+      final b = siradaki.baslangic;
+      durusmaTarihi = '${Tarih.from(b).turkceBicim} ${b.hour.toString().padLeft(2, '0')}:${b.minute.toString().padLeft(2, '0')}';
+    }
+    return {
+      'mahkeme': d?.mahkeme?.toUpperCase(),
+      'dosya.esasNo': d?.esasNo,
+      'dosya.baslik': d?.baslik,
+      'muvekkil.ad': m?.ad,
+      'muvekkil.kimlikNo': m?.kimlikNo,
+      'karsiTaraf.ad': k?.ad,
+      'karsiTaraf.adres': k?.adres,
+      'avukat.ad': avukatAdi,
+      'buro.ad': buroAdi,
+      'durusma.tarih': durusmaTarihi,
+      'bugun': bugun.turkceBicim,
+    };
+  }
+
+  void _finansVeBelgeDemosu(String av1, Tarih bugun) {
+    void c(String m, CariHareketTuru t, num tutar, String a, int gunOnce, {String? dosya}) => _cari.add(CariHareket(
+          id: yeniId('c'),
+          muvekkilId: m,
+          dosyaId: dosya,
+          tur: t,
+          tutar: Para.tl(tutar),
+          tarih: bugun.gunEkle(-gunOnce),
+          aciklama: a,
+        ));
+    c('abc', CariHareketTuru.masrafAvansiAlindi, 10000, 'Masraf avansı', 60, dosya: 'd1');
+    c('abc', CariHareketTuru.masrafYapildi, 732, 'Başvurma harcı', 58, dosya: 'd1');
+    c('abc', CariHareketTuru.masrafYapildi, 1500, 'Bilirkişi ücreti', 20, dosya: 'd1');
+    c('abc', CariHareketTuru.ucretTahakkuku, 120000, 'Ücret sözleşmesi 1. taksit', 60, dosya: 'd1');
+    c('abc', CariHareketTuru.ucretTahsilati, 60000, 'Havale', 45, dosya: 'd1');
+    c('ayse', CariHareketTuru.masrafAvansiAlindi, 2000, 'Masraf avansı', 30, dosya: 'd2');
+    c('ayse', CariHareketTuru.masrafYapildi, 2100, 'Arabuluculuk ve tebligat giderleri', 10, dosya: 'd2');
+
+    emanet.ekle(EmanetHareketi(
+      id: yeniId('e'),
+      muvekkilId: 'abc',
+      dosyaId: 'd1',
+      tur: EmanetHareketTuru.giris,
+      tutar: Para.tl(250000),
+      tarih: bugun.gunEkle(-20),
+      aciklama: 'İcra dosyasından tahsilat',
+    ));
+
+    final dilekce = belgeOlustur(
+      dosyaId: 'd1',
+      ad: 'Dava dilekçesi',
+      metin: 'İSTANBUL ASLİYE TİCARET MAHKEMESİNE\n\nDAVACI: ABC Gıda Sanayi ve Ticaret A.Ş.\n...',
+      yukleyen: av1,
+    );
+    dilekce.yeniSurum(
+      ozet: metinOzeti('düzeltilmiş dilekçe'),
+      boyut: 20,
+      yukleyen: av1,
+      tarih: bugun.gunEkle(-50),
+      dosyaAdi: 'Dava dilekçesi v2.docx',
+      aciklama: 'Islah sonrası',
+    );
+    belgeOlustur(
+      dosyaId: 'd1',
+      ad: 'Gerekçeli karar',
+      metin: 'T.C. İSTANBUL 5. ASLİYE TİCARET MAHKEMESİ\nGEREKÇELİ KARAR\n...',
+      yukleyen: av1,
+      tur: BelgeTuru.karar,
+    );
   }
 }

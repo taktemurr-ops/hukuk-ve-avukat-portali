@@ -33,13 +33,13 @@ Future<void> _bas(WidgetTester tester, String anahtar) async {
 }
 
 void main() {
-  testWidgets('Dar ekranda çekmece menüyle süre hesaplama açılır ve hesap yapar', (tester) async {
+  testWidgets('Dar ekranda çekmece menüyle hesaplamalar açılır ve hesap yapar', (tester) async {
     await tester.pumpWidget(_kabuk());
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Menüyü aç'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Süre hesapla'));
+    await tester.tap(find.text('Hesaplamalar'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Deneme sürümü'), findsOneWidget);

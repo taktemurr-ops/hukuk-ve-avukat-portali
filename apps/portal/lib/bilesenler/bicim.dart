@@ -34,3 +34,15 @@ String basHarfler(String ad) {
   final harfler = parcalar.where((p) => p.isNotEmpty).take(2).map((p) => p.substring(0, 1)).join();
   return harfler.replaceAll('i', 'İ').toUpperCase();
 }
+
+/// "1.234.567,89" veya "1234567.89" → 1234567.89; çözülemezse null.
+double? tutarCoz(String metin) {
+  var s = metin.trim().replaceAll(' ', '').replaceAll('TL', '').replaceAll('₺', '');
+  if (s.isEmpty) return null;
+  if (s.contains(',')) {
+    s = s.replaceAll('.', '').replaceAll(',', '.');
+  } else if (RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(s)) {
+    s = s.replaceAll('.', '');
+  }
+  return double.tryParse(s);
+}

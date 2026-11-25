@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../bilesenler/bicim.dart';
+import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/veri_deposu.dart';
 
@@ -64,31 +65,15 @@ class DosyaDetayEkrani extends StatelessWidget {
   final Oturum oturum;
   final String dosyaId;
 
-  Future<String?> _kanitIste(BuildContext context, String baslik) async {
-    final c = TextEditingController();
-    final sonuc = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(baslik),
-        content: TextField(
-          key: const Key('kanit-alani'),
-          controller: c,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'İşlem no, makbuz no veya belge adı'),
+  Future<String?> _kanitIste(BuildContext context, String baslik) => MetinGirisDiyalogu.goster(
+        context,
+        MetinGirisDiyalogu(
+          baslik: baslik,
+          etiket: 'İşlem no, makbuz no veya belge adı',
+          alanAnahtari: const Key('kanit-alani'),
+          onayAnahtari: const Key('kanit-onayla'),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
-          FilledButton(
-            key: const Key('kanit-onayla'),
-            onPressed: () => Navigator.pop(context, c.text),
-            child: const Text('Kaydet'),
-          ),
-        ],
-      ),
-    );
-    c.dispose();
-    return sonuc;
-  }
+      );
 
   void _mesaj(BuildContext context, String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
@@ -215,6 +200,32 @@ class DosyaDetayEkrani extends StatelessWidget {
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
               const Divider(height: 32),
+              Row(
+                children: [
+                  Expanded(child: Text('Belgeler', style: metin.titleMedium)),
+                  OutlinedButton.icon(
+                    key: const Key('sablondan-belge'),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => SablondanBelgeEkrani(depo: depo, oturum: oturum, dosyaId: d.id),
+                    )),
+                    icon: const Icon(Icons.edit_document),
+                    label: const Text('Şablondan belge'),
+                  ),
+                ],
+              ),
+              if (depo.dosyaBelgeleri(d.id).isEmpty) const ListTile(title: Text('Belge yok.')),
+              for (final b in depo.dosyaBelgeleri(d.id))
+                ListTile(
+                  key: Key('belge-${b.id}'),
+                  leading: Icon(b.gizli ? Icons.lock_outline : Icons.description_outlined),
+                  title: Text(b.ad),
+                  subtitle: Text(
+                    'Sürüm ${b.guncel.no} · ${b.guncel.tarih.turkceBicim} · ${depo.kullaniciAdi(b.guncel.yukleyen)} · '
+                    'SHA-256 ${b.guncel.ozet.substring(0, 12)}…'
+                    '${b.surumler.length > 1 ? ' · orijinal sürüm 1 korunuyor' : ''}',
+                  ),
+                ),
+              const Divider(height: 32),
               Text('Tebligatlar', style: metin.titleMedium),
               if (tebligatlar.isEmpty) const ListTile(title: Text('Tebligat yok.')),
               for (final t in tebligatlar)
@@ -229,6 +240,125 @@ class DosyaDetayEkrani extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Şablon seç → dosya verileriyle doldur → eksik alanları gör → belge olarak kaydet.
+class SablondanBelgeEkrani extends StatefulWidget {
+  const SablondanBelgeEkrani({super.key, required this.depo, required this.oturum, required this.dosyaId});
+
+  final BellekVeriDeposu depo;
+  final Oturum oturum;
+  final String dosyaId;
+
+  @override
+  State<SablondanBelgeEkrani> createState() => _SablondanBelgeEkraniState();
+}
+
+class _SablondanBelgeEkraniState extends State<SablondanBelgeEkrani> {
+  BelgeSablonu? _sablon;
+  late final TextEditingController _metin = TextEditingController();
+  SablonCiktisi? _cikti;
+
+  @override
+  void dispose() {
+    _metin.dispose();
+    super.dispose();
+  }
+
+  void _sec(BelgeSablonu s) {
+    final cikti = s.uygula(widget.depo.sablonVerisi(
+      dosyaId: widget.dosyaId,
+      avukatAdi: widget.oturum.adSoyad,
+      buroAdi: widget.oturum.kurumAdi,
+    ));
+    setState(() {
+      _sablon = s;
+      _cikti = cikti;
+      _metin.text = cikti.metin;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cikti = _cikti;
+    final kalanEksik = RegExp(r'\[EKSİK: [^\]]+\]').allMatches(_metin.text).length;
+    return Scaffold(
+      appBar: AppBar(title: Text('Şablondan belge · ${widget.depo.dosya(widget.dosyaId)?.baslik ?? ''}')),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final s in BelgeSablonu.hazir)
+                ChoiceChip(
+                  key: Key('sablon-${s.kod}'),
+                  label: Text(s.ad),
+                  selected: _sablon == s,
+                  onSelected: (_) => _sec(s),
+                ),
+            ],
+          ),
+          if (cikti != null) ...[
+            const SizedBox(height: 16),
+            if (cikti.sablon.onayDurumu != OnayDurumu.onayli)
+              const DurumRozeti('Şablon metni avukat onayı bekliyor', RozetTuru.uyari),
+            if (cikti.sablon.dayanak != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('Dayanak: ${cikti.sablon.dayanak}'),
+              ),
+            if (cikti.eksikAlanlar.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text('Dosyada bulunamayan alanlar (metinde [EKSİK] olarak işaretli):',
+                  style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [for (final a in cikti.eksikAlanlar) DurumRozeti(a, RozetTuru.kritik)],
+              ),
+            ],
+            const SizedBox(height: 16),
+            TextField(
+              key: const Key('belge-metni'),
+              controller: _metin,
+              maxLines: null,
+              minLines: 16,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(kalanEksik > 0
+                      ? '$kalanEksik eksik alan doldurulmadan belge kaydedilemez.'
+                      : 'Belge kaydedilince SHA-256 özetiyle sürüm 1 olarak saklanır.'),
+                ),
+                FilledButton(
+                  key: const Key('belge-kaydet'),
+                  onPressed: kalanEksik > 0
+                      ? null
+                      : () {
+                          widget.depo.belgeOlustur(
+                            dosyaId: widget.dosyaId,
+                            ad: _sablon!.ad,
+                            metin: _metin.text,
+                            yukleyen: widget.oturum.kullaniciId,
+                          );
+                          Navigator.of(context).pop();
+                        },
+                  child: const Text('Belge olarak kaydet'),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

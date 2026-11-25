@@ -91,7 +91,7 @@ class GenelBakisEkrani extends StatelessWidget {
                 PopupMenuItem(value: HizliIslem.tebligat, child: Text('Tebligat kaydet')),
                 PopupMenuItem(value: HizliIslem.kisi, child: Text('Yeni müvekkil / taraf')),
                 PopupMenuItem(value: HizliIslem.cikarCatismasi, child: Text('Çıkar çatışması taraması')),
-                PopupMenuItem(value: HizliIslem.sureHesapla, child: Text('Süre hesapla')),
+                PopupMenuItem(value: HizliIslem.sureHesapla, child: Text('Süre, faiz, harç hesapla')),
               ],
               child: IgnorePointer(
                 child: FilledButton.icon(
