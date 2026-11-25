@@ -232,19 +232,41 @@ class _TalepFormuState extends State<TalepFormu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('talep-gonder'),
-          onPressed: () {
+          onPressed: () async {
             if (_baslik.text.trim().isEmpty || _birim.text.trim().isEmpty) {
               setState(() => _hata = 'Konu ve birim zorunludur.');
               return;
             }
-            k.talepOlustur(
-              baslik: _baslik.text,
-              aciklama: _aciklama.text,
-              tur: _tur,
-              oncelik: _oncelik,
-              birim: _birim.text.trim(),
-              sozlesmeId: widget.sozlesmeId,
+            final baslik = _baslik.text;
+            final aciklama = _aciklama.text;
+            final birim = _birim.text.trim();
+            final hata = await k.sunucudaVeyaYerelde(
+              sunucuda: (u) => u.talepOlustur(
+                baslik: baslik,
+                aciklama: aciklama,
+                tur: _tur,
+                oncelik: _oncelik,
+                birim: birim,
+                sozlesmeId: widget.sozlesmeId,
+                sirketId: k.aktifSirketId,
+              ),
+              yerelde: () {
+                k.talepOlustur(
+                  baslik: baslik,
+                  aciklama: aciklama,
+                  tur: _tur,
+                  oncelik: _oncelik,
+                  birim: birim,
+                  sozlesmeId: widget.sozlesmeId,
+                );
+                return null;
+              },
             );
+            if (!mounted) return;
+            if (hata != null) {
+              setState(() => _hata = hata);
+              return;
+            }
             Navigator.pop(context);
           },
           child: const Text('Gönder'),
@@ -278,12 +300,15 @@ class TalepDetayEkrani extends StatelessWidget {
       if (girilen == null || girilen.trim().isEmpty) return;
       not = girilen.trim();
     }
-    try {
-      kurumsal.talepDurumu(t, hedef, not: not);
-    } on Object catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
+    final hata = await kurumsal.sunucudaVeyaYerelde(
+      sunucuda: (u) => u.talepDurumu(t.id, hedef, not: not),
+      yerelde: () {
+        kurumsal.talepDurumu(t, hedef, not: not);
+        return null;
+      },
+    );
+    if (hata != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
     }
   }
 
@@ -338,8 +363,18 @@ class TalepDetayEkrani extends StatelessWidget {
                     label: const Text('Atanan'),
                     width: 320,
                     initialSelection: t.atanan.isEmpty ? null : t.atanan,
-                    onSelected: (kisi) {
-                      if (kisi != null && kisi != t.atanan) kurumsal.talepAta(t, kisi);
+                    onSelected: (kisi) async {
+                      if (kisi == null || kisi == t.atanan) return;
+                      final hata = await kurumsal.sunucudaVeyaYerelde(
+                        sunucuda: (u) => u.talepAta(t.id, kisi),
+                        yerelde: () {
+                          kurumsal.talepAta(t, kisi);
+                          return null;
+                        },
+                      );
+                      if (hata != null && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hata)));
+                      }
                     },
                     dropdownMenuEntries: [
                       for (final kisi in kurumsal.ekip) DropdownMenuEntry(value: kisi, label: kurumsal.kisiAdi(kisi)),

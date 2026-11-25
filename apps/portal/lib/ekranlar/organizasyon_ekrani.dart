@@ -113,8 +113,23 @@ class _SirketDiyaloguState extends State<_SirketDiyalogu> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
         FilledButton(
           key: const Key('sirket-kaydet'),
-          onPressed: () {
-            final h = k.sirketEkle(unvan: _unvan.text, vkn: _vkn.text, anaSirketId: _ana, kisaAd: _kisa.text);
+          onPressed: () async {
+            final vkn = _vkn.text.trim();
+            if (_unvan.text.trim().length < 3) {
+              setState(() => _hata = 'Unvan zorunludur.');
+              return;
+            }
+            if (vkn.isNotEmpty && !Dogrulayicilar.vknGecerli(vkn)) {
+              setState(() => _hata = 'Vergi kimlik numarası geçersiz.');
+              return;
+            }
+            final unvan = _unvan.text;
+            final kisa = _kisa.text;
+            final h = await k.sunucudaVeyaYerelde(
+              sunucuda: (u) => u.sirketEkle(unvan: unvan, vkn: vkn, anaSirketId: _ana, kisaAd: kisa),
+              yerelde: () => k.sirketEkle(unvan: unvan, vkn: vkn, anaSirketId: _ana, kisaAd: kisa),
+            );
+            if (!mounted) return;
             if (h == null) {
               Navigator.pop(context);
             } else {

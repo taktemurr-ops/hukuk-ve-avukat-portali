@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
+import 'kurumsal_senkronu.dart';
 import 'ornek_sozlesmeler.dart';
 import 'veri_deposu.dart';
 
@@ -344,7 +345,61 @@ class KurumsalDepo extends ChangeNotifier {
   List<Sozlesme> get onayimiBekleyenler =>
       [for (final s in sozlesmeler) if (onaySurecleri[s.id]?.onaylayabilir(kullaniciId) ?? false) s];
 
-  List<String> get ekip => [kullaniciId, ...hukukEkibi.keys];
+  List<String> get ekip => _sunucuEkibi ?? [kullaniciId, ...hukukEkibi.keys];
+
+  // ---------------------------------------------------------------------------
+  // Sunucu bağlantısı
+  // ---------------------------------------------------------------------------
+
+  /// Sunucuya bağlıyken şirket, sözleşme ve talep işlemleri bu kancadan geçer (sunucu tek doğru kaynaktır).
+  KurumsalUzak? uzak;
+  List<String>? _sunucuEkibi;
+
+  /// Sunucudan gelen veriyle önbelleği değiştirir.
+  void sunucuVerisiniYukle({
+    required List<Sirket> sirketler,
+    required List<Sozlesme> sozlesmeListesi,
+    required List<HukukTalebi> talepler,
+    required Map<String, OnaySureci> surecler,
+    required List<String> ekip,
+  }) {
+    grup = GrupYapisi(sirketler);
+    if (aktifSirketId != null && grup.sirket(aktifSirketId!) == null) aktifSirketId = null;
+    sozlesmeler
+      ..clear()
+      ..addAll(sozlesmeListesi);
+    defter.talepler
+      ..clear()
+      ..addAll(talepler);
+    onaySurecleri
+      ..clear()
+      ..addAll(surecler);
+    _sunucuEkibi = ekip;
+    notifyListeners();
+  }
+
+  /// Sunucu bağlıyken işlemi sunucuda, değilse yerelde yapar. Hata varsa kullanıcıya gösterilecek mesajı döner.
+  Future<String?> sunucudaVeyaYerelde({
+    required Future<void> Function(KurumsalUzak uzak) sunucuda,
+    required String? Function() yerelde,
+  }) async {
+    final u = uzak;
+    if (u == null) {
+      try {
+        return yerelde();
+      } on StateError catch (e) {
+        return e.message;
+      } on ArgumentError catch (e) {
+        return '${e.message}';
+      }
+    }
+    try {
+      await sunucuda(u);
+      return null;
+    } on Exception catch (e) {
+      return '$e';
+    }
+  }
 
   String? metin(String sozlesmeId) => _metinler[sozlesmeId];
 

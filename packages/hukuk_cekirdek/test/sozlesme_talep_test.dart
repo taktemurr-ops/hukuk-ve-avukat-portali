@@ -216,4 +216,16 @@ void main() {
     expect(t.slaSonGun, Tarih(2026, 11, 10));
     expect(t.beklemeBaslangici, isNull);
   });
+
+  test('tarama sonucu JSON gidiş-dönüşünde aynı kalır', () {
+    const metin = 'HİZMET SÖZLEŞMESİ. Sözleşmenin süresi 12 (on iki) ay olup 01.01.2026 tarihinde başlar. '
+        'Taraflardan biri süre bitiminden 30 gün önce yazılı bildirimde bulunmadıkça sözleşme aynı şartlarla '
+        'kendiliğinden bir yıl uzar. Hizmet bedeli aylık 50.000 TL + KDV\'dir.';
+    final t = const SozlesmeTarayici().tara(metin);
+    final geri = TaramaSonucu.fromJson(t.toJson());
+    expect(geri.toJson(), t.toJson());
+    expect(geri.riskPuani, t.riskPuani);
+    expect(geri.genelSeviye, t.genelSeviye);
+    expect(geri.otomatikYenileme, isTrue);
+  });
 }

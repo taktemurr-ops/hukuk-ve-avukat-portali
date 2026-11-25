@@ -77,6 +77,58 @@ class TaramaSonucu {
           : SozlesmeRiski.dusuk;
 
   static const uyari = 'Otomatik tarama sonucudur; hukukçu kontrolünden geçmeden kesin kabul edilmemelidir.';
+
+  /// Sunucuda (jsonb) saklamak ve istemciye taşımak için.
+  Map<String, Object?> toJson() => {
+        'tur': tur?.name,
+        'taraflar': taraflar,
+        'baslangic': baslangic?.isoBicim,
+        'bitis': bitis?.isoBicim,
+        'sureAy': sureAy,
+        'otomatikYenileme': otomatikYenileme,
+        'ihbarSuresiGun': ihbarSuresiGun,
+        'bedelKurus': bedel?.kurus,
+        'paraBirimi': bedel?.birim,
+        'odemeVadesiGun': odemeVadesiGun,
+        'yetkiliYer': yetkiliYer,
+        'uygulanacakHukuk': uygulanacakHukuk,
+        'tahkim': tahkim,
+        'bulunanMaddeler': bulunanMaddeler.toList()..sort(),
+        'bulgular': [
+          for (final b in bulgular)
+            {'kod': b.kod, 'baslik': b.baslik, 'seviye': b.seviye.name, 'aciklama': b.aciklama, 'alinti': b.alinti},
+        ],
+      };
+
+  factory TaramaSonucu.fromJson(Map<String, dynamic> j) {
+    Tarih? t(Object? v) => v is String ? Tarih.parse(v) : null;
+    final bedel = j['bedelKurus'];
+    return TaramaSonucu(
+      tur: SozlesmeTuru.values.where((x) => x.name == j['tur']).firstOrNull,
+      taraflar: [for (final x in (j['taraflar'] as List? ?? const [])) '$x'],
+      baslangic: t(j['baslangic']),
+      bitis: t(j['bitis']),
+      sureAy: j['sureAy'] as int?,
+      otomatikYenileme: j['otomatikYenileme'] == true,
+      ihbarSuresiGun: j['ihbarSuresiGun'] as int?,
+      bedel: bedel is int ? Para.kurus(bedel, birim: (j['paraBirimi'] as String?) ?? 'TRY') : null,
+      odemeVadesiGun: j['odemeVadesiGun'] as int?,
+      yetkiliYer: j['yetkiliYer'] as String?,
+      uygulanacakHukuk: j['uygulanacakHukuk'] as String?,
+      tahkim: j['tahkim'] == true,
+      bulunanMaddeler: {for (final x in (j['bulunanMaddeler'] as List? ?? const [])) '$x'},
+      bulgular: [
+        for (final b in (j['bulgular'] as List? ?? const []).cast<Map<String, dynamic>>())
+          TaramaBulgusu(
+            kod: b['kod'] as String,
+            baslik: b['baslik'] as String,
+            seviye: SozlesmeRiski.values.where((x) => x.name == b['seviye']).firstOrNull ?? SozlesmeRiski.orta,
+            aciklama: b['aciklama'] as String? ?? '',
+            alinti: b['alinti'] as String? ?? '',
+          ),
+      ],
+    );
+  }
 }
 
 class _Cumle {

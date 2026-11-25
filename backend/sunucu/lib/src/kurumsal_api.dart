@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
@@ -106,7 +108,7 @@ class KurumsalApi {
   // ---------------------------------------------------------------------------
 
   static const _sozlesmeSutunlari = 'id::text, no, sirket_id::text, baslik, tur, karsi_taraf, sorumlu::text, durum, baslangic, '
-      'bitis, otomatik_yenileme, ihbar_gun, bedel_kurus, para_birimi, birim, yenileme_suresi_ay, onay_turu';
+      'bitis, otomatik_yenileme, ihbar_gun, bedel_kurus, para_birimi, birim, yenileme_suresi_ay, onay_turu, tarama';
 
   static Sozlesme _sozlesme(List<Object?> r) => Sozlesme(
         id: r[0]! as String,
@@ -124,7 +126,13 @@ class KurumsalApi {
         bedel: r[12] == null ? null : Para.kurus(r[12]! as int, birim: (r[13]! as String).trim()),
         birim: r[14]! as String,
         yenilemeSuresiAy: r[15]! as int,
+        tarama: _taramaOku(r[17]),
       );
+
+  static TaramaSonucu? _taramaOku(Object? v) {
+    final j = v is String ? jsonDecode(v) : v;
+    return j is Map<String, dynamic> ? TaramaSonucu.fromJson(j) : null;
+  }
 
   static Map<String, Object?> _sozlesmeJson(Sozlesme s, int onayTuru, Tarih bugun) => {
         'id': s.id,
@@ -145,6 +153,7 @@ class KurumsalApi {
         'bedelKurus': s.bedel?.kurus,
         'paraBirimi': s.bedel?.birim,
         'onayTuru': onayTuru,
+        'tarama': s.tarama?.toJson(),
         'uyarilar': [
           for (final u in s.uyarilar(bugun)) {'tur': u.tur.name, 'mesaj': u.mesaj},
         ],
@@ -174,34 +183,54 @@ class KurumsalApi {
     if (!RegExp(r'^[A-Z]{3}$').hasMatch(paraBirimi)) {
       throw const ApiHatasi(400, 'Para birimi üç harfli kod olmalı (TRY, USD, EUR).', kod: 'gecersiz_istek');
     }
+    // Metin gönderildiyse kural tabanlı tarama sunucuda yapılır (metin yurt dışına çıkmaz); bulunan alanlar
+    // yalnızca kullanıcının boş bıraktığı alanlara uygulanır.
+    final taslak = Sozlesme(
+      id: '',
+      no: '',
+      baslik: zorunluMetin(j, 'baslik'),
+      tur: tur,
+      karsiTaraf: (j['karsiTaraf'] as String?)?.trim() ?? '',
+      sorumlu: (j['sorumlu'] as String?) ?? k.kullaniciId,
+      baslangic: baslangic,
+      bitis: bitis,
+      otomatikYenileme: j['otomatikYenileme'] == true,
+      ihbarSuresiGun: j['ihbarSuresiGun'] as int?,
+      bedel: bedel is int ? Para.kurus(bedel, birim: paraBirimi) : null,
+    );
+    final metin = (j['metin'] as String?) ?? '';
+    if (metin.length > 2000000) throw const ApiHatasi(413, 'Sözleşme metni çok uzun.');
+    if (metin.trim().isNotEmpty) taslak.taramayiUygula(const SozlesmeTarayici().tara(metin));
     final sonuc = await vt.kiraciIcin(k, (tx) async {
       await _hukukEkibiOlmali(tx, k);
       final no = await _yeniNo(tx, k, 'sozlesme', 'SZ');
       final rs = await tx.execute(
         Sql.named('INSERT INTO hukuk.sozlesme (kiraci_id, no, sirket_id, baslik, tur, karsi_taraf, sorumlu, birim, baslangic, '
-            'bitis, otomatik_yenileme, yenileme_suresi_ay, ihbar_gun, bedel_kurus, para_birimi) VALUES (CAST(@k AS uuid), @no, '
-            'CAST(@s AS uuid), @b, @t, @kt, CAST(@so AS uuid), @bi, CAST(@ba AS date), CAST(@bt AS date), @oy, @ya, @ig, @be, @pb) '
-            'RETURNING id::text'),
+            'bitis, otomatik_yenileme, yenileme_suresi_ay, ihbar_gun, bedel_kurus, para_birimi, tarama) VALUES (CAST(@k AS uuid), '
+            '@no, CAST(@s AS uuid), @b, @t, @kt, CAST(@so AS uuid), @bi, CAST(@ba AS date), CAST(@bt AS date), @oy, @ya, @ig, @be, '
+            '@pb, CAST(@tr AS jsonb)) RETURNING id::text'),
         parameters: {
           'k': k.kiraciId,
           'no': no,
           's': j['sirketId'] as String?,
-          'b': zorunluMetin(j, 'baslik'),
-          't': tur.name,
-          'kt': (j['karsiTaraf'] as String?)?.trim() ?? '',
-          'so': (j['sorumlu'] as String?) ?? k.kullaniciId,
+          'b': taslak.baslik,
+          't': taslak.tur.name,
+          'kt': taslak.karsiTaraf,
+          'so': taslak.sorumlu,
           'bi': (j['birim'] as String?)?.trim() ?? '',
-          'ba': baslangic?.isoBicim,
-          'bt': bitis?.isoBicim,
-          'oy': j['otomatikYenileme'] == true,
+          'ba': taslak.baslangic?.isoBicim,
+          'bt': taslak.bitis?.isoBicim,
+          'oy': taslak.otomatikYenileme,
           'ya': j['yenilemeSuresiAy'] is int ? j['yenilemeSuresiAy'] as int : 12,
-          'ig': j['ihbarSuresiGun'] as int?,
-          'be': bedel as int?,
-          'pb': paraBirimi,
+          'ig': taslak.ihbarSuresiGun,
+          'be': taslak.bedel?.kurus,
+          'pb': taslak.bedel?.birim ?? paraBirimi,
+          'tr': taslak.tarama == null ? null : jsonEncode(taslak.tarama!.toJson()),
         },
       );
       final id = rs.first[0]! as String;
-      await DosyaApi.denetim(tx, k, 'olusturma', 'sozlesme', id, '$no · ${j['baslik']}');
+      await DosyaApi.denetim(tx, k, 'olusturma', 'sozlesme', id,
+          '$no · ${taslak.baslik}${taslak.tarama == null ? '' : ' · risk ${taslak.tarama!.riskPuani}'}');
       return (id, no);
     });
     return jsonYanit({'id': sonuc.$1, 'no': sonuc.$2}, durum: 201);

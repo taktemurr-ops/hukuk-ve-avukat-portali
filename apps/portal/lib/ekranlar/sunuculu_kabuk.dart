@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hukuk_cekirdek/hukuk_cekirdek.dart';
 
 import '../servisler/api_istemcisi.dart';
 import '../servisler/kimlik_servisi.dart';
+import '../servisler/kurumsal_depo.dart';
+import '../servisler/kurumsal_senkronu.dart';
 import '../servisler/sunucu_senkronu.dart';
 import '../servisler/veri_deposu.dart';
 import 'ana_kabuk.dart';
@@ -21,10 +24,22 @@ class SunuculuKabuk extends StatefulWidget {
 class _SunuculuKabukState extends State<SunuculuKabuk> {
   late final BellekVeriDeposu _depo = BellekVeriDeposu(widget.oturum.kiraciId);
   late final SunucuSenkronu _senkron = SunucuSenkronu(widget.api, _depo);
-  late Future<void> _yukleme = _senkron.yenile();
+
+  /// Kurumsal hesapta sözleşme, talep ve grup şirketleri de sunucudan gelir (demo verisi kullanılmaz).
+  late final KurumsalDepo? _kurumsal = widget.oturum.hesapTuru == HesapTuru.kurumsal
+      ? KurumsalDepo(depo: _depo, kullaniciId: widget.oturum.kullaniciId)
+      : null;
+  late final KurumsalSenkronu? _kurumsalSenkron = _kurumsal == null ? null : KurumsalSenkronu(widget.api, _kurumsal!);
+  late Future<void> _yukleme = _yukle();
+
+  Future<void> _yukle() async {
+    await _senkron.yenile();
+    await _kurumsalSenkron?.yenile();
+  }
 
   @override
   void dispose() {
+    _kurumsal?.dispose();
     _depo.dispose();
     super.dispose();
   }
@@ -46,7 +61,7 @@ class _SunuculuKabukState extends State<SunuculuKabuk> {
                 Wrap(spacing: 8, children: [
                   FilledButton(
                     key: const Key('sunucu-tekrar'),
-                    onPressed: () => setState(() => _yukleme = _senkron.yenile()),
+                    onPressed: () => setState(() => _yukleme = _yukle()),
                     child: const Text('Tekrar dene'),
                   ),
                   OutlinedButton(onPressed: widget.cikisYap, child: const Text('Çıkış')),
@@ -55,7 +70,7 @@ class _SunuculuKabukState extends State<SunuculuKabuk> {
             ),
           );
         }
-        return AnaKabuk(oturum: widget.oturum, cikisYap: widget.cikisYap, depo: _depo);
+        return AnaKabuk(oturum: widget.oturum, cikisYap: widget.cikisYap, depo: _depo, kurumsal: _kurumsal);
       },
     );
   }

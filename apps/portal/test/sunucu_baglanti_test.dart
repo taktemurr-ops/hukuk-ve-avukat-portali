@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:portal/main.dart';
 import 'package:portal/servisler/api_istemcisi.dart';
+import 'package:portal/servisler/kurumsal_senkronu.dart';
 import 'package:portal/servisler/sunucu_kimlik_servisi.dart';
 import 'package:portal/servisler/sunucu_senkronu.dart';
 
@@ -15,6 +16,7 @@ class SahteSunucu {
   final istekler = <String>[];
   var sureDurumu = 'teyitBekliyor';
   var ikiKurum = false;
+  var kurumsal = false;
   final tahsilatlar = <Map<String, Object?>>[];
 
   http.Response _json(Object? o, [int d = 200]) =>
@@ -46,7 +48,7 @@ class SahteSunucu {
           'adSoyad': 'Av. Ayşe Yılmaz',
           'eposta': 'ayse@yilmaz.av.tr',
           'kurumAdi': 'Yılmaz Hukuk',
-          'hesapTuru': 'hukukBurosu',
+          'hesapTuru': kurumsal ? 'kurumsal' : 'hukukBurosu',
           'roller': ['yoneticiOrtak', 'bilinmeyenRol'],
         });
       case 'GET /kullanicilar':
@@ -110,6 +112,45 @@ class SahteSunucu {
         tahsilatlar.add({'id': 't${tahsilatlar.length + 1}', 'tarih': j['tarih'], 'tutarKurus': j['tutarKurus'],
           'aciklama': j['aciklama']});
         return _json({'id': 't${tahsilatlar.length}'}, 201);
+      case 'GET /sirketler':
+        return _json([
+          {'id': 'sr1', 'unvan': 'ABC Holding A.Ş.', 'kisaAd': 'ABC Holding', 'vkn': null, 'anaSirketId': null},
+        ]);
+      case 'GET /sozlesmeler':
+        return _json([
+          {
+            'id': 'sz1', 'no': 'SZ-2026-0001', 'sirketId': 'sr1', 'baslik': 'Sunucudaki bakım sözleşmesi', 'tur': 'hizmet',
+            'karsiTaraf': 'Bakım Ltd.', 'sorumlu': 'u1', 'birim': 'Satın alma', 'durum': 'onayda', 'baslangic': null,
+            'bitis': null, 'otomatikYenileme': false, 'yenilemeSuresiAy': 12, 'ihbarSuresiGun': null, 'bedelKurus': 150000000,
+            'paraBirimi': 'TRY', 'onayTuru': 1, 'tarama': null, 'uyarilar': [],
+          },
+        ]);
+      case 'GET /sozlesmeler/sz1/onay':
+        return _json({
+          'tur': 1, 'durum': 'devam', 'siradaki': 'direktor', 'onaylayabilir': true,
+          'adimlar': [
+            {'kod': 'hukuk', 'ad': 'Hukuk incelemesi', 'neden': 'Her sözleşme', 'onaycilar': ['u2']},
+            {'kod': 'direktor', 'ad': 'Hukuk direktörü', 'neden': 'Sözleşme taranmadı', 'onaycilar': ['u1']},
+            {'kod': 'finans', 'ad': 'Finans', 'neden': 'Bedel', 'onaycilar': ['u3']},
+          ],
+          'kararlar': [
+            {'adimKodu': 'hukuk', 'kullanici': 'u2', 'karar': 'onay', 'not': '', 'zaman': '2026-11-24T10:00:00.000Z'},
+          ],
+        });
+      case 'GET /talepler':
+        return _json([
+          {
+            'id': 'tl1', 'no': 'HT-2026-0001', 'sirketId': 'sr1', 'baslik': 'NDA incelemesi', 'aciklama': '',
+            'tur': 'sozlesmeInceleme', 'oncelik': 'normal', 'talepEden': 'Satış Md.', 'birim': 'Satış', 'atanan': 'u2',
+            'durum': 'atandi', 'slaSonGun': '2026-11-27', 'slaDurumu': 'zamaninda', 'olusturma': '2026-11-24',
+            'kapanis': null, 'sozlesmeId': null, 'beklemeBaslangici': null,
+            'gecmis': [
+              {'tarih': '2026-11-24', 'kullanici': 'u1', 'aciklama': 'Talep oluşturuldu'},
+            ],
+          },
+        ]);
+      case 'POST /sozlesmeler/sz1/onay':
+        return _json({'tur': 1, 'durum': 'devam'});
       case 'POST /cikis':
         return _json({'durum': 'kapatildi'});
     }
@@ -123,11 +164,13 @@ Future<void> _bas(WidgetTester tester, String anahtar) async {
   await tester.pumpAndSettle();
 }
 
-Future<(SahteSunucu, ApiIstemcisi)> _uygulama(WidgetTester tester, {bool ikiKurum = false}) async {
+Future<(SahteSunucu, ApiIstemcisi)> _uygulama(WidgetTester tester, {bool ikiKurum = false, bool kurumsal = false}) async {
   tester.view.physicalSize = const Size(1500, 2600);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  final sunucu = SahteSunucu()..ikiKurum = ikiKurum;
+  final sunucu = SahteSunucu()
+    ..ikiKurum = ikiKurum
+    ..kurumsal = kurumsal;
   final api = ApiIstemcisi(Uri.parse('https://api.ornek.test/'), istemci: MockClient(sunucu.yanit));
   await tester.pumpWidget(PortalUygulamasi(kimlikServisi: SunucuKimlikServisi(api), api: api));
   await tester.pumpAndSettle();
@@ -205,6 +248,54 @@ void main() {
       'aciklama': 'x', 'mahsupOnayi': 'Sözleşme m.5',
     });
     expect(e.tur, EmanetHareketTuru.ucretMahsubu);
+  });
+
+  testWidgets('Kurumsal hesapta sözleşme ve onay zinciri sunucudan gelir', (tester) async {
+    final (sunucu, _) = await _uygulama(tester, kurumsal: true);
+    await tester.enterText(find.byKey(const Key('giris-eposta')), 'ayse@yilmaz.av.tr');
+    await tester.enterText(find.byKey(const Key('giris-sifre')), 'Dogru-Sifre-2026');
+    await _bas(tester, 'giris-yap');
+    expect(sunucu.istekler, containsAll(['GET /sirketler', 'GET /sozlesmeler', 'GET /talepler', 'GET /sozlesmeler/sz1/onay']));
+    await _bas(tester, 'menu-sozlesmeler');
+    expect(find.textContaining('Sunucudaki bakım sözleşmesi'), findsWidgets);
+    // Demo verisi kullanılmaz.
+    expect(find.textContaining('SZ-2026-0002'), findsNothing);
+  });
+
+  test('Sunucu JSON\'undan sözleşme, onay süreci ve talep', () {
+    final s = KurumsalSenkronu.sozlesmeJson({
+      'id': 'sz1', 'no': 'SZ-2026-0001', 'baslik': 'X', 'tur': 'bilinmeyen', 'sorumlu': 'u1', 'durum': 'onayda',
+      'bedelKurus': 150000000, 'paraBirimi': 'TRY',
+      'tarama': {'otomatikYenileme': true, 'bulgular': [
+        {'kod': 'ceza', 'baslik': 'Ceza şartı', 'seviye': 'yuksek', 'aciklama': 'Sınırsız'},
+      ]},
+    });
+    expect(s.tur, SozlesmeTuru.diger);
+    expect(s.bedel!.kurus, 150000000);
+    expect(s.tarama!.genelSeviye, SozlesmeRiski.yuksek);
+    final p = KurumsalSenkronu.surecJson('sz1', 'u1', {
+      'tur': 1, 'durum': 'devam',
+      'adimlar': [
+        {'kod': 'hukuk', 'ad': 'Hukuk', 'neden': '', 'onaycilar': ['u2']},
+        {'kod': 'direktor', 'ad': 'Direktör', 'neden': '', 'onaycilar': ['u1']},
+      ],
+      'kararlar': [
+        {'adimKodu': 'hukuk', 'kullanici': 'u2', 'karar': 'onay', 'not': '', 'zaman': '2026-11-24T10:00:00.000Z'},
+      ],
+    })!;
+    expect(p.siradaki!.kod, 'direktor');
+    expect(p.onaylayabilir('u1'), isTrue);
+    expect(p.onaylayabilir('u2'), isFalse);
+    expect(KurumsalSenkronu.surecJson('sz1', 'u1', {'tur': 0}), isNull);
+    final t = KurumsalSenkronu.talepJson({
+      'id': 'tl1', 'no': 'HT-2026-0001', 'baslik': 'NDA', 'tur': 'kvkk', 'oncelik': 'acil', 'talepEden': 'A',
+      'birim': 'B', 'durum': 'bilgiBekleniyor', 'slaSonGun': '2026-11-27', 'olusturma': '2026-11-24',
+      'beklemeBaslangici': '2026-11-25', 'gecmis': [
+        {'tarih': '2026-11-25', 'kullanici': 'u1', 'aciklama': 'Bilgi bekleniyor: imzalı nüsha'},
+      ],
+    });
+    expect(t.beklemeBaslangici, Tarih(2026, 11, 25));
+    expect(t.gecmis.single.aciklama, contains('imzalı'));
   });
 
   testWidgets('Birden çok kurumda hesap varsa kurum seçilir', (tester) async {

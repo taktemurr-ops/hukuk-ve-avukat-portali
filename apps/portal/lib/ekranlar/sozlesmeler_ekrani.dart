@@ -264,14 +264,27 @@ class _SozlesmeYuklemeEkraniState extends State<SozlesmeYuklemeEkrani> {
     });
   }
 
-  void _kaydet() {
+  Future<void> _kaydet() async {
     if (_baslik.text.trim().isEmpty) {
       setState(() => _hata = 'Sözleşme başlığını yazın.');
       return;
     }
-    final s = widget.kurumsal.sozlesmeYukle(
-        baslik: _baslik.text, karsiTaraf: _karsi.text, birim: _birim.text, metin: _metin.text);
-    Navigator.of(context).pop(s);
+    final k = widget.kurumsal;
+    final uzak = k.uzak;
+    Sozlesme? s;
+    if (uzak != null) {
+      try {
+        final id = await uzak.sozlesmeEkle(
+            baslik: _baslik.text, karsiTaraf: _karsi.text, birim: _birim.text, metin: _metin.text, sirketId: k.aktifSirketId);
+        s = k.sozlesme(id);
+      } on Exception catch (e) {
+        if (mounted) setState(() => _hata = '$e');
+        return;
+      }
+    } else {
+      s = k.sozlesmeYukle(baslik: _baslik.text, karsiTaraf: _karsi.text, birim: _birim.text, metin: _metin.text);
+    }
+    if (mounted) Navigator.of(context).pop(s);
   }
 
   @override
@@ -462,7 +475,7 @@ class SozlesmeDetayEkrani extends StatelessWidget {
             : SozlesmeDurumu.gecisler[s.durum]!.where((h) => h != SozlesmeDurumu.onayda).toSet();
         final onaySureci = kurumsal.onaySureci(s.id);
         void mesaj(String? h) {
-          if (h != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+          if (h != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
         }
         return DefaultTabController(
           length: 3,
@@ -494,21 +507,22 @@ class SozlesmeDetayEkrani extends StatelessWidget {
                         if (s.durum == SozlesmeDurumu.taslak || s.durum == SozlesmeDurumu.muzakere)
                           FilledButton.icon(
                             key: const Key('sozlesme-onaya-gonder'),
-                            onPressed: () => mesaj(kurumsal.onayaGonder(s)),
+                            onPressed: () async => mesaj(await kurumsal.sunucudaVeyaYerelde(
+                                sunucuda: (u) => u.sozlesmeDurumu(s.id, SozlesmeDurumu.onayda),
+                                yerelde: () => kurumsal.onayaGonder(s))),
                             icon: const Icon(Icons.send_outlined, size: 18),
                             label: Text('Onaya gönder (${kurumsal.onayPolitikasi.adimlar(s).map((a) => a.ad).join(' → ')})'),
                           ),
                         for (final h in sonraki)
                           OutlinedButton(
                             key: Key('sozlesme-durum-${h.name}'),
-                            onPressed: () {
-                              try {
-                                kurumsal.sozlesmeDurumu(s, h);
-                              } on StateError catch (e) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(content: Text(e.message)));
-                              }
-                            },
+                            onPressed: () async => mesaj(await kurumsal.sunucudaVeyaYerelde(
+                                  sunucuda: (u) => u.sozlesmeDurumu(s.id, h, baslangic: s.baslangic),
+                                  yerelde: () {
+                                    kurumsal.sozlesmeDurumu(s, h);
+                                    return null;
+                                  },
+                                )),
                             child: Text('${h.ad} yap'),
                           ),
                       ]),
@@ -671,8 +685,11 @@ class OnayZinciriPaneli extends StatelessWidget {
       ),
     );
     if (g == null || !context.mounted) return;
-    final h = kurumsal.onayKarari(sozlesme, tur, not: g);
-    if (h != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+    final h = await kurumsal.sunucudaVeyaYerelde(
+      sunucuda: (u) => u.onayKarari(sozlesme.id, tur, not: g),
+      yerelde: () => kurumsal.onayKarari(sozlesme, tur, not: g),
+    );
+    if (h != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
   }
 
   @override
@@ -717,9 +734,12 @@ class OnayZinciriPaneli extends StatelessWidget {
           Wrap(spacing: 8, runSpacing: 8, children: [
             FilledButton.icon(
               key: const Key('onay-onayla'),
-              onPressed: () {
-                final h = kurumsal.onayKarari(sozlesme, OnayKarariTuru.onay);
-                if (h != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
+              onPressed: () async {
+                final h = await kurumsal.sunucudaVeyaYerelde(
+                  sunucuda: (u) => u.onayKarari(sozlesme.id, OnayKarariTuru.onay),
+                  yerelde: () => kurumsal.onayKarari(sozlesme, OnayKarariTuru.onay),
+                );
+                if (h != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(h)));
               },
               icon: const Icon(Icons.check, size: 18),
               label: Text('${siradaki.ad} olarak onayla'),
