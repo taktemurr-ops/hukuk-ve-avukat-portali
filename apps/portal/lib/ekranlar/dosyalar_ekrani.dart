@@ -6,8 +6,8 @@ import '../bilesenler/tasarim.dart';
 import '../servisler/kimlik_servisi.dart';
 import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
-import 'formlar.dart';
 import 'etik_duvar_bolumu.dart';
+import 'formlar.dart';
 import 'muvekkil_portali_ekrani.dart';
 
 Aktor oturumAktoru(Oturum o) => Aktor(kullaniciId: o.kullaniciId, kiraciId: o.kiraciId, roller: o.roller);

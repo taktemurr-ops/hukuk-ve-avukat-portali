@@ -10,19 +10,20 @@ import '../servisler/veri_deposu.dart';
 import '../tema/tema.dart';
 import 'bildirim_paneli.dart';
 import 'cikar_catismasi_ekrani.dart';
+import 'dis_avukat_ekrani.dart';
 import 'dosyalar_ekrani.dart';
+import 'finans_ekrani.dart';
 import 'genel_bakis_ekrani.dart';
 import 'hesap_ekranlari.dart';
+import 'hesap_turleri_ekrani.dart';
+import 'hesaplamalar_ekrani.dart';
 import 'icra_ekrani.dart';
 import 'kvkk_ekrani.dart';
-import 'hesap_turleri_ekrani.dart';
 import 'muvekkiller_ekrani.dart';
 import 'raporlar_ekrani.dart';
 import 'sozlesmeler_ekrani.dart';
-import 'talepler_ekrani.dart';
-import 'finans_ekrani.dart';
-import 'hesaplamalar_ekrani.dart';
 import 'takvim_ekrani.dart';
+import 'talepler_ekrani.dart';
 import 'tebligatlar_ekrani.dart';
 import 'vekaletler_ekrani.dart';
 import 'yonetim_ekranlari.dart';
@@ -34,6 +35,7 @@ enum _B {
   dosyalar,
   icra,
   sozlesmeler,
+  disAvukatlar,
   tebligatlar,
   takvim,
   muvekkiller,
@@ -122,6 +124,7 @@ class _AnaKabukState extends State<AnaKabuk> {
     _Bolum(_B.dosyalar, 'Dosyalar', Icons.folder_outlined),
     _Bolum(_B.icra, 'İcra', Icons.gavel_outlined),
     _Bolum(_B.sozlesmeler, 'Sözleşmeler', Icons.article_outlined, yalnizca: {HesapTuru.kurumsal}),
+    _Bolum(_B.disAvukatlar, 'Dış avukatlar', Icons.handshake_outlined, yalnizca: {HesapTuru.kurumsal}),
     _Bolum(_B.tebligatlar, 'Tebligatlar', Icons.mail_outline),
     _Bolum(_B.takvim, 'Takvim', Icons.calendar_today_outlined),
     _Bolum(_B.muvekkiller, 'Müvekkiller', Icons.people_outline),
@@ -181,6 +184,7 @@ class _AnaKabukState extends State<AnaKabuk> {
         _B.dosyalar => DosyalarEkrani(depo: _depo, oturum: widget.oturum),
         _B.icra => IcraEkrani(depo: _depo, oturum: widget.oturum),
         _B.sozlesmeler => SozlesmelerEkrani(kurumsal: _kurumsal),
+        _B.disAvukatlar => DisAvukatlarEkrani(kurumsal: _kurumsal),
         _B.tebligatlar => TebligatlarEkrani(depo: _depo, oturum: widget.oturum),
         _B.takvim => TakvimEkrani(depo: _depo, dosyaAc: _dosyaAc),
         _B.muvekkiller => MuvekkillerEkrani(depo: _depo),

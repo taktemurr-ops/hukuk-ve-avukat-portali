@@ -63,6 +63,36 @@ class KurumsalDepo extends ChangeNotifier {
         baslik: 'Müşteri veri silme başvurusu', aciklama: 'KVKK m.11 kapsamında başvuru; m.13 uyarınca en geç 30 gün içinde yanıtlanmalı.',
         tur: TalepTuru.kvkk, oncelik: Oncelik.acil, talepEden: 'Müşteri Hizmetleri / Selin A.', birim: 'Müşteri Hizmetleri',
         bugun: b);
+    k.disAvukatlar.addAll(const [
+      DisAvukat(
+          id: 'da1',
+          buro: 'Kaya Hukuk Bürosu',
+          sorumluAvukat: 'Av. Deniz Kaya',
+          eposta: 'deniz@kayahukuk.av.tr',
+          uzmanliklar: ['İş hukuku', 'Ankara davaları']),
+      DisAvukat(
+          id: 'da2',
+          buro: 'Ege Ortak Avukatlık',
+          sorumluAvukat: 'Av. Selim Ege',
+          eposta: 'selim@egeortak.av.tr',
+          uzmanliklar: ['İcra', 'Ticari alacak']),
+    ]);
+    final is1 = k.disAvukatIsiAc(
+        disAvukatId: 'da1', konu: 'Bölge müdürlüğü işe iade davaları', butce: Para.tl(150000), kaydet: false);
+    is1
+      ..faturaOnayla(
+          is1.faturaEkle(
+              id: 'df1', no: 'KH-2026-311', tarih: b.gunEkle(-40), tutar: Para.tl(72000), aciklama: 'Eylül hizmet bedeli'),
+          kullaniciId)
+      ..faturaOnayla(
+          is1.faturaEkle(
+              id: 'df2', no: 'KH-2026-352', tarih: b.gunEkle(-10), tutar: Para.tl(48000), aciklama: 'Ekim hizmet bedeli'),
+          kullaniciId)
+      ..faturaEkle(
+          id: 'df3', no: 'KH-2026-377', tarih: b.gunEkle(-2), tutar: Para.tl(41000), aciklama: 'Kasım hizmet bedeli');
+    final is2 = k.disAvukatIsiAc(disAvukatId: 'da2', konu: 'Bayi alacakları icra takipleri', butce: Para.tl(90000), kaydet: false);
+    is2.faturaEkle(id: 'df4', no: 'EO-1188', tarih: b.gunEkle(-5), tutar: Para.tl(18500), aciklama: 'Takip açılış ve harç');
+
     k.defter.olustur(
         baslik: 'Yeni tedarikçi çerçeve sözleşmesi', aciklama: 'Ambalaj tedarikçisi için standart şablonla hazırlık.',
         tur: TalepTuru.sozlesmeHazirlama, oncelik: Oncelik.dusuk, talepEden: 'Satın Alma / Emre T.', birim: 'Satın Alma',
@@ -210,4 +240,62 @@ class KurumsalDepo extends ChangeNotifier {
   }
 
   SlaDurumu sla(HukukTalebi t) => t.slaDurumu(bugunTarih, hesap);
+
+  // ---------------------------------------------------------------------------
+  // Dış avukat yönetimi
+  // ---------------------------------------------------------------------------
+
+  final List<DisAvukat> disAvukatlar = [];
+  final List<DisAvukatIsi> disAvukatIsleri = [];
+  int _disSira = 0;
+
+  DisAvukat? disAvukat(String id) {
+    for (final a in disAvukatlar) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
+
+  DisAvukatIsi? disAvukatIsi(String id) {
+    for (final i in disAvukatIsleri) {
+      if (i.id == id) return i;
+    }
+    return null;
+  }
+
+  DisAvukatIsi disAvukatIsiAc({
+    required String disAvukatId,
+    required String konu,
+    required Para butce,
+    String? talepId,
+    bool kaydet = true,
+  }) {
+    if (konu.trim().isEmpty) throw ArgumentError('Konu zorunludur.');
+    if (butce.kurus <= 0) throw ArgumentError('Bütçe sıfırdan büyük olmalı.');
+    _disSira++;
+    final i = DisAvukatIsi(
+        id: 'dis$_disSira', disAvukatId: disAvukatId, konu: konu.trim(), ilkButce: butce, baslangic: bugunTarih, talepId: talepId);
+    disAvukatIsleri.add(i);
+    if (kaydet) {
+      depo.okumaKaydet(DenetimIslemi.olusturma, 'dis_avukat_isi', i.id, '${disAvukat(disAvukatId)?.buro} · ${butce.bicimli}');
+      notifyListeners();
+    }
+    return i;
+  }
+
+  /// İşlem sonucu hata mesajı veya null.
+  String? disAvukatIslemi(String aciklama, String nesneId, void Function() islem) {
+    try {
+      islem();
+      depo.okumaKaydet(DenetimIslemi.degisiklik, 'dis_avukat_isi', nesneId, aciklama);
+      notifyListeners();
+      return null;
+    } on StateError catch (e) {
+      return e.message;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    }
+  }
+
+  List<DisAvukatOzeti> get disAvukatOzetleri => DisAvukatOzeti.hesapla(disAvukatlar, disAvukatIsleri);
 }
