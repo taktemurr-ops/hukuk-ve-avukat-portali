@@ -75,9 +75,9 @@ enum KisiAlani {
   telefon('Telefon'),
   adres('Adres');
 
-  const KisiAlani(this.ad);
+  const KisiAlani(this.etiket);
 
-  final String ad;
+  final String etiket;
 }
 
 const Map<KisiAlani, List<String>> _esAnlamlilar = {

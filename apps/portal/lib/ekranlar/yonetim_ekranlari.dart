@@ -149,7 +149,7 @@ class _VeriAktarimEkraniState extends State<VeriAktarimEkrani> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Eşlenen sütunlar: ${o.esleme.entries.map((e) => '${e.key.ad} ← "${o.basliklar[e.value]}"').join(', ')}',
+              'Eşlenen sütunlar: ${o.esleme.entries.map((e) => '${e.key.etiket} ← "${o.basliklar[e.value]}"').join(', ')}',
               style: const TextStyle(color: Renkler.metinIkincil),
             ),
             const SizedBox(height: 12),

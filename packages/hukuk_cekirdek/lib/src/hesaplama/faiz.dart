@@ -26,7 +26,7 @@ enum FaizTuru {
 /// Dönemsel faiz oranı tablosu (referans veri; avukat onayıyla güncellenir).
 class FaizTablosu {
   FaizTablosu({required this.tur, required List<FaizDonemi> donemler, this.onayDurumu = OnayDurumu.taslak})
-      : donemler = List.unmodifiable([...donemler]..sort((a, b) => a.baslangic.compareTo(b.baslangic)));
+      : donemler = List<FaizDonemi>.unmodifiable(<FaizDonemi>[...donemler]..sort((a, b) => a.baslangic.compareTo(b.baslangic)));
 
   final FaizTuru tur;
   final List<FaizDonemi> donemler;
