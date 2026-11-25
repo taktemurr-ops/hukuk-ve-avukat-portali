@@ -45,8 +45,10 @@ class Logo extends StatelessWidget {
         const SizedBox(width: 12),
         Container(width: 1, height: 34, color: yazi.withValues(alpha: 0.35)),
         const SizedBox(width: 12),
-        Text(
+        Flexible(
+          child: Text(
           'Hukuk ve Avukat\nPortalı',
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontFamily: 'SourceSerif4',
             fontWeight: FontWeight.w700,
@@ -54,6 +56,7 @@ class Logo extends StatelessWidget {
             height: 1.1,
             color: yazi,
           ),
+        ),
         ),
       ],
     );
