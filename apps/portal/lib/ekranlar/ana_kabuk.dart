@@ -11,6 +11,7 @@ import 'cikar_catismasi_ekrani.dart';
 import 'dosyalar_ekrani.dart';
 import 'genel_bakis_ekrani.dart';
 import 'hesap_ekranlari.dart';
+import 'icra_ekrani.dart';
 import 'hesap_turleri_ekrani.dart';
 import 'muvekkiller_ekrani.dart';
 import 'raporlar_ekrani.dart';
@@ -28,6 +29,7 @@ enum _B {
   genelBakis,
   talepler,
   dosyalar,
+  icra,
   sozlesmeler,
   tebligatlar,
   takvim,
@@ -89,6 +91,7 @@ class _AnaKabukState extends State<AnaKabuk> {
     _Bolum(_B.genelBakis, 'Genel Bakış', Icons.grid_view_rounded),
     _Bolum(_B.talepler, 'Hukuk Talepleri', Icons.description_outlined, yalnizca: {HesapTuru.kurumsal}),
     _Bolum(_B.dosyalar, 'Dosyalar', Icons.folder_outlined),
+    _Bolum(_B.icra, 'İcra', Icons.gavel_outlined),
     _Bolum(_B.sozlesmeler, 'Sözleşmeler', Icons.article_outlined, yalnizca: {HesapTuru.kurumsal}),
     _Bolum(_B.tebligatlar, 'Tebligatlar', Icons.mail_outline),
     _Bolum(_B.takvim, 'Takvim', Icons.calendar_today_outlined),
@@ -147,6 +150,7 @@ class _AnaKabukState extends State<AnaKabuk> {
             kurumsal: widget.oturum.hesapTuru == HesapTuru.kurumsal ? _kurumsal : null),
         _B.talepler => TaleplerEkrani(kurumsal: _kurumsal),
         _B.dosyalar => DosyalarEkrani(depo: _depo, oturum: widget.oturum),
+        _B.icra => IcraEkrani(depo: _depo, oturum: widget.oturum),
         _B.sozlesmeler => SozlesmelerEkrani(kurumsal: _kurumsal),
         _B.tebligatlar => TebligatlarEkrani(depo: _depo, oturum: widget.oturum),
         _B.takvim => TakvimEkrani(depo: _depo, dosyaAc: _dosyaAc),

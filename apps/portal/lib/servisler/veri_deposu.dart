@@ -568,6 +568,99 @@ class BellekVeriDeposu extends ChangeNotifier {
   List<Dosya> get tumDosyalar => List.unmodifiable(_dosyalar);
 
   // ---------------------------------------------------------------------------
+  // İcra takipleri
+  // ---------------------------------------------------------------------------
+
+  final List<IcraDosyasi> _icra = [];
+  final Map<String, FaizTuru> _icraFaizTuru = {};
+
+  List<IcraDosyasi> get icraDosyalari => List.unmodifiable(_icra);
+
+  IcraDosyasi? icraDosyasi(String id) {
+    for (final i in _icra) {
+      if (i.id == id) return i;
+    }
+    return null;
+  }
+
+  FaizTablosu icraFaizTablosu(String icraId) =>
+      _icraFaizTuru[icraId] == FaizTuru.avans ? FaizTablosu.avans : FaizTablosu.yasal;
+
+  FaizTuru icraFaizTuru(String icraId) => _icraFaizTuru[icraId] ?? FaizTuru.yasal;
+
+  IcraDosyasi icraEkle({
+    required String dosyaId,
+    required String icraDairesi,
+    required String borclu,
+    required TakipTalebi talep,
+    FaizTuru faizTuru = FaizTuru.yasal,
+    String? esasNo,
+    Para? vekaletUcreti,
+  }) {
+    final i = IcraDosyasi(
+      id: yeniId('i'),
+      dosyaId: dosyaId,
+      icraDairesi: icraDairesi.trim(),
+      borclu: borclu.trim(),
+      talep: talep,
+      esasNo: esasNo,
+      vekaletUcreti: vekaletUcreti,
+    );
+    _icra.add(i);
+    _icraFaizTuru[i.id] = faizTuru;
+    _kaydet(DenetimIslemi.olusturma, 'icra', i.id, '${i.borclu} · ${talep.asilAlacak.bicimli}');
+    notifyListeners();
+    return i;
+  }
+
+  String? icraTahsilatEkle(String icraId, Para tutar, Tarih tarih, String aciklama) {
+    final i = icraDosyasi(icraId);
+    if (i == null) return 'İcra dosyası bulunamadı.';
+    if (tutar.kurus <= 0) return 'Tutar sıfırdan büyük olmalı.';
+    if (tarih.isAfter(Tarih.from(DateTime.now()))) return 'İleri tarihli tahsilat girilemez.';
+    i.tahsilatlar.add(Tahsilat(id: yeniId('th'), tarih: tarih, tutar: tutar, aciklama: aciklama));
+    _kaydet(DenetimIslemi.olusturma, 'icra_tahsilat', icraId, '${tutar.bicimli} · $aciklama');
+    notifyListeners();
+    return null;
+  }
+
+  void icraDurumu(String icraId, IcraDurumu durum) {
+    final i = icraDosyasi(icraId);
+    if (i == null) return;
+    i.durum = durum;
+    _kaydet(DenetimIslemi.degisiklik, 'icra', icraId, 'Durum: ${durum.ad}');
+    notifyListeners();
+  }
+
+  /// Geçerli satırların her biri için icra türünde dosya ve takip açar; açılan sayıyı döner.
+  int topluTakipAc({
+    required List<TopluTakipSatiri> satirlar,
+    required String muvekkilId,
+    required String icraDairesi,
+    required TakipTuru tur,
+    required Tarih takipTarihi,
+    required String sorumlu,
+    FaizTuru faizTuru = FaizTuru.yasal,
+  }) {
+    var n = 0;
+    final muvekkilAdi = kisi(muvekkilId)?.ad ?? muvekkilId;
+    for (final r in satirlar.where((r) => r.gecerli)) {
+      final d = dosyaAc(tur: DosyaTuru.icra, baslik: '$muvekkilAdi - ${r.borclu}', sorumlu: sorumlu, muvekkilId: muvekkilId);
+      icraEkle(
+        dosyaId: d.id,
+        icraDairesi: icraDairesi,
+        borclu: r.borclu,
+        talep: TakipTalebi(tur: tur, asilAlacak: r.alacak!, temerrutTarihi: r.temerrut!, takipTarihi: takipTarihi),
+        faizTuru: faizTuru,
+      );
+      n++;
+    }
+    _kaydet(DenetimIslemi.aktarim, 'icra', '-', 'Toplu takip: $n dosya');
+    notifyListeners();
+    return n;
+  }
+
+  // ---------------------------------------------------------------------------
   // Zaman kaydı ve gelir paylaşımı
   // ---------------------------------------------------------------------------
 
@@ -781,6 +874,26 @@ class BellekVeriDeposu extends ChangeNotifier {
         zaman: simdi.subtract(const Duration(days: 1)),
       ),
     ]);
+    final icraTakip = icraEkle(
+      dosyaId: 'd1',
+      icraDairesi: 'İstanbul Anadolu 7. İcra Dairesi',
+      borclu: 'Delta İnşaat Ltd. Şti.',
+      esasNo: '2026/18452 E.',
+      faizTuru: FaizTuru.avans,
+      talep: TakipTalebi(
+        tur: TakipTuru.ilamsiz,
+        asilAlacak: Para.tl(480000),
+        temerrutTarihi: Tarih(2026, 6, 15),
+        takipTarihi: Tarih(2026, 8, 20),
+        takipOncesiMasraf: Para.tl(1850),
+      ),
+      vekaletUcreti: Para.tl(54000),
+    );
+    icraTakip
+      ..durum = IcraDurumu.kesinlesti
+      ..tebligTarihi = Tarih(2026, 8, 28)
+      ..takipSonrasiMasraf = Para.tl(410)
+      ..tahsilatlar.add(Tahsilat(id: yeniId('th'), tarih: Tarih(2026, 10, 10), tutar: Para.tl(50000), aciklama: 'Borçlu ödemesi'));
     const av2 = 'demo-av2';
     const stj = 'demo-stj';
     void z(String kim, String dosyaId, int gunOnce, int dk, String aciklama) => zaman.ekle(
