@@ -31,6 +31,7 @@ class IsApi {
     ..delete('/zaman/<id>', _zamanSil)
     ..get('/icra', _icraListe)
     ..post('/icra', _icraEkle)
+    ..post('/icra/toplu', _topluTakip)
     ..get('/icra/<id>', _icraAyrinti)
     ..post('/icra/<id>/tahsilat', _icraTahsilat)
     ..post('/icra/<id>/durum', _icraDurum);
@@ -565,5 +566,80 @@ class IsApi {
     });
     if (n == 0) throw ApiHatasi.bulunamadi;
     return jsonYanit({'durum': durum.name});
+  }
+
+  /// Toplu takip: satırlar (borçlu; kimlik/vergi no; alacak; temerrüt GG.AA.YYYY) sunucuda yeniden doğrulanır.
+  /// Hatalı satır varsa hiçbir takip açılmaz (hepsi ya da hiçbiri); her satır için icra dosyası, müvekkil tarafı ve
+  /// takip tek işlemde açılır. En fazla 500 satır.
+  Future<Response> _topluTakip(Request istek) async {
+    final k = kimlik(istek);
+    final j = await jsonGovde(istek);
+    final tur = enumAlani(j, 'takipTuru', TakipTuru.values);
+    final faiz = j['faizTuru'] == null ? FaizTuru.yasal : enumAlani(j, 'faizTuru', FaizTuru.values);
+    if (faiz == FaizTuru.akdi) {
+      throw const ApiHatasi(400, 'Toplu takipte sözleşmesel faiz desteklenmez; takipleri tek tek açın.', kod: 'gecersiz_istek');
+    }
+    final muvekkilId = zorunluMetin(j, 'muvekkilId');
+    final daire = zorunluMetin(j, 'icraDairesi');
+    final hamSatirlar = [
+      for (final r in (j['satirlar'] as List? ?? const []))
+        if (r is List) [for (final x in r) '$x'] else throw const ApiHatasi(400, 'Satırlar liste olmalı.', kod: 'gecersiz_istek'),
+    ];
+    if (hamSatirlar.isEmpty) throw const ApiHatasi(400, 'En az bir satır gerekli.', kod: 'eksik_alan');
+    if (hamSatirlar.length > 500) throw const ApiHatasi(400, 'Tek seferde en fazla 500 takip açılabilir.', kod: 'gecersiz_istek');
+    final bugun = Tarih.from(DateTime.now());
+    final satirlar = TopluTakip.dogrula(hamSatirlar, bugun,
+        kimlikGecerli: (no) => no.length == 11 ? Dogrulayicilar.tcknGecerli(no) : Dogrulayicilar.vknGecerli(no));
+    final hatali = satirlar.where((s) => !s.gecerli).toList();
+    if (hatali.isNotEmpty) {
+      return jsonYanit({
+        'hata': 'satir_hatasi',
+        'mesaj': '${hatali.length} satırda hata var; hiçbir takip açılmadı.',
+        'satirlar': [for (final s in hatali) {'satir': s.satir, 'hatalar': s.hatalar}],
+      }, durum: 400);
+    }
+    final sorumlu = (j['sorumlu'] as String?) ?? k.kullaniciId;
+    final acilan = await vt.kiraciIcin(k, (tx) async {
+      final m = await tx.execute(Sql.named('SELECT ad FROM hukuk.kisi WHERE id = CAST(@m AS uuid)'), parameters: {'m': muvekkilId});
+      if (m.isEmpty) throw const ApiHatasi(400, 'Müvekkil bulunamadı.', kod: 'gecersiz_istek');
+      final muvekkilAdi = m.first[0]! as String;
+      await tx.execute(Sql.named("SELECT pg_advisory_xact_lock(hashtextextended('dosya_no' || @k, 0))"),
+          parameters: {'k': k.kiraciId});
+      final idler = <String>[];
+      for (final s in satirlar) {
+        final no = await tx.execute(Sql.named('SELECT hukuk.sonraki_dosya_no(@y)'), parameters: {'y': bugun.yil});
+        final d = await tx.execute(
+          Sql.named("INSERT INTO hukuk.dosya (kiraci_id, ic_no, tur, baslik, sorumlu) VALUES (CAST(@k AS uuid), @n, 'icra', "
+              '@b, CAST(@s AS uuid)) RETURNING id::text'),
+          parameters: {'k': k.kiraciId, 'n': no.first[0], 'b': '$muvekkilAdi - ${s.borclu}', 's': sorumlu},
+        );
+        final dosyaId = d.first[0]! as String;
+        await tx.execute(
+          Sql.named("INSERT INTO hukuk.dosya_taraf (kiraci_id, dosya_id, kisi_id, sifat) VALUES (CAST(@k AS uuid), "
+              "CAST(@d AS uuid), CAST(@m AS uuid), 'muvekkil')"),
+          parameters: {'k': k.kiraciId, 'd': dosyaId, 'm': muvekkilId},
+        );
+        final i = await tx.execute(
+          Sql.named('INSERT INTO hukuk.icra_dosyasi (kiraci_id, dosya_id, icra_dairesi, borclu, takip_turu, asil_kurus, temerrut, '
+              'takip_tarihi, faiz_turu) VALUES (CAST(@k AS uuid), CAST(@d AS uuid), @daire, @b, @t, @a, CAST(@tem AS date), '
+              'CAST(@tak AS date), @f) RETURNING id::text'),
+          parameters: {
+            'k': k.kiraciId,
+            'd': dosyaId,
+            'daire': daire,
+            'b': s.borclu,
+            't': tur.name,
+            'a': s.alacak!.kurus,
+            'tem': s.temerrut!.isoBicim,
+            'tak': bugun.isoBicim,
+            'f': faiz.name,
+          },
+        );
+        idler.add(i.first[0]! as String);
+      }
+      await DosyaApi.denetim(tx, k, 'aktarim', 'icra', '-', 'Toplu takip: ${idler.length} dosya · $muvekkilAdi');
+      return idler;
+    });
+    return jsonYanit({'acilan': acilan.length, 'icraIdleri': acilan}, durum: 201);
   }
 }

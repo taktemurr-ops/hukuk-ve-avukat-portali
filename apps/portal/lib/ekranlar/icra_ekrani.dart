@@ -596,9 +596,23 @@ class _TopluTakipEkraniState extends State<TopluTakipEkrani> {
                             setState(() => _hata = 'Müvekkil ve icra dairesini seçin.');
                             return;
                           }
-                          if (widget.depo.uzak != null) {
-                            setState(() => _hata = 'Toplu takip sunucu bağlantısında henüz desteklenmiyor; '
-                                'takipleri tek tek açın.');
+                          final uzak = widget.depo.uzak;
+                          if (uzak != null) {
+                            // Sunucu satırları yeniden doğrular; yalnızca geçerli satırlar gönderilir (hepsi ya da hiçbiri).
+                            final daire = _daire.text;
+                            final gecerliSatirlar = o.where((r) => r.gecerli).toList();
+                            () async {
+                              try {
+                                final n = await uzak.topluTakip(
+                                    muvekkilId: m, icraDairesi: daire, tur: TakipTuru.ilamsiz, satirlar: gecerliSatirlar);
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(content: Text('$n takip açıldı. Hatalı satırlar atlandı.')));
+                                Navigator.of(context).pop();
+                              } on Exception catch (e) {
+                                if (mounted) setState(() => _hata = '$e');
+                              }
+                            }();
                             return;
                           }
                           final n = widget.depo.topluTakipAc(

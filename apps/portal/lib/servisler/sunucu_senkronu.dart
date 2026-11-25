@@ -61,6 +61,14 @@ abstract class UzakIslemler {
 
   Future<void> icraDurumu(String icraId, IcraDurumu durum);
 
+  /// Toplu takip; açılan takip sayısını döner. Sunucu satırları yeniden doğrular.
+  Future<int> topluTakip({
+    required String muvekkilId,
+    required String icraDairesi,
+    required TakipTuru tur,
+    required List<TopluTakipSatiri> satirlar,
+  });
+
   Future<void> gorevKapat(String gorevId, {String? kanit});
 
   Future<void> etikDuvarKur(String dosyaId, String kullanici, String gerekce);
@@ -807,5 +815,26 @@ class SunucuSenkronu implements UzakIslemler, MesajUzak {
   @override
   Future<void> abonelikIptal(bool iptal) async {
     await api.post('/abonelik/iptal', {'iptal': iptal});
+  }
+
+  @override
+  Future<int> topluTakip({
+    required String muvekkilId,
+    required String icraDairesi,
+    required TakipTuru tur,
+    required List<TopluTakipSatiri> satirlar,
+  }) async {
+    String tarih(Tarih t) => '${t.gun.toString().padLeft(2, '0')}.${t.ay.toString().padLeft(2, '0')}.${t.yil}';
+    String tutar(Para p) => '${p.kurus ~/ 100},${(p.kurus % 100).toString().padLeft(2, '0')}';
+    final y = await api.post('/icra/toplu', {
+      'muvekkilId': muvekkilId,
+      'icraDairesi': icraDairesi,
+      'takipTuru': tur.name,
+      'satirlar': [
+        for (final s in satirlar) [s.borclu, s.kimlikNo ?? '', tutar(s.alacak!), tarih(s.temerrut!)],
+      ],
+    }) as Map<String, dynamic>;
+    await yenile();
+    return y['acilan'] as int;
   }
 }
