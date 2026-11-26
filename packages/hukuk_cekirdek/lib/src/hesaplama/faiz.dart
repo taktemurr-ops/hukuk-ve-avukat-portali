@@ -60,8 +60,17 @@ class FaizTablosu {
 
   /// Ticari temerrüt (avans) faizi (3095 s.K. m.2/2): TCMB'nin kısa vadeli avans işlemlerine uyguladığı oran,
   /// tebliğin Resmî Gazete'de yayımı tarihinden itibaren. Kaynak: TCMB reeskont ve avans faiz oranları tablosu.
-  /// 2014 öncesi dönemler yüklenmedi. ONAY BEKLİYOR.
+  /// 2009-2014 dönemleri alomaliye derlemesinden (TCMB tebliğleri) eklendi; 2010'dan beri davalar için. ONAY BEKLİYOR.
   static final avans = FaizTablosu(tur: FaizTuru.avans, donemler: [
+    FaizDonemi(baslangic: Tarih(2009, 4, 9), yillikOran: 20, dayanak: 'TCMB tebliği 09.04.2009'),
+    FaizDonemi(baslangic: Tarih(2009, 6, 12), yillikOran: 19, dayanak: 'TCMB tebliği 12.06.2009'),
+    FaizDonemi(baslangic: Tarih(2009, 12, 22), yillikOran: 16, dayanak: 'TCMB tebliği 22.12.2009'),
+    FaizDonemi(baslangic: Tarih(2010, 12, 30), yillikOran: 15, dayanak: 'TCMB tebliği 30.12.2010'),
+    FaizDonemi(baslangic: Tarih(2011, 12, 29), yillikOran: 17.75, dayanak: 'TCMB tebliği 29.12.2011'),
+    FaizDonemi(baslangic: Tarih(2012, 6, 19), yillikOran: 16.5, dayanak: 'TCMB tebliği 19.06.2012'),
+    FaizDonemi(baslangic: Tarih(2012, 12, 20), yillikOran: 13.75, dayanak: 'TCMB tebliği 20.12.2012'),
+    FaizDonemi(baslangic: Tarih(2013, 6, 21), yillikOran: 11, dayanak: 'TCMB tebliği 21.06.2013'),
+    FaizDonemi(baslangic: Tarih(2013, 12, 27), yillikOran: 11.75, dayanak: 'TCMB tebliği 27.12.2013'),
     FaizDonemi(baslangic: Tarih(2014, 12, 14), yillikOran: 10.5, dayanak: 'TCMB tebliği 14.12.2014'),
     FaizDonemi(baslangic: Tarih(2016, 12, 31), yillikOran: 9.75, dayanak: 'TCMB tebliği 31.12.2016'),
     FaizDonemi(baslangic: Tarih(2018, 6, 29), yillikOran: 19.5, dayanak: 'TCMB tebliği 29.06.2018'),

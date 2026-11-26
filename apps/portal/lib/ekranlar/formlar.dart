@@ -278,7 +278,7 @@ class _DurusmaDiyaloguState extends State<DurusmaDiyalogu> {
                 final g = await showDatePicker(
                   context: context,
                   initialDate: _zaman,
-                  firstDate: DateTime(2020),
+                  firstDate: DateTime(2010),
                   lastDate: DateTime(2035),
                 );
                 if (g == null || !context.mounted) return;

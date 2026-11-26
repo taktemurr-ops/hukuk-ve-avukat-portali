@@ -336,6 +336,7 @@ class _IcraTakipFormuState extends State<IcraTakipFormu> {
   final _daire = TextEditingController();
   final _alacak = TextEditingController();
   final _temerrut = TextEditingController();
+  final _takip = TextEditingController();
   final _vekalet = TextEditingController();
   String? _dosyaId;
   TakipTuru _tur = TakipTuru.ilamsiz;
@@ -344,7 +345,7 @@ class _IcraTakipFormuState extends State<IcraTakipFormu> {
 
   @override
   void dispose() {
-    for (final c in [_borclu, _daire, _alacak, _temerrut, _vekalet]) {
+    for (final c in [_borclu, _daire, _alacak, _temerrut, _takip, _vekalet]) {
       c.dispose();
     }
     super.dispose();
@@ -355,9 +356,10 @@ class _IcraTakipFormuState extends State<IcraTakipFormu> {
     final dosyalar = widget.depo.gorunurDosyalar(oturumAktoru(widget.oturum));
     final alacak = tutarCoz(_alacak.text);
     final bugun = Tarih.from(DateTime.now());
+    final takipGirdi = _takip.text.trim().isEmpty ? null : tarihCoz(_takip.text);
     final oneri = alacak == null || alacak <= 0
         ? null
-        : AvukatlikUcretTarifesi.gecerli(bugun).nispiHesapla(Para.tl(alacak)).$1;
+        : AvukatlikUcretTarifesi.gecerli(takipGirdi ?? bugun).nispiHesapla(Para.tl(alacak)).$1;
     return Scaffold(
       appBar: AppBar(title: const Text('Yeni icra takibi')),
       body: ListView(padding: const EdgeInsets.all(24), children: [
@@ -404,6 +406,16 @@ class _IcraTakipFormuState extends State<IcraTakipFormu> {
                 controller: _temerrut,
                 decoration: const InputDecoration(labelText: 'Temerrüt tarihi (GG.AA.YYYY)')),
             const SizedBox(height: 12),
+            TextField(
+              key: const Key('icra-takip-tarihi'),
+              controller: _takip,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Takip tarihi (GG.AA.YYYY, boşsa bugün)',
+                helperText: 'Eski takipler için (2010\'dan beri); harç ve AAÜT o tarihteki tarifeyle hesaplanır',
+              ),
+            ),
+            const SizedBox(height: 12),
             SegmentedButton<FaizTuru>(
               segments: const [
                 ButtonSegment(value: FaizTuru.yasal, label: Text('Yasal faiz')),
@@ -442,13 +454,22 @@ class _IcraTakipFormuState extends State<IcraTakipFormu> {
                     setState(() => _hata = 'Dosya, borçlu, icra dairesi, alacak ve temerrüt tarihi zorunludur.');
                     return;
                   }
-                  if (temerrut.isAfter(bugun)) {
-                    setState(() => _hata = 'Temerrüt tarihi bugünden sonra olamaz.');
+                  if (_takip.text.trim().isNotEmpty && takipGirdi == null) {
+                    setState(() => _hata = 'Takip tarihi GG.AA.YYYY biçiminde olmalı.');
+                    return;
+                  }
+                  final takipTarihi = takipGirdi ?? bugun;
+                  if (takipTarihi.isAfter(bugun) || takipTarihi.isBefore(Tarih(2000, 1, 1))) {
+                    setState(() => _hata = 'Takip tarihi bugünden sonra veya 2000 yılından önce olamaz.');
+                    return;
+                  }
+                  if (temerrut.isAfter(takipTarihi)) {
+                    setState(() => _hata = 'Temerrüt tarihi takip tarihinden sonra olamaz.');
                     return;
                   }
                   final vekalet = tutarCoz(_vekalet.text);
                   final talep =
-                      TakipTalebi(tur: _tur, asilAlacak: Para.tl(alacak), temerrutTarihi: temerrut, takipTarihi: bugun);
+                      TakipTalebi(tur: _tur, asilAlacak: Para.tl(alacak), temerrutTarihi: temerrut, takipTarihi: takipTarihi);
                   final vekaletUcreti = vekalet == null ? null : Para.tl(vekalet);
                   final uzak = widget.depo.uzak;
                   String icraId;

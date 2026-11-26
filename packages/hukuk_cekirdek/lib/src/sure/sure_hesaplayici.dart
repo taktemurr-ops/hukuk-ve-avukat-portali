@@ -14,6 +14,7 @@ class HesapAyarlari {
     this.adliTatilBitisAyGun = const (8, 31),
     this.adliTatilUzamaGun = 7,
     this.taslakKuralaIzinVer = false,
+    this.tariheGoreAdliTatil = true,
   });
 
   /// Cumartesi ve pazar tatil sayılır mı (son gün ertesi iş gününe kayar).
@@ -34,6 +35,33 @@ class HesapAyarlari {
 
   /// Test ve demo için taslak kurallarla hesaba izin verir. Canlıda `false` olmalıdır.
   final bool taslakKuralaIzinVer;
+
+  /// `true` ise adli tatil tarihleri yıla göre [AdliTatil.donem]'den alınır (2010'dan beri);
+  /// `false` ise yukarıdaki sabit ay/gün değerleri kullanılır.
+  final bool tariheGoreAdliTatil;
+
+  (Tarih, Tarih) adliTatil(int yil) {
+    if (tariheGoreAdliTatil) return AdliTatil.donem(yil);
+    final (bAy, bGun) = adliTatilBaslangicAyGun;
+    final (sAy, sGun) = adliTatilBitisAyGun;
+    return (Tarih(yil, bAy, bGun), Tarih(yil, sAy, sGun));
+  }
+}
+
+/// Hukuk yargısında adli tatilin yıllara göre tarihleri. ONAY BEKLİYOR.
+///
+/// - 2010 ve öncesi: 1086 s. HUMK m.176 — 20 Temmuz - 5 Eylül.
+/// - 2011'den itibaren: 20 Temmuz - 31 Ağustos (650 s. KHK, RG 26.08.2011; 1.10.2011'den beri
+///   6100 s. HMK m.102). 2011 yılı geçiş yılıdır; KHK tatil sürerken yürürlüğe girdiği için
+///   avukat kontrol etmelidir.
+class AdliTatil {
+  AdliTatil._();
+
+  static const sonHumkYili = 2010;
+  static const gecisYili = 2011;
+
+  static (Tarih, Tarih) donem(int yil) =>
+      (Tarih(yil, 7, 20), yil <= sonHumkYili ? Tarih(yil, 9, 5) : Tarih(yil, 8, 31));
 }
 
 /// Hesabın her adımı; kullanıcıya ve denetim kaydına gösterilir.
@@ -121,11 +149,11 @@ class SureHesaplayici {
 
     // 3. Adli tatil
     if (kural.adliTatildeUzar) {
-      final (bAy, bGun) = ayarlar.adliTatilBaslangicAyGun;
-      final (sAy, sGun) = ayarlar.adliTatilBitisAyGun;
-      final tatilBas = Tarih(son.yil, bAy, bGun);
-      final tatilSon = Tarih(son.yil, sAy, sGun);
+      final (tatilBas, tatilSon) = ayarlar.adliTatil(son.yil);
       if (son.arasinda(tatilBas, tatilSon)) {
+        if (ayarlar.tariheGoreAdliTatil && son.yil == AdliTatil.gecisYili) {
+          uyarilar.add('2011 adli tatili geçiş dönemidir (650 s. KHK, 26.08.2011); bitiş tarihini avukat kontrol etmeli.');
+        }
         son = tatilSon.gunEkle(ayarlar.adliTatilUzamaGun);
         adimlar.add(HesapAdimi(
             son,

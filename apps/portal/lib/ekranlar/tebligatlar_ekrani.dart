@@ -249,7 +249,7 @@ class _TebligatFormuState extends State<TebligatFormu> {
                 final secilen = await showDatePicker(
                   context: context,
                   initialDate: DateTime(_ulasma.yil, _ulasma.ay, _ulasma.gun),
-                  firstDate: DateTime(2020),
+                  firstDate: DateTime(2010),
                   lastDate: DateTime(2035),
                 );
                 if (secilen != null) setState(() => _ulasma = Tarih.from(secilen));

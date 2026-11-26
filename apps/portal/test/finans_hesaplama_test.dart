@@ -62,6 +62,17 @@ void main() {
     expect(find.text('304.000,00 TL'), findsWidgets);
   });
 
+  testWidgets('Kısmi kabul / ret halinde davalı vekâlet ücreti de hesaplanır', (tester) async {
+    await _ac(tester, 'hesaplamalar');
+    await _bas(tester, 'sekme-ucret');
+    await tester.enterText(find.byKey(const Key('ucret-deger')), '50.000');
+    await tester.enterText(find.byKey(const Key('ucret-talep')), '1.000.000');
+    await _bas(tester, 'ucret-hesapla');
+    expect(find.text('Kısmi kabul / kısmi ret'), findsOneWidget);
+    expect(find.text('Davalı vekili lehine'), findsOneWidget);
+    expect(find.textContaining('davacı vekili lehine belirlenen ücreti geçemeyeceğinden'), findsOneWidget);
+  });
+
   testWidgets('Makbuz hesabı', (tester) async {
     await _ac(tester, 'hesaplamalar');
     await _bas(tester, 'sekme-makbuz');

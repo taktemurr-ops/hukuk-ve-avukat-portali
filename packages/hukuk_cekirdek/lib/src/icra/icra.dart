@@ -28,9 +28,14 @@ enum TahsilAsamasi {
 }
 
 /// İcra harçları (492 s.K. (1) sayılı tarife). Referans veri; avukat onayı bekler.
+///
+/// Tahsil harcı oranları 2010-2011'de %3,96 / %7,92 / %9,90; 1.1.2012'den beri %4,55 / %9,10 / %11,38.
+/// Peşin harç (binde 5, HK m.28) ve cezaevi harcı (%2) dönem boyunca aynıdır.
 class IcraHarcTarifesi {
   const IcraHarcTarifesi({
     required this.yil,
+    this.baslangicAy = 1,
+    this.baslangicGun = 1,
     required this.basvurmaHarci,
     required this.pesinHarcBinde,
     required this.tahsilOranlari,
@@ -40,6 +45,8 @@ class IcraHarcTarifesi {
   });
 
   final int yil;
+  final int baslangicAy;
+  final int baslangicGun;
   final Para basvurmaHarci;
   final double pesinHarcBinde;
   final Map<TahsilAsamasi, double> tahsilOranlari;
@@ -49,18 +56,213 @@ class IcraHarcTarifesi {
   final OnayDurumu onayDurumu;
   final String kaynak;
 
+  Tarih get yururluk => Tarih(yil, baslangicAy, baslangicGun);
+
+  static const _eskiOranlar = {
+    TahsilAsamasi.hacizdenOnce: 3.96,
+    TahsilAsamasi.hacizSonrasi: 7.92,
+    TahsilAsamasi.satis: 9.90,
+  };
+
+  static const _oranlar = {
+    TahsilAsamasi.hacizdenOnce: 4.55,
+    TahsilAsamasi.hacizSonrasi: 9.10,
+    TahsilAsamasi.satis: 11.38,
+  };
+
+  static const y2010 = IcraHarcTarifesi(
+    yil: 2010,
+    basvurmaHarci: Para.kurus(1710),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _eskiOranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2010); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2011 = IcraHarcTarifesi(
+    yil: 2011,
+    basvurmaHarci: Para.kurus(1840),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _eskiOranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2011); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2012 = IcraHarcTarifesi(
+    yil: 2012,
+    basvurmaHarci: Para.kurus(2115),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2012); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2013 = IcraHarcTarifesi(
+    yil: 2013,
+    basvurmaHarci: Para.kurus(2430),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2013); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2014 = IcraHarcTarifesi(
+    yil: 2014,
+    basvurmaHarci: Para.kurus(2520),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2014); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2015 = IcraHarcTarifesi(
+    yil: 2015,
+    basvurmaHarci: Para.kurus(2770),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2015); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2016 = IcraHarcTarifesi(
+    yil: 2016,
+    basvurmaHarci: Para.kurus(2920),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2016); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2017 = IcraHarcTarifesi(
+    yil: 2017,
+    basvurmaHarci: Para.kurus(3140),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2017); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2018 = IcraHarcTarifesi(
+    yil: 2018,
+    basvurmaHarci: Para.kurus(3590),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2018); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2019 = IcraHarcTarifesi(
+    yil: 2019,
+    basvurmaHarci: Para.kurus(4440),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2019); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2020 = IcraHarcTarifesi(
+    yil: 2020,
+    basvurmaHarci: Para.kurus(5440),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2020); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2021 = IcraHarcTarifesi(
+    yil: 2021,
+    basvurmaHarci: Para.kurus(5930),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2021); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2022 = IcraHarcTarifesi(
+    yil: 2022,
+    basvurmaHarci: Para.kurus(8070),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2022); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2023 = IcraHarcTarifesi(
+    yil: 2023,
+    basvurmaHarci: Para.kurus(17990),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2023); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2023Temmuz = IcraHarcTarifesi(
+    yil: 2023,
+    baslangicAy: 7,
+    baslangicGun: 15,
+    basvurmaHarci: Para.kurus(26985),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2023); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2024 = IcraHarcTarifesi(
+    yil: 2024,
+    basvurmaHarci: Para.kurus(42760),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2024); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
+  static const y2025 = IcraHarcTarifesi(
+    yil: 2025,
+    basvurmaHarci: Para.kurus(61540),
+    pesinHarcBinde: 5,
+    tahsilOranlari: _oranlar,
+    cezaeviOrani: 2,
+    kaynak: 'HK Genel Tebliği (2025); icraya başvurma harcı asliye başvurma harcına eşittir',
+  );
+
   static const y2026 = IcraHarcTarifesi(
     yil: 2026,
     basvurmaHarci: Para.kurus(73200),
     pesinHarcBinde: 5,
-    tahsilOranlari: {
-      TahsilAsamasi.hacizdenOnce: 4.55,
-      TahsilAsamasi.hacizSonrasi: 9.10,
-      TahsilAsamasi.satis: 11.38,
-    },
+    tahsilOranlari: _oranlar,
     cezaeviOrani: 2,
     kaynak: 'Harçlar Kanunu Genel Tebliği Seri No: 98 (RG 31.12.2025/33124 5. mük.)',
   );
+
+  static const List<IcraHarcTarifesi> tumu = [
+    y2010,
+    y2011,
+    y2012,
+    y2013,
+    y2014,
+    y2015,
+    y2016,
+    y2017,
+    y2018,
+    y2019,
+    y2020,
+    y2021,
+    y2022,
+    y2023,
+    y2023Temmuz,
+    y2024,
+    y2025,
+    y2026,
+  ];
+
+  /// Verilen tarihte yürürlükte olan icra harç tarifesi; 2010 öncesi için 2010 tarifesi döner.
+  static IcraHarcTarifesi gecerli(Tarih tarih) {
+    var sonuc = tumu.first;
+    for (final t in tumu) {
+      if (!t.yururluk.isAfter(tarih)) sonuc = t;
+    }
+    return sonuc;
+  }
 }
 
 class TakipTalebi {
@@ -167,8 +369,8 @@ class KapakHesabi {
 class IcraHesabi {
   IcraHesabi._();
 
-  static AcilisHarclari acilisHarclari(TakipTalebi t, Para islemisFaiz,
-      {IcraHarcTarifesi tarife = IcraHarcTarifesi.y2026}) {
+  static AcilisHarclari acilisHarclari(TakipTalebi t, Para islemisFaiz, {IcraHarcTarifesi? tarife}) {
+    tarife ??= IcraHarcTarifesi.gecerli(t.takipTarihi);
     final takipMiktari = t.asilAlacak + islemisFaiz;
     final pesin = t.tur.pesinHarc ? takipMiktari.carp(tarife.pesinHarcBinde / 1000) : Para.sifir;
     return AcilisHarclari(tarife.basvurmaHarci, pesin);
@@ -191,16 +393,20 @@ class IcraHesabi {
     Para takipSonrasiMasraf = Para.sifir,
     Para vekaletUcreti = Para.sifir,
     TahsilAsamasi asama = TahsilAsamasi.hacizdenOnce,
-    IcraHarcTarifesi tarife = IcraHarcTarifesi.y2026,
+    IcraHarcTarifesi? tarife,
   }) {
     if (hesapTarihi.isBefore(talep.takipTarihi)) throw ArgumentError('Hesap tarihi takip tarihinden önce olamaz.');
+    // Tarife verilmezse: açılış harçları takip tarihindeki, tahsil harcı hesap tarihindeki tarifeyle.
+    final acilisTarifesi = tarife ?? IcraHarcTarifesi.gecerli(talep.takipTarihi);
+    final tahsilTarifesi = tarife ?? IcraHarcTarifesi.gecerli(hesapTarihi);
     final uyarilar = <String>[
       if (tablo.onayDurumu != OnayDurumu.onayli) 'Faiz oranları avukat onayı bekliyor.',
-      if (tarife.onayDurumu != OnayDurumu.onayli) '${tarife.yil} icra harç tarifesi avukat onayı bekliyor.',
-      if (hesapTarihi.yil != tarife.yil) 'Hesap yılı (${hesapTarihi.yil}) harç tarifesi yılından (${tarife.yil}) farklı.',
+      if (tahsilTarifesi.onayDurumu != OnayDurumu.onayli) '${tahsilTarifesi.yil} icra harç tarifesi avukat onayı bekliyor.',
+      if (tarife != null && hesapTarihi.yil != tarife.yil)
+        'Hesap yılı (${hesapTarihi.yil}) harç tarifesi yılından (${tarife.yil}) farklı.',
     ];
     final islemis = islemisFaiz(talep, tablo);
-    final acilis = acilisHarclari(talep, islemis, tarife: tarife);
+    final acilis = acilisHarclari(talep, islemis, tarife: acilisTarifesi);
     final toplamMasraf = talep.takipOncesiMasraf + acilis.toplam + takipSonrasiMasraf;
 
     var anapara = talep.asilAlacak.kurus;
@@ -257,7 +463,7 @@ class IcraHesabi {
     takipSonrasiFaiz += fSon;
 
     final kalanBorc = anapara + faizBorcu + masrafBorcu;
-    final oran = tarife.tahsilOranlari[asama]!;
+    final oran = tahsilTarifesi.tahsilOranlari[asama]!;
     final brutTahsilHarci = (kalanBorc * oran / 100).round();
     // Peşin harç, tahsil harcına mahsup edilir (492 s.K. m.29/2); tahsilatlarda kullanılan kısım düşülür.
     final kullanilanHarc = (tahsilEdilen * oran / 100).round();
@@ -277,7 +483,7 @@ class IcraHesabi {
       kalanMasraf: Para.kurus(masrafBorcu),
       tahsilHarci: Para.kurus(brutTahsilHarci - mahsup),
       pesinHarcMahsubu: Para.kurus(mahsup),
-      cezaeviHarci: Para.kurus((tahsilEdilen * tarife.cezaeviOrani / 100).round()),
+      cezaeviHarci: Para.kurus((tahsilEdilen * tahsilTarifesi.cezaeviOrani / 100).round()),
       mahsuplar: mahsuplar,
       uyarilar: uyarilar,
     );
@@ -332,7 +538,7 @@ class IcraDosyasi {
   Para takipSonrasiMasraf;
   final List<Tahsilat> tahsilatlar;
 
-  KapakHesabi hesap(Tarih hesapTarihi, FaizTablosu tablo, {IcraHarcTarifesi tarife = IcraHarcTarifesi.y2026}) =>
+  KapakHesabi hesap(Tarih hesapTarihi, FaizTablosu tablo, {IcraHarcTarifesi? tarife}) =>
       IcraHesabi.hesapla(
         talep: talep,
         tablo: tablo,

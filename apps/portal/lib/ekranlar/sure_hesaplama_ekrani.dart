@@ -28,7 +28,7 @@ class _SureHesaplamaEkraniState extends State<SureHesaplamaEkrani> {
     final secilen = await showDatePicker(
       context: context,
       initialDate: DateTime(_tarih.yil, _tarih.ay, _tarih.gun),
-      firstDate: DateTime(2020),
+      firstDate: DateTime(2010),
       lastDate: DateTime(2035),
       helpText: _elektronikTebligat ? 'Elektronik adrese ulaşma tarihi' : 'Tebliğ tarihi',
     );

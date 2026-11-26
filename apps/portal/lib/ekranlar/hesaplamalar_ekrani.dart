@@ -249,6 +249,7 @@ class _HarcHesabi extends StatefulWidget {
 class _HarcHesabiState extends State<_HarcHesabi> {
   final _deger = TextEditingController();
   MahkemeTuru _mahkeme = MahkemeTuru.asliye;
+  Tarih _tarih = Tarih.from(DateTime.now());
   DavaHarci? _sonuc;
 
   @override
@@ -260,10 +261,11 @@ class _HarcHesabiState extends State<_HarcHesabi> {
   @override
   Widget build(BuildContext context) {
     final s = _sonuc;
-    const tarife = HarcTarifesi.y2026;
+    final tarife = HarcTarifesi.gecerli(_tarih);
     return _HesapSayfasi(
-      baslik: 'Dava açılış harcı (${tarife.yil})',
-      aciklama: 'Konusu para olan davada değeri girin; boş bırakılırsa maktu harçlı dava olarak hesaplanır.',
+      baslik: 'Dava açılış harcı (${tarife.donemAdi})',
+      aciklama: 'Konusu para olan davada değeri girin; boş bırakılırsa maktu harçlı dava olarak hesaplanır. '
+          'Dava tarihindeki harç tarifesi uygulanır (2010\'dan beri).',
       form: [
         SegmentedButton<MahkemeTuru>(
           segments: const [
@@ -280,7 +282,14 @@ class _HarcHesabiState extends State<_HarcHesabi> {
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Dava değeri (TL, isteğe bağlı)'),
         ),
-        const SizedBox(height: 12),
+        _TarihAlani(
+          etiket: 'Dava açılış tarihi',
+          tarih: _tarih,
+          degisti: (t) => setState(() {
+            _tarih = t;
+            _sonuc = null;
+          }),
+        ),
         FilledButton(
           key: const Key('harc-hesapla'),
           onPressed: () {
@@ -301,7 +310,8 @@ class _HarcHesabiState extends State<_HarcHesabi> {
                 _Satir('Dava açılışında ödenecek', s.acilistaOdenecek.bicimli, vurgulu: true),
                 if (!s.kalanKararHarci.sifirMi) _Satir('Karar aşamasında kalan harç', s.kalanKararHarci.bicimli),
                 const SizedBox(height: 8),
-                Text(s.aciklama, style: const TextStyle(color: Renkler.metinIkincil)),
+                Text('${s.aciklama} Tarife: ${tarife.donemAdi}${tarife.kaynak.isEmpty ? '' : ' (${tarife.kaynak})'}.',
+                    style: const TextStyle(color: Renkler.metinIkincil)),
                 const SizedBox(height: 8),
                 const DurumRozeti('Harç tarifesi avukat onayı bekliyor; gider avansı ayrıca eklenir', RozetTuru.uyari),
               ],
@@ -321,14 +331,36 @@ class _UcretHesabi extends StatefulWidget {
 
 class _UcretHesabiState extends State<_UcretHesabi> {
   final _deger = TextEditingController();
+  final _talep = TextEditingController();
   MahkemeTuru? _mahkeme = MahkemeTuru.asliye;
   Tarih _tarih = Tarih.from(DateTime.now());
+  bool _manevi = false;
   UcretSonucu? _sonuc;
+  KismiKabulSonucu? _kismi;
 
   @override
   void dispose() {
     _deger.dispose();
+    _talep.dispose();
     super.dispose();
+  }
+
+  void _hesapla() {
+    final v = tutarCoz(_deger.text);
+    if (v == null) return;
+    final talep = tutarCoz(_talep.text);
+    setState(() {
+      _sonuc = AvukatlikUcretTarifesi.gecerli(_tarih).hesapla(deger: Para.tl(v), mahkeme: _mahkeme);
+      _kismi = talep == null || talep <= v
+          ? null
+          : AvukatlikUcretTarifesi.kismiKabulRed(
+              talep: Para.tl(talep),
+              kabul: Para.tl(v),
+              hukumTarihi: _tarih,
+              mahkeme: _mahkeme,
+              maneviTazminat: _manevi,
+            );
+    });
   }
 
   @override
@@ -336,7 +368,8 @@ class _UcretHesabiState extends State<_UcretHesabi> {
     final s = _sonuc;
     return _HesapSayfasi(
       baslik: 'Karşı taraf vekâlet ücreti (AAÜT)',
-      aciklama: 'Konusu para olan işlerde üçüncü kısım dilimleri; hüküm tarihinde yürürlükteki tarife uygulanır.',
+      aciklama: 'Konusu para olan işlerde üçüncü kısım dilimleri; hüküm tarihinde yürürlükteki tarife uygulanır '
+          '(24.12.2009\'dan beri tüm tarifeler). Kısmi kabul/ret için talep edilen tutarı da girin.',
       form: [
         TextField(
           key: const Key('ucret-deger'),
@@ -344,6 +377,24 @@ class _UcretHesabiState extends State<_UcretHesabi> {
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Hükmedilen / kabul edilen değer (TL)'),
         ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('ucret-talep'),
+          controller: _talep,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+              labelText: 'Talep edilen (dava) değeri (TL, isteğe bağlı)',
+              helperText: 'Kabulden büyükse reddedilen kısım için davalı vekâlet ücreti de hesaplanır'),
+        ),
+        SwitchListTile(
+          key: const Key('ucret-manevi'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Manevi tazminat davası'),
+          subtitle: const Text('AYM 2024/226 (RG 14.03.2025): kısmi retde davalı lehine vekâlet ücreti yok'),
+          value: _manevi,
+          onChanged: (v) => setState(() => _manevi = v),
+        ),
+        const SizedBox(height: 12),
         const SizedBox(height: 12),
         DropdownMenu<MahkemeTuru?>(
           label: const Text('Mahkeme (maktu alt sınır için)'),
@@ -358,11 +409,7 @@ class _UcretHesabiState extends State<_UcretHesabi> {
         _TarihAlani(etiket: 'Hüküm tarihi', tarih: _tarih, degisti: (t) => setState(() => _tarih = t)),
         FilledButton(
           key: const Key('ucret-hesapla'),
-          onPressed: () {
-            final v = tutarCoz(_deger.text);
-            if (v == null) return;
-            setState(() => _sonuc = AvukatlikUcretTarifesi.gecerli(_tarih).hesapla(deger: Para.tl(v), mahkeme: _mahkeme));
-          },
+          onPressed: _hesapla,
           child: const Text('Hesapla'),
         ),
       ],
@@ -379,6 +426,23 @@ class _UcretHesabiState extends State<_UcretHesabi> {
                 _Satir('Nispi ücret', s.nispi.bicimli),
                 _Satir('Uygulanacak ücret', s.sonuc.bicimli, vurgulu: true),
                 Text(s.aciklama, style: const TextStyle(color: Renkler.metinIkincil)),
+                if (s.tarife.not != null) ...[
+                  const SizedBox(height: 4),
+                  Text(s.tarife.not!, style: const TextStyle(color: Renkler.metinIkincil, fontStyle: FontStyle.italic)),
+                ],
+                if (_kismi case final k?) ...[
+                  const Divider(),
+                  const Text('Kısmi kabul / kısmi ret', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  _Satir('Reddedilen kısım', k.ret.bicimli),
+                  _Satir('Davacı vekili lehine', k.davaciUcreti.bicimli),
+                  _Satir('Davalı vekili lehine', k.davaliUcreti.bicimli, vurgulu: true),
+                  for (final a in k.aciklamalar.skip(1))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(a, style: const TextStyle(color: Renkler.metinIkincil)),
+                    ),
+                ],
                 const SizedBox(height: 8),
                 const DurumRozeti('Tarife verisi avukat onayı bekliyor', RozetTuru.uyari),
               ],
