@@ -12,6 +12,7 @@ import 'src/cikar_api.dart';
 import 'src/davet_api.dart';
 import 'src/dis_portal_api.dart';
 import 'src/dosya_api.dart';
+import 'src/guvenlik.dart';
 import 'src/hata.dart';
 import 'src/is_api.dart';
 import 'src/kimlik_api.dart';
@@ -36,6 +37,7 @@ export 'src/davet_api.dart';
 export 'src/dis_portal_api.dart';
 export 'src/dosya_api.dart';
 export 'src/eposta.dart';
+export 'src/guvenlik.dart';
 export 'src/hata.dart';
 export 'src/is_api.dart';
 export 'src/kimlik_api.dart';
@@ -83,6 +85,8 @@ Handler uygulama(
   VirusTarayici? virusTarayici,
   Set<String> izinliKokenler = const {},
   int belgeAzamiBoyut = 50 * 1024 * 1024,
+  bool guvenilirVekil = false,
+  HizSiniri? hizSiniri,
   void Function(Object, StackTrace)? kaydet,
 }) {
   final bs = belgeServisi == null ? null : BelgeServisi(belgeServisi);
@@ -97,7 +101,7 @@ Handler uygulama(
       .add(BelgeApi(vt, depo, azamiBoyut: belgeAzamiBoyut, tarayici: virusTarayici, belgeServisi: bs).router.call)
       .add(DavetApi(vt, davetAdresi: davetAdresi).router.call)
       .add(PortalApi(vt, depo).router.call)
-      .add(AbonelikApi(vt, odemeSaglayici).router.call)
+      .add(AbonelikApi(vt, odemeSaglayici, guvenilirVekil: guvenilirVekil).router.call)
       .add(AktarimApi(belgeServisi: bs, tarayici: virusTarayici).router.call)
       .add(TakvimApi(vt, disAdres: disAdres).router.call)
       .add(CikarApi(vt).router.call)
@@ -105,6 +109,7 @@ Handler uygulama(
   return const Pipeline()
       .addMiddleware(cors(izinliKokenler))
       .addMiddleware(hataVeGuvenlik(kaydet: kaydet))
+      .addMiddleware((hizSiniri ?? HizSiniri(guvenilirVekil: guvenilirVekil)).middleware)
       .addMiddleware(oturumDogrula(vt))
       .addHandler(cascade.handler);
 }

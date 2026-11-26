@@ -4,6 +4,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import 'belge_servisi.dart';
+import 'guvenlik.dart';
 import 'hata.dart';
 import 'kimlik_api.dart';
 import 'virus_tarama.dart';
@@ -28,7 +29,7 @@ class AktarimApi {
       throw const ApiHatasi(503, 'Excel okuma bu kurulumda açık değil. Dosyayı CSV olarak kaydedip yapıştırın.',
           kod: 'hizmet_yok');
     }
-    final ad = Uri.decodeComponent(istek.headers['x-dosya-adi'] ?? 'tablo.xlsx').split(RegExp(r'[/\\]')).last;
+    final ad = basliktanCoz(istek.headers['x-dosya-adi'] ?? 'tablo.xlsx').split(RegExp(r'[/\\]')).last;
     final b = BytesBuilder(copy: false);
     await for (final parca in istek.read()) {
       b.add(parca);

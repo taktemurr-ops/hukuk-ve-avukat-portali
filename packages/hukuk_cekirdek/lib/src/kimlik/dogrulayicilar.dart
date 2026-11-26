@@ -23,6 +23,7 @@ class Dogrulayicilar {
   static String? sifre(String? deger, {String? eposta}) {
     if (deger == null || deger.isEmpty) return 'Şifre zorunludur.';
     if (deger.length < 10) return 'Şifre en az 10 karakter olmalıdır.';
+    if (deger.length > 256) return 'Şifre en fazla 256 karakter olabilir.';
     if (!RegExp(r'[A-Za-zÇĞİÖŞÜçğıöşü]').hasMatch(deger)) return 'Şifre en az bir harf içermelidir.';
     if (!RegExp(r'[0-9]').hasMatch(deger)) return 'Şifre en az bir rakam içermelidir.';
     if (eposta != null && eposta.contains('@')) {

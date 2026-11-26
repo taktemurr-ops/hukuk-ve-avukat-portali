@@ -7,3 +7,5 @@ pytesseract==0.3.*
 pillow==11.*
 openpyxl==3.1.*
 reportlab==4.*
+# XML varlık bombası ve XXE'ye karşı (openpyxl de kuruluysa kendiliğinden kullanır).
+defusedxml==0.7.*

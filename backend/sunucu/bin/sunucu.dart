@@ -5,6 +5,9 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 
 Future<void> main() async {
   final ortam = Platform.environment;
+  // ORTAM açıkça "gelistirme" ya da "test" değilse canlı kabul edilir: unutulan bir ayar güvenlik
+  // denetimlerini (ödeme, e-posta, virüs taraması) gevşetmez.
+  final canli = !const {'gelistirme', 'test'}.contains(ortam['ORTAM']);
   final vt = Veritabani.ortamdan(ortam);
   final kokenler = (ortam['IZINLI_KOKENLER'] ?? '').split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
   final belgeKlasoru = ortam['BELGE_KLASORU'];
@@ -21,7 +24,7 @@ Future<void> main() async {
   OdemeSaglayici? odeme;
   switch (ortam['ODEME_SAGLAYICI']) {
     case 'sahte':
-      if (ortam['ORTAM'] == 'canli') {
+      if (canli) {
         stderr.writeln('Sahte ödeme sağlayıcısı canlı ortamda kullanılamaz.');
         exit(2);
       }
@@ -44,7 +47,7 @@ Future<void> main() async {
       sifre: ortam['SMTP_SIFRE'] ?? '',
       gonderenAdres: ortam['SMTP_GONDEREN'] ?? 'bildirim@hukukportali.com.tr',
     );
-  } else if (ortam['ORTAM'] == 'canli') {
+  } else if (canli) {
     stderr.writeln('SMTP_SUNUCU tanımlı değil; canlı ortamda e-posta gönderimi zorunludur.');
     exit(2);
   } else {
@@ -68,7 +71,7 @@ Future<void> main() async {
   if (clamd.isNotEmpty) {
     final p = clamd.split(':');
     tarayici = ClamdTarayici(p.first, p.length > 1 ? int.parse(p[1]) : 3310);
-  } else if (ortam['ORTAM'] == 'canli') {
+  } else if (canli) {
     stderr.writeln('CLAMD_ADRESI tanımlı değil; canlı ortamda belge taraması zorunludur.');
     exit(2);
   } else {
@@ -95,6 +98,8 @@ Future<void> main() async {
     depo: YerelNesneDeposu(belgeKlasoru),
     sifreleyici: AlanSifreleyici.base64(totpAnahtari),
     izinliKokenler: kokenler,
+    // Yalnızca kendi ters vekilimizin (nginx) arkasında: istemci IP'si X-Forwarded-For'un son değerinden.
+    guvenilirVekil: ortam['GUVENILIR_VEKIL'] == '1',
     belgeAzamiBoyut: int.parse(ortam['BELGE_AZAMI_MB'] ?? '50') * 1024 * 1024,
     kaydet: (h, iz) => stderr.writeln('HATA: $h\n$iz'),
   );

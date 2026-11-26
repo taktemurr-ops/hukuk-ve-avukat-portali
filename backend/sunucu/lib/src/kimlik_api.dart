@@ -76,6 +76,9 @@ Middleware oturumDogrula(Veritabani vt, {Set<String> acikYollar = const {'giris'
 bool _yazmaKilidiMuaf(String yol) => yol == 'cikis' || yol.startsWith('abonelik') || yol.startsWith('ben/') ||
     yol == 'denetim/kayit'; // salt okunur hesapta da dışa aktarma kaydı düşülmeli
 
+/// Kabul edilen en uzun şifre (karakter).
+const azamiSifreUzunlugu = 256;
+
 class KimlikApi {
   KimlikApi(this.vt, this.sifreleyici,
       {Random? rastgele,
@@ -143,6 +146,10 @@ class KimlikApi {
     final j = await jsonGovde(istek);
     final eposta = zorunluMetin(j, 'eposta').toLowerCase();
     final sifre = zorunluMetin(j, 'sifre');
+    // Aşırı uzun şifre, Argon2 hesabıyla sunucuyu meşgul etmek için kullanılamasın.
+    if (sifre.length > azamiSifreUzunlugu) {
+      throw const ApiHatasi(401, 'E-posta veya şifre hatalı ya da hesap geçici olarak kilitli.', kod: 'giris_hatali');
+    }
     final secilenKiraci = j['kiraciId'] as String?;
 
     final adaylar = await vt.genel((tx) => tx.execute(

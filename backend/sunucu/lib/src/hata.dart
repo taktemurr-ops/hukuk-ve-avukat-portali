@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shelf/shelf.dart';
 
+import 'guvenlik.dart';
+
 /// İstemciye gösterilebilir hata. Ayrıntı ve iz kayıtlara yazılır, istemciye gitmez.
 class ApiHatasi implements Exception {
   const ApiHatasi(this.durum, this.mesaj, {this.kod = 'hata'});
@@ -20,7 +22,8 @@ Response jsonYanit(Object? govde, {int durum = 200}) => Response(
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
 
-Future<Map<String, dynamic>> jsonGovde(Request istek) async => jsonGovdeMetinden(await istek.readAsString());
+/// JSON gövdesi; en fazla 1 MB okunur (büyük gövde belleğe alınmadan reddedilir).
+Future<Map<String, dynamic>> jsonGovde(Request istek) async => jsonGovdeMetinden(await govdeMetni(istek, 1024 * 1024));
 
 Map<String, dynamic> jsonGovdeMetinden(String metin) {
   if (metin.length > 1024 * 1024) throw const ApiHatasi(413, 'İstek çok büyük.');
@@ -56,5 +59,10 @@ Middleware hataVeGuvenlik({void Function(Object hata, StackTrace iz)? kaydet}) =
         'referrer-policy': 'no-referrer',
         'cache-control': 'no-store',
         'strict-transport-security': 'max-age=31536000; includeSubDomains',
+        // API yalnızca veri döner: hiçbir yanıt sayfa olarak çalıştırılamaz ya da çerçevelenemez.
+        if (!yanit.headers.containsKey('content-security-policy'))
+          'content-security-policy': "default-src 'none'; frame-ancestors 'none'; sandbox",
+        'cross-origin-resource-policy': 'same-site',
+        'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
       });
     };

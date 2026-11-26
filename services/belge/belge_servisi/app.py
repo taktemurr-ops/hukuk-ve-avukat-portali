@@ -44,7 +44,7 @@ async def tablo(dosya: UploadFile = File(...)) -> dict:
 class RaporSayfasi(BaseModel):
     ad: str = Field(default="Rapor", max_length=100)
     basliklar: list[str] = Field(max_length=50)
-    satirlar: list[list[str | float | int | None]]
+    satirlar: list[list[str | float | int | None]] = Field(max_length=100_000)
 
 
 class RaporIstegi(BaseModel):

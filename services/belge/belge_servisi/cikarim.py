@@ -8,10 +8,12 @@ import re
 import shutil
 import subprocess
 import tempfile
-import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import defusedxml.ElementTree as ET
+from defusedxml import DefusedXmlException
 
 from .guvenlik import BelgeHatasi, tur_belirle
 
@@ -55,8 +57,29 @@ def _ocr_goruntu(veri: bytes) -> str:
     import pytesseract
     from PIL import Image
 
-    with Image.open(io.BytesIO(veri)) as img:
-        return pytesseract.image_to_string(img, lang="tur")
+    try:
+        with Image.open(io.BytesIO(veri)) as img:
+            img.load()
+            return pytesseract.image_to_string(img, lang="tur", timeout=120)
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning) as e:
+        raise BelgeHatasi("Görüntü çok büyük.") from e
+    except RuntimeError as e:  # pytesseract zaman aşımı
+        raise BelgeHatasi("Görüntü işlenemedi (zaman aşımı).") from e
+
+
+def _goruntu_boyut_kontrol(veri: bytes) -> None:
+    """Piksel sayısı, görüntü açılmadan (yalnızca başlıktan) denetlenir: küçük dosya, büyük bellek bombası olamaz."""
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(veri)) as img:
+            g, y = img.size
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning) as e:
+        raise BelgeHatasi("Görüntü çok büyük.") from e
+    except OSError as e:
+        raise BelgeHatasi("Görüntü okunamadı.") from e
+    if g * y > 40_000_000:
+        raise BelgeHatasi("Görüntü çok büyük (en fazla 40 megapiksel).")
 
 
 def _bosluk_duzelt(metin: str) -> str:
@@ -127,6 +150,8 @@ def _udf(veri: bytes) -> Cikarim:
         kok = ET.fromstring(xml)
         icerik = kok.find(".//content")
         metin = icerik.text if icerik is not None and icerik.text else "".join(kok.itertext())
+    except DefusedXmlException as e:
+        raise BelgeHatasi("UDF içeriği güvenli değil (XML varlık tanımı).") from e
     except ET.ParseError:
         metin = re.sub(r"<[^>]+>", " ", xml.decode("utf-8", errors="replace"))
         uyarilar.append("UDF içeriği tam çözümlenemedi; metin yaklaşık çıkarıldı.")
@@ -146,6 +171,7 @@ def metin_cikar(veri: bytes, dosya_adi: str = "") -> Cikarim:
     elif tur == "txt":
         sonuc = Cikarim("txt", _bosluk_duzelt(veri.decode("utf-8")), 0, "")
     else:
+        _goruntu_boyut_kontrol(veri)
         if not ocr_var():
             raise BelgeHatasi("Görüntüden metin çıkarmak için OCR motoru kurulu değil.")
         sonuc = Cikarim(tur, _bosluk_duzelt(_ocr_goruntu(veri)), 1, "", ocr=True,

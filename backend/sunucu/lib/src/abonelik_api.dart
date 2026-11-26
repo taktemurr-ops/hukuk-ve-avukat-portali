@@ -3,6 +3,7 @@ import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import 'guvenlik.dart';
 import 'hata.dart';
 import 'kimlik_api.dart';
 import 'odeme_saglayici.dart';
@@ -12,9 +13,12 @@ import 'veritabani.dart';
 /// Abonelik ve ödeme. Tutar her zaman sunucuda, paket ve KDV kurallarıyla hesaplanır; abonelik yalnızca imzası
 /// doğrulanmış sağlayıcı bildirimiyle uzar. Kart bilgisi platformdan geçmez (sağlayıcının sayfasında girilir).
 class AbonelikApi {
-  AbonelikApi(this.vt, this.saglayici);
+  AbonelikApi(this.vt, this.saglayici, {this.guvenilirVekil = false});
 
   final Veritabani vt;
+
+  /// Sunucu kendi ters vekilinin arkasında mı (istemci IP'si X-Forwarded-For'dan alınır).
+  final bool guvenilirVekil;
 
   /// Seçilmemişse ödeme başlatılamaz (503).
   final OdemeSaglayici? saglayici;
@@ -140,7 +144,7 @@ class AbonelikApi {
           aciklama: '${u.first[2]} · ${donem.ad} abonelik${koltuk > 1 ? ' · $koltuk kullanıcı' : ''}',
           eposta: u.first[0]! as String,
           adSoyad: u.first[1]! as String,
-          istemciIp: istek.headers['x-forwarded-for']?.split(',').first.trim() ?? '',
+          istemciIp: istemciIp(istek, guvenilirVekil: guvenilirVekil),
         ),
         f.toplam.kurus
       );
@@ -160,8 +164,7 @@ class AbonelikApi {
   Future<Response> _bildirim(Request istek, String ad) async {
     final s = saglayici;
     if (s == null || s.ad != ad) return Response.notFound('Bulunamadı');
-    final govde = await istek.readAsString();
-    if (govde.length > 64 * 1024) throw const ApiHatasi(413, 'İstek çok büyük.');
+    final govde = await govdeMetni(istek, 64 * 1024);
     final alanlar = (istek.headers['content-type'] ?? '').contains('json')
         ? {for (final e in (jsonGovdeMetinden(govde)).entries) e.key: '${e.value}'}
         : Uri.splitQueryString(govde);

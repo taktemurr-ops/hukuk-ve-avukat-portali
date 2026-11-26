@@ -31,7 +31,7 @@ def test_iliski(uygulama, veri, yonetici):
         u.c.execute("INSERT INTO hukuk.kisi_iliski (kiraci_id, kisi_a, kisi_b, tur) VALUES (%s, %s, %s, 'istirak')", (veri["k1"], b, a))
     baska = yonetici.execute("INSERT INTO hukuk.kisi (kiraci_id, tur, ad) VALUES (%s, 'tuzel', 'Yabancı') RETURNING id",
                              (veri["k2"],)).fetchone()[0]
-    with pytest.raises(psycopg.errors.CheckViolation):
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
         u.c.execute("INSERT INTO hukuk.kisi_iliski (kiraci_id, kisi_a, kisi_b, tur) VALUES (%s, %s, %s, 'ortak')", (veri["k1"], a, baska))
     # Başka kiracı göremez.
     assert uygulama.oturum(veri["k2"], veri["baska"]).deger("SELECT count(*) FROM hukuk.kisi_iliski") == 0

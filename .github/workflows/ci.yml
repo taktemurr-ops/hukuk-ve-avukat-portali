@@ -23,6 +23,7 @@ jobs:
           python araclar/dart_baglanti.py | tee /tmp/b && grep -q 'sorun: 0' /tmp/b
       - run: |
           python araclar/dart_parametre.py | tee /tmp/p && grep -q 'sorun: 0' /tmp/p
+          python araclar/site_csp.py
 
   cekirdek:
     name: Çekirdek paket (Dart)
@@ -152,3 +153,43 @@ jobs:
           PG_DSN="host=localhost port=5432 user=postgres password=test dbname=goc_deneme" python goc.py --kontrol
       - name: Sunucudaki SQL metinlerini şemaya karşı PREPARE et
         run: python ../../araclar/sql_denetim.py "host=localhost port=5432 user=postgres password=test"
+
+  guvenlik:
+    name: Güvenlik testi (uçtan uca sızma denemeleri)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG_DSN: host=localhost port=5432 user=postgres password=test dbname=hukuk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dart-lang/setup-dart@v1
+      - run: pip install "psycopg[binary]"
+      - name: Şema
+        run: |
+          psql "host=localhost port=5432 user=postgres password=test" -c "CREATE DATABASE hukuk"
+          PG_UYGULAMA_SIFRE=api-test-sifresi python backend/veritabani/goc.py
+      - name: Sunucuyu başlat
+        working-directory: backend/sunucu
+        run: |
+          dart pub get
+          mkdir -p /tmp/belgeler
+          ORTAM=test PG_HOST=localhost PG_VERITABANI=hukuk PG_KULLANICI=hukuk_api PG_SIFRE=api-test-sifresi PG_SSL=kapali \
+          TOTP_ANAHTARI=$(openssl rand -base64 32) BELGE_KLASORU=/tmp/belgeler IZINLI_KOKENLER=https://app.ornek.test \
+          nohup dart run bin/sunucu.dart > /tmp/sunucu.log 2>&1 &
+      - name: Sızma denemeleri
+        run: python araclar/guvenlik_testi.py
+        env:
+          API: http://localhost:8080/
+      - name: Sunucu günlüğü
+        if: always()
+        run: tail -100 /tmp/sunucu.log

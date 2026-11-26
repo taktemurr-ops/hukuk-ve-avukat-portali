@@ -8,6 +8,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'belge_servisi.dart';
 import 'dosya_api.dart';
+import 'guvenlik.dart';
 import 'hata.dart';
 import 'kimlik_api.dart';
 import 'nesne_deposu.dart';
@@ -88,7 +89,7 @@ class BelgeApi {
   static String _dosyaAdi(Request istek) {
     final ham = istek.headers['x-dosya-adi'];
     if (ham == null || ham.isEmpty) throw const ApiHatasi(400, '"X-Dosya-Adi" başlığı zorunludur.', kod: 'eksik_alan');
-    final ad = Uri.decodeComponent(ham).split(RegExp(r'[/\\]')).last.trim();
+    final ad = basliktanCoz(ham).split(RegExp(r'[/\\]')).last.trim();
     if (ad.isEmpty || ad.length > 255) throw const ApiHatasi(400, 'Dosya adı geçersiz.', kod: 'gecersiz_istek');
     return ad;
   }
@@ -147,7 +148,7 @@ class BelgeApi {
     final k = kimlik(istek);
     final dosyaAdi = _dosyaAdi(istek);
     final tur = BelgeTuru.values.where((t) => t.name == istek.headers['x-belge-turu']).firstOrNull ?? BelgeTuru.diger;
-    final belgeAdi = Uri.decodeComponent(istek.headers['x-belge-adi'] ?? '').trim();
+    final belgeAdi = basliktanCoz(istek.headers['x-belge-adi'] ?? '').trim();
     final icerik = await _govde(istek);
     final (_, ozet) = await _kontrol(dosyaAdi, icerik);
     final sonuc = await _kaydet(k, dosyaId, dosyaAdi, belgeAdi, tur, icerik, ozet);

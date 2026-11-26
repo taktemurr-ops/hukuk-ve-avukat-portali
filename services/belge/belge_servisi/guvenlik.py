@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import io
+import warnings
 import zipfile
+
+from PIL import Image
+
+# Görüntü bombası: çok büyük piksel sayısı reddedilir (uyarı değil, hata).
+Image.MAX_IMAGE_PIXELS = 60_000_000
+warnings.simplefilter("error", Image.DecompressionBombWarning)
 
 AZAMI_BOYUT = 25 * 1024 * 1024  # 25 MB
 AZAMI_ACILMIS_BOYUT = 200 * 1024 * 1024

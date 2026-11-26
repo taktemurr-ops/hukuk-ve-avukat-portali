@@ -16,7 +16,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U hukuk_sahip -d hukuk"]
       interval: 5s
       retries: 20
-    networks: [ic]
+    networks: [ic]        # internete çıkışı olmayan iç ağ
 
   goc:
     image: python:3.12-slim
@@ -29,7 +29,7 @@ services:
       PG_DSN: host=veritabani dbname=hukuk user=hukuk_sahip password=${PG_SAHIP_SIFRE}
       PG_UYGULAMA_SIFRE: ${PG_UYGULAMA_SIFRE:?PG_UYGULAMA_SIFRE gerekli}
     command: sh -c "pip install --quiet 'psycopg[binary]' && python goc.py"
-    networks: [ic]
+    networks: [ic, dis]
 
   sunucu:
     build:
@@ -40,7 +40,8 @@ services:
       goc: { condition: service_completed_successfully }
       clamav: { condition: service_started }
     environment:
-      ORTAM: ${ORTAM:-gelistirme}
+      ORTAM: ${ORTAM:-canli}      # belirtilmezse canlı: güvenlik denetimleri gevşemez
+      GUVENILIR_VEKIL: ${GUVENILIR_VEKIL:-1}   # önünde X-Forwarded-For ekleyen kendi ters vekilimiz var
       PG_HOST: veritabani
       PG_VERITABANI: hukuk
       PG_KULLANICI: hukuk_api
@@ -65,12 +66,23 @@ services:
       - belgeler:/veri/belgeler
     ports:
       - "127.0.0.1:8080:8080"    # önündeki TLS ters vekil (ör. Caddy/nginx) üzerinden yayınlanır
-    networks: [ic]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+    networks: [ic, dis]          # dış ağ: SMTP ve ödeme kuruluşu
 
+  # Güvenilmeyen dosyaları ayrıştırır: internete çıkışı yok, yetkisiz, salt okunur dosya sistemi, bellek sınırı.
   belge:
     build:
       context: ../services/belge
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 2g
+    pids_limit: 256
     networks: [ic]
 
   clamav:
@@ -78,7 +90,7 @@ services:
     restart: unless-stopped
     volumes:
       - clamav:/var/lib/clamav
-    networks: [ic]
+    networks: [ic, dis]          # dış ağ yalnızca imza güncellemeleri için
 
 volumes:
   veritabani:
@@ -87,3 +99,5 @@ volumes:
 
 networks:
   ic:
+    internal: true    # veritabanı ve belge servisi internete çıkamaz
+  dis:
