@@ -50,8 +50,9 @@ void main() {
     });
 
     test('beyan edilen büyük boyut hemen reddedilir', () async {
-      final r = _istek('dosyalar', govde: '{}', basliklar: {'content-length': '99999999'});
-      expect(() => govdeBaytlari(r, 1024), throwsA(isA<ApiHatasi>()));
+      final r = Request('POST', Uri.parse('http://yerel/dosyalar'),
+          body: Stream<List<int>>.fromIterable([utf8.encode('{}')]), headers: {'content-length': '99999999'});
+      await expectLater(govdeBaytlari(r, 1024), throwsA(isA<ApiHatasi>().having((e) => e.durum, 'durum', 413)));
     });
 
     test('UTF-8 olmayan gövde 400', () async {
