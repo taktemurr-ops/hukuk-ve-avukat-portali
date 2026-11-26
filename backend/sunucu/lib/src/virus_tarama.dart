@@ -18,7 +18,7 @@ abstract class VirusTarayici {
   Future<VirusTaramaSonucu> tara(List<int> icerik);
 }
 
-/// ClamAV (clamd) INSTREAM protokolü: içerik parçalar hâlinde gönderilir, yanıt "stream: OK" veya
+/// ClamAV (clamd) INSTREAM protokolü: içerik parçalar hâlinde gönderilir, yanıt `stream: OK` veya
 /// "stream: <imza> FOUND" olur. clamd aynı yurt içi ağda, yalnızca iç ağdan erişilebilir çalışmalıdır.
 class ClamdTarayici implements VirusTarayici {
   ClamdTarayici(this.sunucu, this.port, {this.zamanAsimi = const Duration(seconds: 60)});
