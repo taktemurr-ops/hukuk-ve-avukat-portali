@@ -27,7 +27,11 @@ Uygulanmış bir göç dosyası değiştirilirse `goc.py` durur; değişiklikler
 ## Canlıya çıkmadan önce (kontrol listesi)
 
 - [ ] **Sunucu sağlayıcısı** Türkiye'de; disk şifreleme açık; yönetim erişimi yalnızca VPN/SSH anahtarıyla.
-- [ ] `ORTAM=canli` — sahte ödeme ve SMTP'siz/ClamAV'sız başlatma engellenir.
+- [ ] `ORTAM=canli` — sahte ödeme ve SMTP'siz/ClamAV'sız başlatma engellenir. `ORTAM` boş bırakılırsa da canlı sayılır.
+- [ ] `GUVENILIR_VEKIL=1` yalnızca sunucunun önünde `X-Forwarded-For` ekleyen kendi ters vekilimiz varsa (hız sınırı
+      istemci IP'sini oradan alır). Vekil, istemcinin gönderdiği `X-Forwarded-For`'u eklemeli (`$proxy_add_x_forwarded_for`).
+- [ ] Uygulamanın (Flutter web) sunulduğu alan adında ters vekil şu başlıkları eklemeli: `Strict-Transport-Security`,
+      `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
 - [ ] **TLS**: `sunucu` yalnızca `127.0.0.1:8080`'de; önüne TLS ters vekil (Caddy/nginx), HSTS açık.
 - [ ] **Gizli değerler** (`PG_*`, `TOTP_ANAHTARI`, `ODEME_GIZLI`, `SMTP_SIFRE`) gizli kasada; depoda yok.
       `TOTP_ANAHTARI` kaybolursa kullanıcıların iki adımlı doğrulaması yeniden kurulmalıdır.
